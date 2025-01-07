@@ -694,7 +694,7 @@ def admitted_students(request):
     # Calculate the date range: start of today and two weeks back
     two_weeks_ago = start_of_today - timedelta(weeks=2)
     
-    Filter admitted students within the date range
+    # Filter admitted students within the date range
     admitted_students = Student.objects.filter(
         admission_status='admitted',
         created_at__gte=two_weeks_ago
