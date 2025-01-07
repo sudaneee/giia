@@ -1,0 +1,75 @@
+{% extends 'website/base.html' %}
+{% load static %}
+{% block content %}
+<div class="page-wrapper">
+
+    
+
+    <!-- Main Header-->
+    {% include 'website/header.html'%}
+
+	<!--Page Title-->
+    <section class="page-title" style="background-image:url('{{about_header_bg.image.url}}');">
+    	<div class="auto-container">
+        	<h2>{{department.department_name}}</h2>
+        </div>
+    </section>
+    
+    <!--Breadcrumb-->
+    <div class="breadcrumb-outer">
+    	<div class="auto-container">
+        	<ul class="bread-crumb text-center">
+            	<li><a href="index-2.html">Home</a> <span class="fa fa-angle-right"></span></li>
+                <li>{{staff_single.designation}}</li>
+            </ul>
+        </div>
+    </div>
+    <!--End Page Title-->
+
+
+    <!--About Section-->
+    <section class="about-section-two">
+        <div class="auto-container">
+            <div class="row clearfix">
+                <!--Column-->
+                <div class="column col-lg-7 col-md-12 col-sm-12">
+                    <div class="about-content-box">
+                        <div class="sec-title">
+                            <h2>{{staff_single.designation}}</h2>
+                        </div>
+    
+                        <div class="text-justify">{{staff_single.background}}</div>
+
+                    </div>
+                </div>
+
+                <!--Column-->
+                <div class="column col-lg-5 col-md-12 col-sm-12">
+                    
+                    <div class="image-box">
+                        <figure class="image">
+                            {% if staff_single.image %}
+                                <img src="{{staff_single.image.url}}" alt="" />
+                            {% else %}
+                                <img src="" alt="" />
+                            {% endif %}
+                        </figure>
+                    </div>
+                    
+                    <h3 class="text-center">{{staff_single.name}}</h3>
+                    <p class="text-center">{{staff_single.designation}}</p>
+                    
+                </div>
+            </div>
+        </div>
+    </section>
+
+
+
+    <!--Main Footer-->
+    {% include 'website/footer.html' %}
+
+</div>
+<!--End pagewrapper-->
+
+{%endblock content%}

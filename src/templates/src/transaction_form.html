@@ -1,0 +1,44 @@
+{% extends "src/partials/base.html" %}
+{% block content %}
+<div class="main-content mt-1">
+    <div class="card">
+        <div class="card-header">
+            <h4>{% if transaction %}Edit Transaction{% else %}Add New Transaction{% endif %}</h4>
+        </div>
+        <div class="card-body">
+            <form method="POST">
+                {% csrf_token %}
+                <div class="form-group">
+                    <label>Item</label>
+                    <select name="item" class="form-control select2">
+                        {% for item in items %}
+                        <option value="{{ item.id }}" {% if transaction.item and transaction.item.id == item.id %}selected{% endif %}>
+                            {{ item.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Transaction Type</label>
+                    <select name="transaction_type" class="form-control">
+                        <option value="addition" {% if transaction.transaction_type == 'addition' %}selected{% endif %}>Addition</option>
+                        <option value="removal" {% if transaction.transaction_type == 'removal' %}selected{% endif %}>Removal</option>
+                        <option value="adjustment" {% if transaction.transaction_type == 'adjustment' %}selected{% endif %}>Adjustment</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Quantity</label>
+                    <input type="number" name="quantity" class="form-control" value="{{ transaction.quantity|default:'' }}" required>
+                </div>
+                <div class="form-group">
+                    <label>Description</label>
+                    <textarea name="description" class="form-control">{{ transaction.description|default:'' }}</textarea>
+                </div>
+                <div class="card-footer text-right">
+                    <button class="btn btn-primary" type="submit">{% if transaction %}Update{% else %}Add{% endif %} Transaction</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock content %}

@@ -1,0 +1,186 @@
+{% extends 'website/base.html' %}
+{% load static %}
+{% block content %}
+<div class="page-wrapper">
+
+
+   
+
+    <!-- Main Header-->
+    {% include 'website/header.html'%}
+
+	<!--Page Title-->
+    <section class="page-title" style="background-image:url('{{about_header_bg.image.url}}');">
+    	<div class="auto-container">
+        	<h2>{{news_single.title}}</h2>
+        </div>
+    </section>
+    
+    <!--Breadcrumb-->
+    <div class="breadcrumb-outer">
+    	<div class="auto-container">
+        	<ul class="bread-crumb text-center">
+            	<li><a href="{% url 'home' %}">Home</a> <span class="fa fa-angle-right"></span></li>
+                <li>News & Updates</li>
+            </ul>
+        </div>
+    </div>
+    <!--End Page Title-->
+
+
+
+	<!--Sidebar Page Container-->
+    <div class="sidebar-page-container">
+    	<div class="auto-container">
+        	<div class="row clearfix">
+            	
+                <!--Content Side-->
+                <div class="content-side col-lg-8 col-md-12 col-sm-12">
+                	<!--Blog Single-->
+                	<div class="blog-single">
+						<div class="inner-box">
+                            <div class="image">
+                                <img src="{{news_single.image.url}}" alt="" />
+                            </div>
+                            <div class="lower-content">
+                                <h6>{{news_single.title}}</h6>
+                                <div class="text">
+                                	<p>{{news_single.content}}</p>
+                            
+                                </div>
+                                {% if news_single.news_file %}
+                                    <a  class="theme-btn btn-style-one" href="{{news_single.news_file.url}}" target="_blank">View pdf</a>
+                                {% endif %}
+                                <!--post-share-options-->
+                                <div class="post-share-options clearfix">
+                                    <div class="pull-left">
+                                    	<ul class="social-icon-three">
+                                            <li><a href="#"><span class="fa fa-facebook"></span></a></li>
+                                            <li><a href="#"><span class="fa fa-twitter"></span></a></li>
+                                            <li><a href="#"><span class="fa fa-dribbble"></span></a></li>
+                                            <li><a href="#"><span class="fa fa-linkedin"></span></a></li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                
+				</div>
+				
+				<!--Sidebar Side-->
+                <div class="sidebar-side sticky-container col-lg-4 col-md-12 col-sm-12">
+                	<aside class="sidebar default-sidebar">
+						<div class="inner sticky-box">
+
+
+							<!-- Popular Posts -->
+							<div class="sidebar-widget popular-posts">
+								<div class="sidebar-title"><h6>Recent News</h6></div>
+
+                                {% for news_item in news %}
+
+								<article class="post">
+									<div class="text"><a href="{% url 'news-single' news_item.id%}">{{news_item.title}}</a></div>
+									<div class="post-info">{{news_item.posted}}</div>
+								</article>
+                                {% endfor %}
+
+							</div>
+
+							
+						</div>
+						
+					</aside>
+				</div>
+			
+			</div>
+		</div>
+	</div>
+	
+
+
+
+
+    <!--Map Info Section-->
+    <section class="map-info-section">
+        <div class="outer-container">
+            <div class="clearfix">
+                <!--Left Column-->
+                <div class="left-column">
+                    <!--Map Outer-->
+                    <div class="map-outer">
+                        <!--Map Canvas-->
+                        <div class="map-canvas" data-zoom="12" data-lat="11.050738731519033" data-lng="7.686241204894909" data-type="roadmap" data-hue="#ffc400" data-title="Envato" data-icon-path="{% static 'website/images/icons/map-marker.png' %}" data-content="Melbourne VIC 3000, Australia<br><a href='mailto:info@youremail.com'>info@youremail.com</a>">
+                        </div>
+                    </div>
+                </div>
+                <!--Right Column-->
+                <div class="right-column" style="background-image:url({% static 'website/images/resource/image-1.jpg' %})">
+                    <div class="content">
+                        <h3>Request for quote</h3>
+                        <div class="text">The argument in favor of using filler text goes something like this: If you use real content in the design process.</div>
+
+                        <!-- Quote Form -->
+                        <div class="quote-form">
+
+                            <!--Contact Form-->
+                            <form method="post" action="#">
+                                <div class="row clearfix">
+
+                                    <div class="form-group col-lg-6 col-md-6 col-sm-12">
+                                        <input type="text" name="username" placeholder="How to assist you:*" required>
+                                    </div>
+
+                                    <div class="form-group col-lg-6 col-md-6 col-sm-12">
+                                        <input type="text" name="phone" placeholder="Phone number:*" required>
+                                    </div>
+
+                                    <div class="form-group col-lg-6 col-md-6 col-sm-12">
+                                        <input type="text" name="text" placeholder="Your name:*" required>
+                                    </div>
+
+                                    <div class="form-group col-lg-6 col-md-6 col-sm-12">
+                                        <button type="submit" class="theme-btn btn-style-one">Submit request <span class="icon flaticon-share-option"></span></button>
+                                    </div>
+
+                                </div>
+                            </form>
+                        </div>
+
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </section>
+    <!--End Map Info Section-->
+
+    <!--Subscribe Style One-->
+    <section class="subscribe-style-one">
+        <div class="auto-container">
+            <div class="row clearfix">
+                <div class="col-lg-5 col-md-12 col-sm-12">
+                    <h2>Newsletter Subscribe</h2>
+                    <div class="text">Sign up today for hints, tips and the latest Updates.</div>
+                </div>
+                <div class="col-lg-7 col-md-12 col-sm-12">
+                    <form method="post" action="#">
+                        <div class="form-group clearfix">
+                            <input type="email" name="email" value="" placeholder="Enter Email Address" required>
+                            <button type="submit" class="theme-btn btn-style-one">Subscribe</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </section>
+    <!--End Subscribe Style One-->
+
+    <!--Main Footer-->
+    {% include 'website/footer.html' %}
+
+</div>
+<!--End pagewrapper-->
+
+{%endblock content%}

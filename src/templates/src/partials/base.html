@@ -1,0 +1,217 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta content="width=device-width, initial-scale=1, maximum-scale=1, shrink-to-fit=no" name="viewport">
+  <title>Great Insight Int'l Academy - Admin Dashboard Template</title>
+  <!-- General CSS Files -->
+  <link rel="stylesheet" href="{% static 'src/assets/css/app.min.css' %}">
+  <!-- Template CSS -->
+  <link rel="stylesheet" href="{% static 'src/assets/css/style.css' %}">
+  <link rel="stylesheet" href="{% static 'src/assets/css/components.css' %}">
+  <link rel="stylesheet" href="{% static 'src/assets/bundles/datatables/datatables.min.css' %}">
+  <link rel="stylesheet" href="{% static 'src/assets/bundles/datatables/DataTables-1.10.16/css/dataTables.bootstrap4.min.css' %}">
+  <link rel="stylesheet" href="{% static 'src/assets/bundles/select2/dist/css/select2.min.css' %}">
+  <!-- Custom style CSS -->
+  <link rel="stylesheet" href="{% static 'src/assets/css/custom.css' %}">
+  <link rel='shortcut icon' type='image/x-icon' href='assets/img/favicon.ico' />
+</head>
+
+<body>
+  <div class="loader"></div>
+
+  <div id="app">
+    <div class="main-wrapper main-wrapper-1">
+        <nav class="navbar navbar-expand-lg main-navbar sticky">
+            <div class="form-inline mr-auto">
+              <ul class="navbar-nav mr-3">
+                <li><a href="#" data-toggle="sidebar" class="nav-link nav-link-lg collapse-btn"> <i data-feather="align-justify"></i></a></li>
+                <li><a href="#" class="nav-link nav-link-lg fullscreen-btn">
+                    <i data-feather="maximize"></i>
+                  </a></li>
+                <li>
+                  <form class="form-inline mr-auto">
+                    <div class="search-element">
+                      <input class="form-control" type="search" placeholder="Search" aria-label="Search" data-width="200">
+                      <button class="btn" type="submit">
+                        <i class="fas fa-search"></i>
+                      </button>
+                    </div>
+                  </form>
+                </li>
+              </ul>
+            </div>
+            <ul class="navbar-nav navbar-right">
+              <li class="dropdown dropdown-list-toggle"><a href="#" data-toggle="dropdown" class="nav-link notification-toggle nav-link-lg"><i data-feather="bell" class="bell"></i>
+                </a>
+                <div class="dropdown-menu dropdown-list dropdown-menu-right pullDown">
+                  <div class="dropdown-header">
+                    Notifications
+                    <div class="float-right">
+                      <a href="#">Mark All As Read</a>
+                    </div>
+                  </div>
+                  <div class="dropdown-list-content dropdown-list-icons">
+                    <!-- Notifications content can go here -->
+                  </div>
+                  <div class="dropdown-footer text-center">
+                    <a href="#">View All <i class="fas fa-chevron-right"></i></a>
+                  </div>
+                </div>
+              </li>
+              <li class="dropdown"><a href="#" data-toggle="dropdown"
+                  class="nav-link dropdown-toggle nav-link-lg nav-link-user"> <img alt="image" src="{{ request.user.profile.profile_picture.url }}"
+                    class="user-img-radious-style"> <span class="d-sm-none d-lg-inline-block"></span></a>
+                <div class="dropdown-menu dropdown-menu-right pullDown">
+                  <div class="dropdown-title">Hello </div>
+                  <a href="" class="dropdown-item has-icon"> <i class="far fa-user"></i> Profile</a>  
+                  <div class="dropdown-divider"></div>
+                  <a href="{% url 'logout' %}" class="dropdown-item has-icon text-danger"> <i class="fas fa-sign-out-alt"></i> Logout </a>
+                </div>
+              </li>
+            </ul>
+        </nav>
+    
+        <div class="main-sidebar sidebar-style-2">
+            <aside id="sidebar-wrapper">
+              <div class="sidebar-brand mt-2">
+                <a href="#"> <img alt="image" src="{% static 'src/assets/img/logo2.jpg' %}" class="header-logo" style="width: 100px; height: 110px;" />
+                </a>
+              </div>
+              <ul class="sidebar-menu">
+                <li class="menu-header">Main</li>
+                <li class="dropdown active">
+                  <a href="#" class="nav-link"><i data-feather="monitor"></i><span>Dashboard</span></a>
+                </li>
+    
+                <!-- Students Section -->
+                <li class="dropdown">
+                  <a href="#" class="menu-toggle nav-link has-dropdown"><i data-feather="user"></i><span>Students</span></a>
+                  <ul class="dropdown-menu">
+                    <li><a class="nav-link" href="{% url 'student_list' %}">Manage Students</a></li>
+                    <li><a class="nav-link" href="{% url 'not_admitted_students' %}">Admissions</a></li>
+                  </ul>
+                </li>
+
+                <!-- Settings Section -->
+                <li class="dropdown">
+                  <a href="#" class="menu-toggle nav-link has-dropdown"><i data-feather="settings"></i><span>Settings</span></a>
+                  <ul class="dropdown-menu">
+                    <li><a class="nav-link" href="{% url 'subject_list' %}">Subjects</a></li>
+                    <li><a class="nav-link" href="{% url 'session_list' %}">Sessions</a></li>
+                    <li><a class="nav-link" href="{% url 'term_list' %}">Terms</a></li>
+                    <li><a class="nav-link" href="{% url 'schoolclass_list' %}">School Classes</a></li>
+                  </ul>
+                </li>
+
+                <!-- Fees Section -->
+                <li class="dropdown">
+                  <a href="#" class="menu-toggle nav-link has-dropdown"><i data-feather="dollar-sign"></i><span>Fees</span></a>
+                  <ul class="dropdown-menu">
+                    <li><a class="nav-link" href="{% url 'feestructure_list' %}">Fee Structures</a></li>
+                    <li><a class="nav-link" href="{% url 'payment_list' %}">Payments</a></li>
+                  </ul>
+                </li>
+
+                <!-- Inventory Section -->
+                <li class="dropdown">
+                  <a href="#" class="menu-toggle nav-link has-dropdown"><i data-feather="box"></i><span>Inventory</span></a>
+                  <ul class="dropdown-menu">
+                    <li><a class="nav-link" href="{% url 'category_list' %}">Categories</a></li>
+                    <li><a class="nav-link" href="{% url 'supplier_list' %}">Suppliers</a></li>
+                    <li><a class="nav-link" href="{% url 'item_list' %}">Items</a></li>
+                    <li><a class="nav-link" href="{% url 'transaction_list' %}">Transactions</a></li>
+                    <li><a class="nav-link" href="{% url 'purchase_order_list' %}">Purchase Orders</a></li>
+                  </ul>
+                </li>
+
+                <!-- Results Section -->
+                <li class="dropdown">
+                  <a href="#" class="menu-toggle nav-link has-dropdown"><i data-feather="clipboard"></i><span>Results</span></a>
+                  <ul class="dropdown-menu">
+                    <li><a class="nav-link" href="{% url 'result_entry' %}">Add New Result</a></li>
+                    <li><a class="nav-link" href="{% url 'result_update' %}">Update Result</a></li>
+                    <li><a class="nav-link" href="{% url 'download_template' %}">Result Template</a></li>
+                    <li><a class="nav-link" href="{% url 'upload_results' %}">Upload Result Via Excel</a></li>
+                    <li><a class="nav-link" href="{% url 'upload_missed_results' %}">Upload Missed Results</a></li>
+                    <li><a class="nav-link" href="{% url 'download_behavioral_template' %}">Behavioral Template</a></li>
+                    <li><a class="nav-link" href="{% url 'upload_behavioral_assessments' %}">Behavioral Upload</a></li>
+                    <li><a class="nav-link" href="{% url 'view_behavioral_assessments' %}">View Behavioral</a></li>
+                    <li><a class="nav-link" href="{% url 'select_class_for_result' %}">View Results</a></li>
+                    <li><a class="nav-link" href="{% url 'select_class_for_result_summary' %}">Results BroadSheet</a></li>
+                    <li><a class="nav-link" href="{% url 'delete_results' %}">Delete Results</a></li>
+                   
+                  </ul>
+                </li>
+
+                <!-- Tahfzee Results Section -->
+                <li class="dropdown">
+                  <a href="#" class="menu-toggle nav-link has-dropdown"><i data-feather="clipboard"></i><span>Tahfeez Results</span></a>
+                  <ul class="dropdown-menu">
+                    <li><a class="nav-link" href="{% url 'result_entry_tahfeez' %}">Add New Result</a></li>
+                    <li><a class="nav-link" href="{% url 'result_update_tahfeez' %}">Update Result</a></li>
+                    <li><a class="nav-link" href="{% url 'select_class_for_result_tahfeez' %}">View Result</a></li>
+                    <li><a class="nav-link" href="{% url 'delete_result_tahfeez' %}">Delete Result</a></li>
+
+                   
+                  </ul>
+                </li>
+                
+              </ul>
+            </aside>
+       
+        </div>
+        
+
+        
+        {% block content %}
+
+
+        {% endblock content %}
+
+          <!-- Message Display Block -->
+          {% if messages %}
+          <div class="main-content">
+            
+              {% for message in messages %}
+                  <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                      {{ message }}
+                      <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                          <span aria-hidden="true">&times;</span>
+                      </button>
+                  </div>
+              {% endfor %}
+              
+          </div>
+          {% endif %}
+
+        <footer class="main-footer">
+            <div class="footer-left">
+              <a href="templateshub.net">Templateshub</a>
+         
+            </div>
+            <div class="footer-right">
+
+            </div>
+        </footer>
+    
+    </div>
+</div>
+<!-- General JS Scripts -->
+<script src="{% static 'src/assets/js/app.min.js' %}"></script>
+<!-- JS Libraries -->
+<script src="{% static 'src/assets/bundles/apexcharts/apexcharts.min.js' %}"></script>
+<script src="{% static 'src/assets/bundles/datatables/datatables.min.js' %}"></script>
+<script src="{% static 'src/assets/bundles/datatables/DataTables-1.10.16/js/dataTables.bootstrap4.min.js' %}"></script>
+<!-- Page Specific JS File -->
+<script src="{% static 'src/assets/js/page/index.js' %}"></script>
+<!-- Template JS File -->
+<script src="{% static 'src/assets/js/scripts.js' %}"></script>
+<!-- Custom JS File -->
+<script src="{% static 'src/assets/js/custom.js' %}"></script>
+<script src="{% static 'src/assets/js/page/datatables.js' %}"></script>
+<script src="{% static 'src/assets/bundles/select2/dist/js/select2.full.min.js' %}"></script>
+</body>
+</html>

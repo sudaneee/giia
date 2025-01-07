@@ -1,0 +1,228 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Examination Result</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            font-size: 12px; /* Adjust this value to your desired size */
+        }
+        .header img {
+            width: 80%;
+            height: 50%;
+            margin-bottom: 5px;
+        }
+        .result-section {
+            margin-bottom: 15px;
+        }
+        .table-bordered th, .table-bordered td {
+            border: 1px solid #000;
+        }
+        .footer img {
+            width: 100px;
+            margin-top: 10px;
+        }
+        .behavioral-table {
+            display: flex;
+            flex-wrap: wrap;
+            margin-top: 20px;
+        }
+        .behavioral-table div {
+            flex: 1 0 25%;
+            padding: 10px;
+        }
+        .behavioral-table div p {
+            font-weight: bold;
+            margin: 5px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-4">
+        <div class="result-section">
+
+
+
+
+            <!-- Combined Information and Results Table with Sections -->
+            <div class="table-responsive mb-4">
+                <table class="table table-bordered table-striped">
+
+                    <!-- Student Information Section Title -->
+                    <thead>
+                        <tr>
+                            <th colspan="8" class="text-center">
+                                            <!-- Header Image from SchoolConfig for Each Student -->
+                                            {% if school_config.header_image %}
+                                            <div class="header text-center">
+                                                <img src="{{ school_config.header_image.url }}" alt="School Header">
+                                            </div>
+                                            {% endif %}
+                            </th>
+                        </tr>
+                    </thead>
+                    <!-- Student Information Section Title -->
+                    <thead>
+                        <tr>
+                            <th colspan="8" class="text-center"><h1>Examination Report Card1</h1></th>
+                        </tr>
+                    </thead>
+                    <!-- Student Information Section Title -->
+                    <thead>
+                        <tr>
+                            <th colspan="8" class="text-center">Student Information</th>
+                        </tr>
+                    </thead>
+
+                    <!-- Student Information Section -->
+                    <tbody>
+                        <tr>
+                            <th>Student Name</th>
+                            <td colspan="3">{{ student.first_name }} {{ student.last_name }}</td>
+                            <th>Admission Number</th>
+                            <td colspan="3">{{ student.admission_number }}</td>
+                        </tr>
+                        <tr>
+                            <th>Current Class</th>
+                            <td colspan="3">{{ student.enrolled_class }}</td>
+                            <th>Gender</th>
+                            <td colspan="3">{{ student.gender }}</td>
+                        </tr>
+                    </tbody>
+
+                    <!-- Subject Results Section Title -->
+                    <thead>
+                        <tr>
+                            <th colspan="8" class="text-center">Subject Results</th>
+                        </tr>
+                    </thead>
+
+                    <!-- Subject Results Section -->
+                    <thead>
+                        <tr>
+                            <th colspan="2">Subject</th>
+                            <th>CA1</th>
+                            <th>CA2</th>
+                            <th>Home Work</th>
+                            <th>Activity</th>
+                            <th>Exam</th>
+                            <th>Total</th>
+                            <th>Grade</th>
+                            <th>Position</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for result in results %}
+                        <tr>
+                            <td colspan="2">{{ result.subject.name }}</td>
+                            <td>{{ result.ca1_marks }}</td>
+                            <td>{{ result.ca2_marks }}</td>
+                            <td>{{ result.home_work_marks }}</td>
+                            <td>{{ result.activity_marks }}</td>
+                            <td>{{ result.exam_marks }}</td>
+                            <td>{{ result.total_marks }}</td>
+                            <td>{{ result.grade }}</td>
+                            <td>{{ result.position }}</td>
+                        </tr>
+                        {% endfor %}
+                        <!-- Total and Average Section -->
+                        <tr>
+                            <td colspan="5"><strong>Total Score</strong></td>
+                            <td>{{ total_score }}</td>
+                            <td colspan=""><strong>Average: </strong></td>
+                            <td colspan="">{{ average_score|floatformat:2 }}%</td>
+                        </tr>
+                    </tbody>
+
+                    <!-- Fee Information Section Title -->
+                    <thead>
+                        <tr>
+                            <th colspan="8" class="text-center">Fee Information</th>
+                        </tr>
+                    </thead>
+
+                    <!-- Fee Information Section -->
+                    <tbody>
+                        <tr>
+                            <th>Total Fee</th>
+                            <td colspan="2">{{ total_fee }}</td>
+                            <th>Amount Paid</th>
+                            <td colspan="2">{{ amount_paid }}</td>
+                            <th>Outstanding Balance</th>
+                            <td colspan="2">{{ outstanding_balance }}</td>
+                        </tr>
+                    </tbody>
+
+                    <!-- Behavioral Assessment Section with Ratings -->
+                    {% if behavioral_assessment %}
+                    <thead>
+                        <tr>
+                            <th colspan="8" class="text-center">Behavioral Assessment</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        <tr>
+                            <th>Conduct</th>
+                            <td>{{ behavioral_assessment.conduct_display }}</td>
+
+                            <th>Punctuality</th>
+                            <td>{{ behavioral_assessment.punctuality_display }}</td>
+
+                            <th>Dedication</th>
+                            <td>{{ behavioral_assessment.dedication_display }}</td>
+
+                            <th>Participation in Class</th>
+                            <td>{{ behavioral_assessment.participation_display }}</td>
+                        </tr>
+
+                        <tr>
+                            <th>Hospitality</th>
+                            <td>{{ behavioral_assessment.hospitality_display }}</td>
+
+                            <th>Neatness</th>
+                            <td>{{ behavioral_assessment.neatness_display }}</td>
+
+                            <th>Creativity</th>
+                            <td>{{ behavioral_assessment.creativity_display }}</td>
+
+                            <th>Physical Fitness</th>
+                            <td>{{ behavioral_assessment.physical_display }}</td>
+                        </tr>
+                    </tbody>
+                    {% endif %}
+
+                    <!-- General Comments Section Title -->
+                    <thead>
+                        <tr>
+                            <th colspan="4" class="text-center">General Comments</th>
+                            <td colspan="4" class="text-center">{{ comments }}</td>
+                        </tr>
+                    </thead>
+
+                    <!-- Signature Section Title -->
+                    <thead>
+                        <tr>
+                            <th colspan="4" class="text-center">Signature</th>
+                            <td colspan="4" class="text-center">
+                                {% if school_config.signature_image %}
+                                <img src="{{ school_config.signature_image.url }}" alt="Signature" style="width: 150px;">
+                                {% endif %}
+                            </td>
+                        </tr>
+                    </thead>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.10.2/dist/umd/popper.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.min.js"></script>
+</body>
+</html>

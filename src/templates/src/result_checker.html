@@ -1,0 +1,146 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta content="width=device-width, initial-scale=1, maximum-scale=1, shrink-to-fit=no" name="viewport">
+  <title>Great Insight Int'l Academy - Login</title>
+  <!-- General CSS Files -->
+  <link rel="stylesheet" href="{% static 'src/assets/css/app.min.css' %}">
+  <link rel="stylesheet" href="{% static 'src/assets/bundles/bootstrap-social/bootstrap-social.css' %}">
+  <!-- Template CSS -->
+  <link rel="stylesheet" href="{% static 'src/assets/css/style.css' %}">
+  <link rel="stylesheet" href="{% static 'src/assets/css/components.css' %}">
+  <!-- Custom style CSS -->
+  <link rel="stylesheet" href="{% static 'src/assets/css/custom.css' %}">
+  <link rel="stylesheet" href="{% static 'src/assets/bundles/select2/dist/css/select2.min.css' %}">
+</head>
+
+<body>
+  <div class="loader"></div>
+  <div id="app">
+    <section class="section">
+      <div class="container mt-5">
+        <div class="row justify-content-center">
+          <div class="col-md-10 col-lg-8">
+            <div class="card">
+              <div class="card-body d-flex flex-wrap">
+
+                <!-- Result Checking Guidelines Section -->
+                <div class="col-md-6 text-center">
+                  <img src="{{result_checker.image.url}}" alt="Result Checker" class="img-fluid mb-3" style="max-height: 120px;">
+                  <h5>Result Checking Guidelines</h5>
+                  <ul class="list-group text-left">
+                    <li class="list-group-item">1. Select the academic session.</li>
+                    <li class="list-group-item">2. Select the term (e.g., First Term, Second Term).</li>
+                    <li class="list-group-item">3. Enter the Student Number provided by the school.</li>
+                    <li class="list-group-item">4. Input the unique Token.</li>
+                    <li class="list-group-item text-danger">
+                      Note: Each token is valid for five uses only and can be used to check results for the specified student, session, and term.
+                    </li>
+                  </ul>
+                </div>
+
+                <!-- Login Section -->
+                <div class="col-md-6 border-left">
+                  <div class="text-center">
+                    <img src="{{result_checker.image.url}}" alt="Result Checker" class="img-fluid mb-3" style="max-height: 120px;">
+                  </div>
+                  <h4 class="text-center mb-4">Result Checker</h4>
+                  <form id="result-checker-form" method="POST" action="#" class="needs-validation" novalidate="">
+                    {% csrf_token %}
+                    <div class="form-group">
+                      <label for="session">Session</label>
+                      <select id="session" name="session" class="form-control select2" required>
+                        <option value="">Select Session</option>
+                        {% for session in sessions %}
+                        <option value="{{ session.id }}">{{ session.name }}</option>
+                        {% endfor %}
+                      </select>
+                      <div class="invalid-feedback">Please Select the Session</div>
+                    </div>
+                    <div class="form-group">
+                      <label for="term">Term</label>
+                      <select id="term" name="term" class="form-control select2" required>
+                        <option value="">Select Term</option>
+                        {% for term in terms %}
+                        <option value="{{ term.id }}">{{ term.name }}</option>
+                        {% endfor %}
+                      </select>
+                      <div class="invalid-feedback">Please Select the Term</div>
+                    </div>
+                    <div class="form-group">
+                      <label for="admission_number">Admission Number</label>
+                      <input id="admission_number" type="text" class="form-control" name="admission_number" required>
+                      <div class="invalid-feedback">Please fill in student's admission number</div>
+                    </div>
+                    <div class="form-group">
+                      <label for="token">Token</label>
+                      <input id="token" type="text" class="form-control" name="token" required>
+                      <div class="invalid-feedback">Please fill in your token</div>
+                    </div>
+                    <button type="button" id="confirm-btn" class="btn btn-primary btn-lg btn-block">Check Result</button>
+                  </form>
+                </div>
+
+
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- Confirmation Modal -->
+  <div class="modal fade" id="confirmationModal" tabindex="-1" role="dialog" aria-labelledby="confirmationModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="confirmationModalLabel">Confirm Result Check</h5>
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+        <div class="modal-body">
+          Are you sure you want to proceed with checking the result for:
+          <ul>
+            <li><strong>Student Admission Number:</strong> <span id="confirm-admission-number"></span></li>
+            <li><strong>Session:</strong> <span id="confirm-session"></span></li>
+            <li><strong>Term:</strong> <span id="confirm-term"></span></li>
+          </ul>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+          <button type="button" id="submit-form-btn" class="btn btn-primary">Proceed</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- General JS Scripts -->
+  <script src="{% static 'src/assets/js/app.min.js' %}"></script>
+  <script src="{% static 'src/assets/js/scripts.js' %}"></script>
+  <script src="{% static 'src/assets/js/custom.js' %}"></script>
+  <script src="{% static 'src/assets/bundles/select2/dist/js/select2.full.min.js' %}"></script>
+
+  <!-- Script for Modal and Form Submission -->
+  <script>
+    document.getElementById('confirm-btn').addEventListener('click', function () {
+      const session = document.getElementById('session');
+      const term = document.getElementById('term');
+      const admissionNumber = document.getElementById('admission_number');
+
+      document.getElementById('confirm-session').textContent = session.options[session.selectedIndex]?.text || 'N/A';
+      document.getElementById('confirm-term').textContent = term.options[term.selectedIndex]?.text || 'N/A';
+      document.getElementById('confirm-admission-number').textContent = admissionNumber.value || 'N/A';
+
+      $('#confirmationModal').modal('show');
+    });
+
+    document.getElementById('submit-form-btn').addEventListener('click', function () {
+      document.getElementById('result-checker-form').submit();
+    });
+  </script>
+</body>
+</html>

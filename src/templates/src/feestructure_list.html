@@ -1,0 +1,44 @@
+{% extends "src/partials/base.html" %}
+{% block content %}
+<div class="main-content mt-1">
+    <div class="card">
+        <div class="card-header">
+            <h4>Fee Structures List</h4>
+            <a href="{% url 'feestructure_create' %}" class="btn btn-primary">Add New Fee Structure</a>
+        </div>
+        <div class="card-body">
+            <table class="table table-stripped" id="table-1">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Class</th>
+                        <th>Description</th>
+                        <th>Amount</th>
+                        <th>Due Date</th>
+                        <th>Term</th>
+                        <th>Session</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for feestructure in feestructures %}
+                    <tr>
+                        <td>{{ feestructure.id }}</td>
+                        <td>{{ feestructure.class_assigned.name }}</td>
+                        <td>{{ feestructure.description }}</td>
+                        <td>{{ feestructure.amount }}</td>
+                        <td>{{ feestructure.due_date }}</td>
+                        <td>{{ feestructure.term.name }}</td>
+                        <td>{{ feestructure.session.name }}</td>
+                        <td>
+                            <a href="{% url 'feestructure_update' feestructure.id %}" class="btn btn-warning btn-sm">Edit</a>
+                            <a href="{% url 'feestructure_delete' feestructure.id %}" class="btn btn-danger btn-sm">Delete</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock content %}

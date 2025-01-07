@@ -1,0 +1,125 @@
+{% extends "src/partials/base.html" %}
+{% block content %}
+<div class="main-content mt-1">
+    <div class="card">
+        <div class="card-header">
+            <h4>Payments List</h4>
+            <a href="{% url 'payment_create' %}" class="btn btn-primary">Add New Payment</a>
+        </div>
+        <div class="card-body">
+            <!-- Filter Form -->
+            <form method="GET" class="mb-4">
+                <div class="form-row">
+                    <div class="form-group col-md-2">
+                        <label>Date Range</label>
+                        <input type="date" name="start_date" class="form-control" placeholder="Start Date">
+                    </div>
+                    <div class="form-group col-md-2">
+                        <label>&nbsp;</label>
+                        <input type="date" name="end_date" class="form-control" placeholder="End Date">
+                    </div>
+                    <div class="form-group col-md-2">
+                        <label>Student</label>
+                        <select name="student" class="form-control select2">
+                            <option value="">All Students</option>
+                            {% for student in students %}
+                            <option value="{{ student.id }}">{{ student }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group col-md-2">
+                        <label>School Class</label>
+                        <select name="school_class" class="form-control select2">
+                            <option value="">All Classes</option>
+                            {% for schoolclass in schoolclasses %}
+                            <option value="{{ schoolclass.id }}">{{ schoolclass.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group col-md-2">
+                        <label>Fee Structure</label>
+                        <select name="fee_structure" class="form-control select2">
+                            <option value="">All Fee Structures</option>
+                            {% for fee in feestructures %}
+                            <option value="{{ fee.id }}">{{ fee.description }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group col-md-2">
+                        <label>Payment Method</label>
+                        <select name="payment_method" class="form-control">
+                            <option value="">All Methods</option>
+                            <option value="cash">Cash</option>
+                            <option value="bank_transfer">Bank Transfer</option>
+                            <option value="credit_card">Credit Card</option>
+                        </select>
+                    </div>
+                    <div class="form-group col-md-2">
+                        <label>Payment Status</label>
+                        <select name="status" class="form-control">
+                            <option value="">All Status</option>
+                            <option value="paid">Paid</option>
+                            <option value="pending">Pending</option>
+                            <option value="overdue">Overdue</option>
+                        </select>
+                    </div>
+                    <div class="form-group col-md-2">
+                        <label>Session</label>
+                        <select name="session" class="form-control select2">
+                            <option value="">All Sessions</option>
+                            {% for session in sessions %}
+                            <option value="{{ session.id }}">{{ session.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group col-md-2">
+                        <label>&nbsp;</label>
+                        <button type="submit" class="btn btn-primary btn-block">Filter</button>
+                    </div>
+                </div>
+            </form>
+
+            <!-- Display the Total Sum -->
+            <h5>Total Amount Paid: {{ total_sum }}</h5>
+
+            <!-- Button to Download to Excel -->
+            <a href="{% url 'payment_export_excel' %}?{{ request.GET.urlencode }}" class="btn btn-success mb-3">Download to Excel</a>
+
+            <!-- Payments Table -->
+            <table class="table table-stripped" id="table-1">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Student</th>
+                        <th>Amount Paid</th>
+                        <th>Date</th>
+                        <th>Status</th>
+                        <th>Method</th>
+                        <th>Term</th>
+                        <th>Session</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for payment in payments %}
+                    <tr>
+                        <td>{{ payment.id }}</td>
+                        <td>{{ payment.student }} [{{payment.student.admission_number}}]</td>
+                        <td>{{ payment.amount_paid }}</td>
+                        <td>{{ payment.payment_date }}</td>
+                        <td>{{ payment.status }}</td>
+                        <td>{{ payment.payment_method }}</td>
+                        <td>{{ payment.term.name }}</td>
+                        <td>{{ payment.session.name }}</td>
+                        <td>
+                            <a href="{% url 'payment_update' payment.id %}" class="btn btn-warning btn-sm">Edit</a>
+                            <a href="{% url 'payment_delete' payment.id %}" class="btn btn-danger btn-sm">Delete</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock content %}

@@ -1,0 +1,64 @@
+{% extends "src/partials/base.html" %}
+{% block content %}
+<div class="main-content mt-1">
+    <div class="card">
+        <div class="card-header">
+            <h4>{% if feestructure %}Edit Fee Structure{% else %}Add New Fee Structure{% endif %}</h4>
+        </div>
+        <div class="card-body">
+            <form method="POST">
+                {% csrf_token %}
+                <div class="form-group">
+                    <label>Class Assigned</label>
+                    <select name="class_assigned" class="form-control">
+                        {% for schoolclass in classes %}
+                        <option value="{{ schoolclass.id }}" {% if feestructure.class_assigned.id == schoolclass.id %}selected{% endif %}>
+                            {{ schoolclass.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Description</label>
+                    <textarea name="description" class="form-control">{{ feestructure.description|default:'' }}</textarea>
+                </div>
+                <div class="form-group">
+                    <label>Amount</label>
+                    <input type="number" name="amount" class="form-control" value="{{ feestructure.amount|default:'' }}" required>
+                </div>
+                <div class="form-group">
+                    <label>Due Date</label>
+                    <input type="date" name="due_date" class="form-control" value="{% if feestructure.due_date %}{{ feestructure.due_date|date:"Y-m-d" }}{% else %}{{ '' }}{% endif %}" required>
+                </div>
+                <div class="form-group">
+                    <label>Session</label>
+                    <select name="session" class="form-control select2">
+                        {% for session in sessions %}
+                        <option value="{{ session.id }}" {% if feestructure.session.id == session.id %}selected{% endif %}>
+                            {{ session.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Term</label>
+                    <select name="term" class="form-control">
+                        {% for term in terms %}
+                        <option value="{{ term.id }}" {% if feestructure.term.id == term.id %}selected{% endif %}>
+                            {{ term.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Fee Type</label>
+                    <input type="text" name="fee_type" class="form-control" value="{{ feestructure.fee_type|default:'' }}" required>
+                </div>
+                <div class="card-footer text-right">
+                    <button class="btn btn-primary" type="submit">{% if feestructure %}Update{% else %}Add{% endif %} Fee Structure</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock content %}

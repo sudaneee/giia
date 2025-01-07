@@ -1,0 +1,26 @@
+{% extends "src/partials/base.html" %}
+{% block content %}
+<div class="main-content mt-1">
+    <div class="card">
+        <div class="card-header">
+            <h4>{% if subject %}Edit Subject{% else %}Add New Subject{% endif %}</h4>
+        </div>
+        <div class="card-body">
+            <form method="POST">
+                {% csrf_token %}
+                <div class="form-group">
+                    <label>Name</label>
+                    <input type="text" name="name" class="form-control" value="{{ subject.name|default:'' }}" required>
+                </div>
+                <div class="form-group">
+                    <label>Description</label>
+                    <textarea name="description" class="form-control">{{ subject.description|default:'' }}</textarea>
+                </div>
+                <div class="card-footer text-right">
+                    <button class="btn btn-primary" type="submit">{% if subject %}Update{% else %}Add{% endif %} Subject</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock content %}

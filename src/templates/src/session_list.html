@@ -1,0 +1,40 @@
+{% extends "src/partials/base.html" %}
+{% block content %}
+<div class="main-content mt-1">
+    <div class="card">
+        <div class="card-header">
+            <h4>Sessions List</h4>
+            <a href="{% url 'session_create' %}" class="btn btn-primary">Add New Session</a>
+        </div>
+        <div class="card-body">
+            <table class="table table-striped" id="table-1">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Name</th>
+                        <th>Start Date</th>
+                        <th>End Date</th>
+                        <th>Current</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for session in sessions %}
+                    <tr>
+                        <td>{{ session.id }}</td>
+                        <td>{{ session.name }}</td>
+                        <td>{{ session.start_date }}</td>
+                        <td>{{ session.end_date }}</td>
+                        <td>{{ session.current }}</td>
+                        <td>
+                            <a href="{% url 'session_update' session.id %}" class="btn btn-warning btn-sm">Edit</a>
+                            <a href="{% url 'session_delete' session.id %}" class="btn btn-danger btn-sm">Delete</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock content %}

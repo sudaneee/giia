@@ -1,0 +1,40 @@
+{% extends "src/partials/base.html" %}
+{% block content %}
+<div class="main-content mt-1">
+    <div class="card">
+        <div class="card-header">
+            <h4>Suppliers List</h4>
+            <a href="{% url 'supplier_create' %}" class="btn btn-primary">Add New Supplier</a>
+        </div>
+        <div class="card-body">
+            <table class="table table-stripped" id="table-1">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Name</th>
+                        <th>Email</th>
+                        <th>Phone</th>
+                        <th>Address</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for supplier in suppliers %}
+                    <tr>
+                        <td>{{ supplier.id }}</td>
+                        <td>{{ supplier.name }}</td>
+                        <td>{{ supplier.contact_email }}</td>
+                        <td>{{ supplier.contact_phone }}</td>
+                        <td>{{ supplier.address }}</td>
+                        <td>
+                            <a href="{% url 'supplier_update' supplier.id %}" class="btn btn-warning btn-sm">Edit</a>
+                            <a href="{% url 'supplier_delete' supplier.id %}" class="btn btn-danger btn-sm">Delete</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock content %}

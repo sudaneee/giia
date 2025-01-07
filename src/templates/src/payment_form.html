@@ -1,0 +1,78 @@
+{% extends "src/partials/base.html" %}
+{% block content %}
+<div class="main-content mt-1">
+    <div class="card">
+        <div class="card-header">
+            <h4>{% if payment %}Edit Payment{% else %}Add New Payment{% endif %}</h4>
+        </div>
+        <div class="card-body">
+            <form method="POST">
+                {% csrf_token %}
+                <div class="form-group">
+                    <label>Student</label>
+                    <select name="student" class="form-control select2">
+                        {% for student in students %}
+                        <option value="{{ student.id }}" {% if payment.student.id == student.id %}selected{% endif %}>
+                            {{ student }} [{{student.admission_number}}]
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Fee Structure</label>
+                    <select name="fee_structure" class="form-control select2">
+                        {% for fee in fee_structures %}
+                        <option value="{{ fee.id }}" {% if payment.fee_structure.id == fee.id %}selected{% endif %}>
+                            {{ fee.description }} - {{ fee.amount }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Amount Paid</label>
+                    <input type="number" name="amount_paid" class="form-control" value="{{ payment.amount_paid|default:'' }}" required>
+                </div>
+                <div class="form-group">
+                    <label>Payment Method</label>
+                    <select name="payment_method" class="form-control">
+                        <option value="cash" {% if payment.payment_method == "cash" %}selected{% endif %}>Cash</option>
+                        <option value="bank_transfer" {% if payment.payment_method == "bank_transfer" %}selected{% endif %}>Bank Transfer</option>
+                        <option value="credit_card" {% if payment.payment_method == "credit_card" %}selected{% endif %}>Credit Card</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Status</label>
+                    <select name="status" class="form-control">
+                        <option value="paid" {% if payment.status == "paid" %}selected{% endif %}>Paid</option>
+                        <option value="pending" {% if payment.status == "pending" %}selected{% endif %}>Pending</option>
+                        <option value="overdue" {% if payment.status == "overdue" %}selected{% endif %}>Overdue</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Session</label>
+                    <select name="session" class="form-control select2">
+                        {% for session in sessions %}
+                        <option value="{{ session.id }}" {% if payment.session.id == session.id %}selected{% endif %}>
+                            {{ session.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Term</label>
+                    <select name="term" class="form-control">
+                        {% for term in terms %}
+                        <option value="{{ term.id }}" {% if payment.term.id == term.id %}selected{% endif %}>
+                            {{ term.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="card-footer text-right">
+                    <button class="btn btn-primary" type="submit">{% if payment %}Update{% else %}Add{% endif %} Payment</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock content %}

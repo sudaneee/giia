@@ -1,0 +1,148 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta content="width=device-width, initial-scale=1, maximum-scale=1, shrink-to-fit=no" name="viewport">
+    <title>Admitted Students</title>
+    <!-- Bootstrap CSS from CDN -->
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <style>
+        .custom-header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .custom-header img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        .modal-content {
+            padding: 20px;
+        }
+
+        .table-container {
+            margin: 0 auto;
+            max-width: 80%;
+        }
+
+        .btn-primary {
+            background-color: #007bff;
+            border-color: #007bff;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Custom Header Image -->
+    <div class="custom-header">
+        <img src="{% static 'src/assets/img/giia_header.jpg' %}" alt="School Header">
+    </div>
+
+    <!-- Main Content -->
+    <div class="container table-container">
+        <h2 class="text-center">List of Admitted Students</h2>
+        <table class="table table-bordered table-striped">
+            <thead class="thead-dark">
+                <tr>
+                    <th>Name</th>
+                    <th>Admission Number</th>
+                    <th>Class</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for student in admitted_students %}
+                    <tr>
+                        <td>{{ student.first_name }} {{ student.last_name }}</td>
+                        <td>{{ student.admission_number }}</td>
+                        <td>{{ student.enrolled_class }}</td>
+                        <td>
+                            {% if student.howyoufindus %}
+                                <a href="{% url 'generate_admission_letter' student.id %}" class="btn btn-primary">
+                                    Generate Admission Letter
+                                </a>
+                            {% else %}
+                                <button class="btn btn-primary generate-letter" data-student-id="{{ student.id }}">
+                                    Generate Admission Letter
+                                </button>
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <h2 class="text-center">Pending Admissions</h2>
+        <table class="table table-bordered table-striped">
+            <thead class="thead-dark">
+                <tr>
+                    <th>Name</th>
+                    <th>Admission Number</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for student in not_admitted_students %}
+                    <tr>
+                        <td>{{ student.first_name }} {{ student.last_name }}</td>
+                        <td>{{ student.admission_number }}</td>
+                        <td>Pending Admission</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Modal for Selecting Source -->
+    <div class="modal fade" id="sourceModal" tabindex="-1" role="dialog" aria-labelledby="sourceModalLabel" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <form method="POST" action="{% url 'admitted_students' %}">
+                    {% csrf_token %}
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="sourceModalLabel">How did you hear about us?</h5>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                            <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <input type="hidden" name="student_id" id="student_id">
+                        <div class="form-group">
+                            <select name="source" class="form-control" required>
+                                <option value="">Select an option</option>
+                                <option value="School Bus">School Bus</option>
+                                <option value="Radio">Radio</option>
+                                <option value="Facebook">Facebook</option>
+                                <option value="A Friend">A Friend</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="submit" name="generate_admission_letter" class="btn btn-primary">Generate Admission Letter</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- jQuery and Bootstrap JS from CDN -->
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+        // JavaScript to handle the popup form and pass the student ID
+        document.querySelectorAll('.generate-letter').forEach(button => {
+            button.addEventListener('click', function() {
+                const studentId = this.getAttribute('data-student-id');
+                document.getElementById('student_id').value = studentId;
+                $('#sourceModal').modal('show');
+            });
+        });
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,25 @@
+{% extends "src/partials/base.html" %}
+{% block content %}
+<div class="main-content mt-1">
+    <div class="card">
+        <div class="card-header">
+            <h4>Download Behavioral Assessment Template</h4>
+        </div>
+        <div class="card-body">
+            <form method="POST">
+                {% csrf_token %}
+                <div class="form-group">
+                    <label>Select Class</label>
+                    <select name="class_assigned" class="form-control" required>
+                        <option value="">Select Class</option>
+                        {% for school_class in classes %}
+                        <option value="{{ school_class.id }}">{{ school_class.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary">Download Template</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock content %}

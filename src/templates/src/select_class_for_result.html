@@ -1,0 +1,43 @@
+{% extends "src/partials/base.html" %}
+{% block content %}
+<div class="main-content mt-1">
+    <div class="card">
+        <div class="card-header">
+            <h4>Select Criteria for Viewing Examination Results</h4>
+        </div>
+        <div class="card-body">
+            <form method="POST">
+                {% csrf_token %}
+                <div class="form-group">
+                    <label>Select Session</label>
+                    <select name="session" class="form-control" required>
+                        <option value="">Select Session</option>
+                        {% for session in sessions %}
+                        <option value="{{ session.id }}">{{ session.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Select Term</label>
+                    <select name="term" class="form-control" required>
+                        <option value="">Select Term</option>
+                        {% for term in terms %}
+                        <option value="{{ term.id }}">{{ term.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Select Class</label>
+                    <select name="class_assigned" class="form-control" required>
+                        <option value="">Select Class</option>
+                        {% for school_class in classes %}
+                        <option value="{{ school_class.id }}">{{ school_class.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary">View Results</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock content %}

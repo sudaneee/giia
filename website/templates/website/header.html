@@ -1,0 +1,238 @@
+{% load static %}
+
+
+<header class="main-header header-style-two">
+    	
+    <!--Header Top-->
+    <div class="header-top">
+        <div class="auto-container">
+            <div class="clearfix">
+                <!--Top Left-->
+                <div class="top-left">
+                    <div class="text">Email: {{data.email}}; Tel: {{data.phone_number}}</div>
+                </div>
+                <!--Top Right-->
+                <div class="top-right">
+                    <!--Social Box-->
+                    <ul class="social-box">
+                        <li><a href="#"><span class="fa fa-facebook"></span></a></li>
+                        <li><a href="#"><span class="fa fa-twitter"></span></a></li>
+                        <li><a href="#"><span class="fa fa-google-plus"></span></a></li>
+                        <li><a href="#"><span class="fa fa-linkedin"></span></a></li>
+                        <li><a href="https://mail.fcejamaare.edu.ng" target="_blank">Staff-Email</span></a></li>
+                        <li><a href="" target="_blank">Staff-Portal</span></a></li>
+                        <li><a href="" target="_blank">Student-Portal</span></a></li>
+                        <li><a href="" target="_blank">e-journals</span></a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!--Header-Upper-->
+    <div class="header-upper">
+        <div class="auto-container">
+            <div class="clearfix">
+                
+                <div class="pull-left logo-box">
+                    <div class="logo"><a href="{% url 'home' %}"><img src="{{data.logo.url}}" alt="" title="" style="width: 350px;"></a></div>
+                </div>
+                
+                <div class="pull-right upper-right clearfix">
+                    
+                    <!--Info Box-->
+                    <div class="upper-column info-box">
+                        <div class="icon-box"><span class="flaticon-pin"></span></div>
+                        <ul>
+                            <li>{{data.address|slice:"0:33"}} <br>{{data.address|slice:"33:58"}} <br>{{data.address|slice:"58:"}} </li>
+                        </ul>
+                    </div>
+                    
+                    <!--Info Box-->
+                    <div class="upper-column info-box">
+                        <div class="icon-box"><span class="flaticon-technology-1"></span></div>
+                        <ul>
+                            <li>{{data.phone_number}} <br> {{data.email}}</li>
+                        </ul>
+                    </div>
+                    
+                    <!--Info Box-->
+                    <div class="upper-column info-box">
+                        <div class="icon-box"><span class="flaticon-clock"></span></div>
+                        <ul>
+                            <li>7:00am to 6:00pm <br> Sunday Closed</li>
+                        </ul>
+                    </div>
+                    
+                </div>
+                
+            </div>
+        </div>
+    </div>
+    <!--End Header Upper-->
+    
+    <!-- Hidden Nav Toggler -->
+    <div class="nav-toggler">
+       <div class="nav-btn"><button class="hidden-bar-opener"><span class="icon flaticon-menu"></span></button></div>
+    </div>
+    <!-- / Hidden Nav Toggler -->
+    
+    <!--Header Lower-->
+    <div class="header-lower">
+        
+        <div class="auto-container">
+            <div class="nav-outer clearfix">
+                <!-- Main Menu -->
+                <nav class="main-menu navbar-expand-md">
+                    <div class="navbar-header">
+                        <!-- Toggle Button -->    	
+                        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+                            <span class="icon-bar"></span>
+                            <span class="icon-bar"></span>
+                            <span class="icon-bar"></span>
+                        </button>
+                    </div>
+                    
+                    <div class="navbar-collapse collapse clearfix" id="navbarSupportedContent">
+                        <ul class="navigation clearfix">
+                            <li class="current"><a href="{% url 'home' %}">Home</a></li>
+                            <li><a href="{% url 'about'%}">About Us</a></li>
+
+                            <li class=""><a href="{% url 'gallery' %}">Gallery</a></li>
+                            <li class=""><a href="{% url 'news' %}">News and Updates</a></li>
+                            <li><a href="{%url 'website-contact'%}">Contact us</a></li>
+                        </ul>
+                    </div>
+                </nav>
+                
+                <!-- Main Menu End-->
+                <div class="outer-box clearfix">
+                
+                    <!--Option Box-->
+                    <div class="option-box">
+                        <!--Cart Box-->
+                        <!-- <div class="cart-box">
+                            <div class="dropdown">
+                                <button class="cart-box-btn dropdown-toggle" type="button" id="dropdownMenu" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false"><span class="flaticon-shopping-cart-of-checkered-design"></span><span class="total-cart">2</span></button>
+                                <div class="dropdown-menu pull-right cart-panel" aria-labelledby="dropdownMenu3">
+
+                                    <div class="cart-product">
+                                        <div class="inner">
+                                            <div class="cross-icon"><span class="icon fa fa-remove"></span></div>
+                                            <div class="image"><img src="{% static 'website/images/resource/post-thumb-3.jpg' %}" alt="" /></div>
+                                            <h3><a href="shop-single.html">Flying Ninja</a></h3>
+                                            <div class="quantity-text">Quantity 1</div>
+                                            <div class="price">$99.00</div>
+                                        </div>
+                                    </div>
+                                    <div class="cart-product">
+                                        <div class="inner">
+                                            <div class="cross-icon"><span class="icon fa fa-remove"></span></div>
+                                            <div class="image"><img src="{% static 'website/images/resource/post-thumb-2.jpg' %}" alt="" /></div>
+                                            <h3><a href="shop-single.html">Patient Ninja</a></h3>
+                                            <div class="quantity-text">Quantity 1</div>
+                                            <div class="price">$99.00</div>
+                                        </div>
+                                    </div>
+                                    <div class="cart-total">Sub Total: <span>$198</span></div>
+                                    <ul class="btns-boxed">
+                                        <li><a href="shoping-cart.html">View Cart</a></li>
+                                        <li><a href="checkout.html">CheckOut</a></li>
+                                    </ul>
+
+                                </div>
+                            </div>
+                        </div> -->
+                        
+                        <!--Search Box-->
+                        <div class="search-box-outer">
+                            <div class="dropdown">
+                                <button class="search-box-btn dropdown-toggle" type="button" id="dropdownMenu3" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false"><span class="fa fa-search"></span></button>
+                                <ul class="dropdown-menu pull-right search-panel" aria-labelledby="dropdownMenu3">
+                                    <li class="panel-outer">
+                                        <div class="form-container">
+                                            <form method="post" action="#">
+                                                <div class="form-group">
+                                                    <input type="search" name="field-name" value="" placeholder="Search Here" required>
+                                                    <button type="submit" class="search-btn"><span class="fa fa-search"></span></button>
+                                                </div>
+                                            </form>
+                                        </div>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                        
+                    </div>
+                </div>
+                <div class="side-curve"></div>
+            </div>
+        </div>
+    </div>
+    <!--End Header Lower-->
+    
+    <!--Sticky Header-->
+    <div class="sticky-header">
+        <div class="auto-container clearfix">
+            <!--Logo-->
+            <div class="logo pull-left">
+                <a href="{% url 'home' %}" class="img-responsive" ><img src="{{data.logo.url}}" alt="" title="" style="width: 200px;"></a>
+            </div>
+            
+            <!--Right Col-->
+            <div class="right-col pull-right">
+                <!-- Main Menu -->
+                <nav class="main-menu navbar-expand-md">
+                    <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarSupportedContent1" aria-controls="navbarSupportedContent1" aria-expanded="false" aria-label="Toggle navigation">
+                        <span class="icon-bar"></span>
+                        <span class="icon-bar"></span>
+                        <span class="icon-bar"></span>
+                    </button>
+                    
+                    <div class="navbar-collapse collapse clearfix" id="navbarSupportedContent1">
+                        <ul class="navigation clearfix">
+                            <li class="current"><a href="{% url 'home' %}">Home</a></li>
+                            <li class=""><a href="{% url 'about'%}">About Us</a></li>
+
+                            <li class=""><a href="{% url 'gallery' %}">Gallery</a>
+                            </li>
+
+                            <li class=""><a href="{% url 'news' %}">News and Updates</a></li>
+                            <li><a href="{%url 'website-contact'%}">Contact us</a></li>
+                        </ul>
+                    </div>
+                </nav><!-- Main Menu End-->
+            </div>
+            
+        </div>
+    </div>
+    <!--End Sticky Header-->
+
+</header>
+<!--End Main Header -->
+
+<!--FullScreen Menu-->
+<div class="fullscreen-menu">
+    <!--Close Btn-->
+    <div class="close-menu"><span class="flaticon-cancel-1"></span></div>
+    
+    <div class="menu-outer-container">
+        <div class="menu-box">
+            <nav class="full-menu">
+                <ul class="navigation">
+                    <li class="current dropdown"><a href="{% url 'home' %}">Home</a>
+                    </li>
+                    <li class="dropdown"><a href="{% url 'about'%}">About Us</a>
+                    </li>
+  
+                    <li class=""><a href="{% url 'gallery' %}">Gallery</a>
+                    </li>
+
+                    <li class=""><a href="{% url 'news'%}">News & Updates</a>
+                    </li>
+                    <li><a href="{%url 'website-contact'%}">Contact us</a></li>
+                </ul>
+            </nav>
+        </div>
+    </div>
+</div><!--End FullScreen Menu-->

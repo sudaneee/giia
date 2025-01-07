@@ -1,0 +1,89 @@
+{% extends "src/partials/base.html" %}
+{% block content %}
+<div class="main-content mt-1">
+    <div class="card">
+        <div class="card-header">
+            <h4>Update Results for Students</h4>
+        </div>
+        <div class="card-body">
+            <form method="POST">
+                {% csrf_token %}
+                <div class="form-group">
+                    <label>Term</label>
+                    <select name="term" class="form-control" required>
+                        <option value="">Select Term</option>
+                        {% for term in terms %}
+                        <option value="{{ term.id }}" {% if selected_term and selected_term.id == term.id %}selected{% endif %}>{{ term.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Session</label>
+                    <select name="session" class="form-control select2" required>
+                        <option value="">Select Session</option>
+                        {% for session in sessions %}
+                        <option value="{{ session.id }}" {% if selected_session and selected_session.id == session.id %}selected{% endif %}>{{ session.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Class</label>
+                    <select name="class_assigned" class="form-control select2" required>
+                        <option value="">Select Class</option>
+                        {% for school_class in classes %}
+                        <option value="{{ school_class.id }}" {% if selected_class and selected_class.id == school_class.id %}selected{% endif %}>{{ school_class.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Subject</label>
+                    <select name="subject" class="form-control select2" required>
+                        <option value="">Select Subject</option>
+                        {% for subject in subjects %}
+                        <option value="{{ subject.id }}" {% if selected_subject and selected_subject.id == subject.id %}selected{% endif %}>{{ subject.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary">Load Students</button>
+            </form>
+
+            {% if results %}
+            <form method="POST">
+                {% csrf_token %}
+                <input type="hidden" name="term" value="{{ selected_term.id }}">
+                <input type="hidden" name="session" value="{{ selected_session.id }}">
+                <input type="hidden" name="class_assigned" value="{{ selected_class.id }}">
+                <input type="hidden" name="subject" value="{{ selected_subject.id }}">
+                <table class="table table-stripped">
+                    <thead>
+                        <tr>
+                            <th>Student ID</th>
+                            <th>Student Name</th>
+                            <th>1st CA Marks</th>
+                            <th>2nd CA Marks</th>
+                            <th>Home Work Marks</th>
+                            <th>Activity Marks</th>
+                            <th>Exam Marks</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for result in results %}
+                        <tr>
+                            <td>{{ result.student.id }}</td>
+                            <td>{{ result.student.first_name }} {{ result.student.last_name }}</td>
+                            <td><input type="number" name="ca1_{{ result.student.id }}" value="{{ result.ca1_marks }}" class="form-control" required></td>
+                            <td><input type="number" name="ca2_{{ result.student.id }}" value="{{ result.ca2_marks }}" class="form-control" required></td>
+                            <td><input type="number" name="home_work_{{ result.student.id }}" value="{{ result.home_work_marks }}" class="form-control" required></td>
+                            <td><input type="number" name="activity_{{ result.student.id }}" value="{{ result.activity_marks }}" class="form-control" required></td>
+                            <td><input type="number" name="exam_{{ result.student.id }}" value="{{ result.exam_marks }}" class="form-control" required></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                <button type="submit" name="save_results" class="btn btn-success">Update Results</button>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock content %}
