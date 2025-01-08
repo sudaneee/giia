@@ -43,6 +43,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -122,6 +123,8 @@ STATIC_URL = '/static/'
 
 # When you collect static files, they will be stored in this directory
 STATIC_ROOT = os.path.join(BASE_DIR, 'static')
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+
 
 
 
@@ -130,6 +133,7 @@ MEDIA_URL = '/media/'
 # Directory where media files will be stored
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
+WHITENOISE_GZIP = True
 
 
 
