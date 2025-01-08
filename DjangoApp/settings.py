@@ -124,7 +124,7 @@ STATIC_ROOT = '/root/giia/static/'
 
 
 MEDIA_URL = '/media/'
-MEDIA_ROOT = '/root/giia/static/'
+MEDIA_ROOT = '/root/giia/media/'
 
 
 
