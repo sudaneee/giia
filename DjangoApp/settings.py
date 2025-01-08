@@ -120,7 +120,7 @@ USE_TZ = True
 
 STATIC_URL = '/static/'
 STATIC_ROOT = '/root/giia/static/'
-STATICFILES_DIRS = [BASE_DIR/'static/',]
+
 
 
 MEDIA_URL = '/media/'
