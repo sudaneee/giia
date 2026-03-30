@@ -1,0 +1,135 @@
+{% extends 'website/base.html' %}
+{% load static %}
+{% block content %}
+<div class="page-wrapper">
+
+   
+
+    <!-- Main Header-->
+    {% include 'website/header.html'%}
+
+	<!--Page Title-->
+    <section class="page-title" style="background-image:url('{{about_header_bg.image.url}}');">
+    	<div class="auto-container">
+        	<h2>{{single_gallery.title}}</h2>
+        </div>
+    </section>
+    
+    <!--Breadcrumb-->
+    <div class="breadcrumb-outer">
+    	<div class="auto-container">
+        	<ul class="bread-crumb text-center">
+            	<li><a href="index-2.html">Home</a> <span class="fa fa-angle-right"></span></li>
+                <li>Our Gallery</li>
+            </ul>
+        </div>
+    </div>
+    <!--End Page Title-->
+
+
+
+
+
+	<!--Cases Section-->
+    <section class="case-single-section">
+    	<div class="auto-container">
+       		<!--Upper Section-->
+        	<div class="upper-section">
+        		<div class="row clearfix">
+        			<!--Image Column-->
+        			<div class="image-column col-lg-12 col-md-12 col-sm-12">
+        				<div class="inner-column">
+        					<div class="image">
+        						<img src="{{single_gallery.image.url}}" alt="" />
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+       </div>
+    </section>
+    <!--End Cases Section-->
+
+
+    <!--Map Info Section-->
+    <section class="map-info-section">
+        <div class="outer-container">
+            <div class="clearfix">
+                <!--Left Column-->
+                <div class="left-column">
+                    <!--Map Outer-->
+                    <div class="map-outer">
+                        <!--Map Canvas-->
+                        <div class="map-canvas" data-zoom="12" data-lat="11.050738731519033" data-lng="7.686241204894909" data-type="roadmap" data-hue="#ffc400" data-title="Envato" data-icon-path="{% static 'website/images/icons/map-marker.png' %}" data-content="Melbourne VIC 3000, Australia<br><a href='mailto:info@youremail.com'>info@youremail.com</a>">
+                        </div>
+                    </div>
+                </div>
+                <!--Right Column-->
+                <div class="right-column" style="background-image:url({% static 'website/images/resource/image-1.jpg' %})">
+                    <div class="content">
+                        <h3>Request for quote</h3>
+                        <div class="text">The argument in favor of using filler text goes something like this: If you use real content in the design process.</div>
+
+                        <!-- Quote Form -->
+                        <div class="quote-form">
+
+                            <!--Contact Form-->
+                            <form method="post" action="#">
+                                <div class="row clearfix">
+
+                                    <div class="form-group col-lg-6 col-md-6 col-sm-12">
+                                        <input type="text" name="username" placeholder="How to assist you:*" required>
+                                    </div>
+
+                                    <div class="form-group col-lg-6 col-md-6 col-sm-12">
+                                        <input type="text" name="phone" placeholder="Phone number:*" required>
+                                    </div>
+
+                                    <div class="form-group col-lg-6 col-md-6 col-sm-12">
+                                        <input type="text" name="text" placeholder="Your name:*" required>
+                                    </div>
+
+                                    <div class="form-group col-lg-6 col-md-6 col-sm-12">
+                                        <button type="submit" class="theme-btn btn-style-one">Submit request <span class="icon flaticon-share-option"></span></button>
+                                    </div>
+
+                                </div>
+                            </form>
+                        </div>
+
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </section>
+    <!--End Map Info Section-->
+
+    <!--Subscribe Style One-->
+    <section class="subscribe-style-one">
+        <div class="auto-container">
+            <div class="row clearfix">
+                <div class="col-lg-5 col-md-12 col-sm-12">
+                    <h2>Newsletter Subscribe</h2>
+                    <div class="text">Sign up today for hints, tips and the latest Updates.</div>
+                </div>
+                <div class="col-lg-7 col-md-12 col-sm-12">
+                    <form method="post" action="#">
+                        <div class="form-group clearfix">
+                            <input type="email" name="email" value="" placeholder="Enter Email Address" required>
+                            <button type="submit" class="theme-btn btn-style-one">Subscribe</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </section>
+    <!--End Subscribe Style One-->
+
+    <!--Main Footer-->
+    {% include 'website/footer.html' %}
+
+</div>
+<!--End pagewrapper-->
+
+{%endblock content%}

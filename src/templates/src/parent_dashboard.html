@@ -1,0 +1,271 @@
+<!-- templates/src/parent_dashboard.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Parent Dashboard - Payment History</title>
+    <style>
+        :root {
+            --navy: #0f2a47;
+            --royal-blue: #2c5aa0;
+            --soft-blue: #f0f7ff;
+            --light-gray: #f8f9fa;
+            --white: #ffffff;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', sans-serif;
+        }
+
+        body {
+            background: var(--soft-blue);
+            min-height: 100vh;
+            padding: 40px 20px;
+            color: var(--navy);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .page-title {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--navy);
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            color: #666;
+            font-size: 1.1rem;
+        }
+
+        .search-card {
+            background: var(--white);
+            border-radius: 12px;
+            box-shadow: 0 8px 30px rgba(0, 46, 109, 0.1);
+            padding: 30px;
+            margin-bottom: 40px;
+            text-align: center;
+        }
+
+        .search-form {
+            max-width: 500px;
+            margin: 0 auto;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+            text-align: left;
+        }
+
+        .form-label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: var(--navy);
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.3s;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: var(--royal-blue);
+        }
+
+        .btn {
+            padding: 14px 30px;
+            background: linear-gradient(135deg, var(--royal-blue), var(--navy));
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(44, 90, 160, 0.3);
+        }
+
+        .payments-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: var(--white);
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 8px 30px rgba(0, 46, 109, 0.1);
+        }
+
+        .payments-table th {
+            background: var(--light-gray);
+            padding: 20px;
+            text-align: left;
+            font-weight: 600;
+            border-bottom: 2px solid #e0e0e0;
+        }
+
+        .payments-table td {
+            padding: 20px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .payments-table tr:hover {
+            background: #f9f9f9;
+        }
+        .school-logo {
+            max-width: 200px;
+            margin-bottom: 20px;
+        }
+
+        .status-paid {
+            background: #d4edda;
+            color: #155724;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 0.9rem;
+        }
+
+        .no-data {
+            text-align: center;
+            padding: 50px;
+            color: #666;
+            font-size: 1.1rem;
+        }
+
+        .action-btn {
+            padding: 8px 16px;
+            background: var(--royal-blue);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            text-decoration: none;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .action-btn:hover {
+            background: var(--navy);
+        }
+
+        .back-link {
+            display: inline-block;
+            margin-top: 30px;
+            color: var(--royal-blue);
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .back-link:hover {
+            text-decoration: underline;
+        }
+
+        @media (max-width: 768px) {
+            .payments-table {
+                display: block;
+                overflow-x: auto;
+            }
+            
+            .container {
+                padding: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <img src="{{ data.logo.url }}" alt="School Logo" class="school-logo">
+            <h1 class="page-title">Parent Dashboard</h1>
+            <p class="subtitle">View payment history and receipts</p>
+        </div>
+
+        <div class="search-card">
+            <h2 style="margin-bottom: 20px; color: var(--navy);">Find Your Payments</h2>
+            <form method="POST" class="search-form">
+                {% csrf_token %}
+                <div class="form-group">
+                    <label class="form-label">Enter your email address</label>
+                    <input type="email" 
+                           name="email" 
+                           class="form-input" 
+                           placeholder="parent@example.com"
+                           required>
+                </div>
+                <button type="submit" class="btn">Search Payments</button>
+            </form>
+            
+            <p style="margin-top: 20px; color: #666; font-size: 0.9rem;">
+                Enter the email address you used during payment
+            </p>
+        </div>
+
+        {% if payments %}
+        <div style="margin-top: 40px;">
+            <h2 style="margin-bottom: 20px; color: var(--navy);">Payment History</h2>
+            <table class="payments-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Student</th>
+                        <th>Amount</th>
+                        <th>Session</th>
+                        <th>Term</th>
+                        <th>Status</th>
+                        <th>Receipt</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for payment in payments %}
+                    <tr>
+                        <td>{{ payment.payment_date|date:"M d, Y" }}</td>
+                        <td>{{ payment.student.first_name }} {{ payment.student.last_name }}</td>
+                        <td>₦{{ payment.amount_paid|floatformat:2 }}</td>
+                        <td>{{ payment.session.name }}</td>
+                        <td>{{ payment.term.name }}</td>
+                        <td><span class="status-paid">{{ payment.status }}</span></td>
+                        <td>
+                            {% if payment.payment_batch %}
+                            <a href="{% url 'payment_receipt' reference=payment.payment_batch.reference %}" 
+                               class="action-btn">
+                                View Receipt
+                            </a>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% elif request.method == "POST" %}
+        <div class="no-data">
+            <p>No payments found for the provided email address.</p>
+        </div>
+        {% endif %}
+
+        <div style="text-align: center; margin-top: 40px;">
+            <a href="{% url 'public_payment' %}" class="back-link">← Make a new payment</a>
+        </div>
+    </div>
+</body>
+</html>

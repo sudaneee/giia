@@ -1,0 +1,79 @@
+{% extends "src/partials/base.html" %}
+{% block content %}
+<div class="main-content mt-1">
+    <div class="card">
+        <div class="card-header">
+            <h4>View Behavioral Assessments</h4>
+        </div>
+        <div class="card-body">
+            <form method="POST">
+                {% csrf_token %}
+                <div class="form-group">
+                    <label>Select Term</label>
+                    <select name="term" class="form-control" required>
+                        <option value="">Select Term</option>
+                        {% for term in terms %}
+                        <option value="{{ term.id }}" {% if request.POST.term == term.id %}selected{% endif %}>{{ term.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Select Session</label>
+                    <select name="session" class="form-control select2" required>
+                        <option value="">Select Session</option>
+                        {% for session in sessions %}
+                        <option value="{{ session.id }}" {% if request.POST.session == session.id %}selected{% endif %}>{{ session.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Select Class</label>
+                    <select name="class_assigned" class="form-control select2" required>
+                        <option value="">Select Class</option>
+                        {% for school_class in classes %}
+                        <option value="{{ school_class.id }}" {% if request.POST.class_assigned == school_class.id %}selected{% endif %}>{{ school_class.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary">View Assessments</button>
+            </form>
+
+            {% if assessments %}
+            <div class="mt-4">
+                <h5>Behavioral Assessments for Selected Criteria</h5>
+                <table class="table table-stripped" id="table-1">
+                    <thead>
+                        <tr>
+                            <th>Student</th>
+                            <th>Conduct</th>
+                            <th>Punctuality</th>
+                            <th>Dedication</th>
+                            <th>Participation</th>
+                            <th>Hospitality</th>
+                            <th>Neatness</th>
+                            <th>Creativity</th>
+                            <th>Physical</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for assessment in assessments %}
+                        <tr>
+                            <td>{{ assessment.student.first_name }} {{ assessment.student.last_name }}</td>
+                            <td>{{ assessment.conduct }}</td>
+                            <td>{{ assessment.punctuality }}</td>
+                            <td>{{ assessment.dedication }}</td>
+                            <td>{{ assessment.participation }}</td>
+                            <td>{{ assessment.hospitality }}</td>
+                            <td>{{ assessment.neatness }}</td>
+                            <td>{{ assessment.creativity }}</td>
+                            <td>{{ assessment.physical }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock content %}

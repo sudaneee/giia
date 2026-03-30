@@ -1,0 +1,161 @@
+{% extends "src/partials/base.html" %}
+{% block content %}
+<div class="main-content mt-1">
+    <div class="card">
+        <div class="card-header">
+            <h4>Update Student</h4>
+        </div>
+        <div class="card-body">
+            <form method="POST">
+                {% csrf_token %}
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label>First Name</label>
+                            <input type="text" name="first_name" class="form-control" value="{{ student.first_name }}" required>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label>Last Name</label>
+                            <input type="text" name="last_name" class="form-control" value="{{ student.last_name }}" required>
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label>Date of Birth</label>
+                            <input type="date" name="date_of_birth" class="form-control" value="{{ student.date_of_birth|date:'Y-m-d' }}" required>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label>gender</label>
+                            <select name="gender" class="form-control">
+                                                               
+                                <option value="Male" {% if student.gender == 'Male' %}selected{% endif %}>Male</option>
+                                <option value="Male" {% if student.gender == 'Female' %}selected{% endif %}>Female</option>
+                                
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label>Admission Number</label>
+                            <input type="text" name="admission_number" class="form-control" value="{{ student.admission_number }}">
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Address</label>
+                    <textarea name="address" class="form-control">{{ student.address }}</textarea>
+                </div>
+                <div class="form-group">
+                    <label>Phone Number</label>
+                    <input type="text" name="phone_number" class="form-control" value="{{ student.phone_number }}">
+                </div>
+                <div class="form-group">
+                    <label>Email</label>
+                    <input type="email" name="email" class="form-control" value="{{ student.email }}">
+                </div>
+                <div class="form-group">
+                    <label>Class</label>
+                    <select name="enrolled_class" class="form-control">
+                        <option value="">Select Class</option>
+                        {% for class in school_classes %}
+                        <option value="{{ class.id }}" {% if student.enrolled_class and student.enrolled_class.id == class.id %}selected{% endif %}>{{ class.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Status</label>
+                    <select name="status" class="form-control">
+                        <option value="active" {% if student.status == 'active' %}selected{% endif %}>Active</option>
+                        <option value="inactive" {% if student.status == 'inactive' %}selected{% endif %}>Inactive</option>
+                        <option value="graduated" {% if student.status == 'graduated' %}selected{% endif %}>Graduated</option>
+                        <option value="suspended" {% if student.status == 'suspended' %}selected{% endif %}>Suspended</option>
+                    </select>
+                </div>
+
+                <!-- Guardian Details -->
+                <h5>Guardian Details</h5>
+                {% if guardians %}
+                    {% with guardian=guardians.first %}
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label>Guardian First Name</label>
+                                    <input type="text" name="guardian_first_name" class="form-control" value="{{ guardian.first_name }}" required>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label>Guardian Last Name</label>
+                                    <input type="text" name="guardian_last_name" class="form-control" value="{{ guardian.last_name }}" required>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label>Guardian Phone Number</label>
+                                    <input type="text" name="guardian_phone_number" class="form-control" value="{{ guardian.phone_number }}" required>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label>Guardian Email</label>
+                                    <input type="email" name="guardian_email" class="form-control" value="{{ guardian.email }}">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Guardian Relationship</label>
+                            <input type="text" name="guardian_relationship" class="form-control" value="{{ guardian.relationship }}" required>
+                        </div>
+                    {% endwith %}
+                {% else %}
+                    <!-- Display empty form for new guardian details if no guardian exists -->
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label>Guardian First Name</label>
+                                <input type="text" name="guardian_first_name" class="form-control" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label>Guardian Last Name</label>
+                                <input type="text" name="guardian_last_name" class="form-control" required>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label>Guardian Phone Number</label>
+                                <input type="text" name="guardian_phone_number" class="form-control" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label>Guardian Email</label>
+                                <input type="email" name="guardian_email" class="form-control">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Guardian Relationship</label>
+                        <input type="text" name="guardian_relationship" class="form-control" required>
+                    </div>
+                {% endif %}
+
+                <div class="card-footer text-right">
+                    <button class="btn btn-primary" type="submit">Update Student</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock content %}

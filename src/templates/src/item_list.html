@@ -1,0 +1,48 @@
+{% extends "src/partials/base.html" %}
+{% block content %}
+<div class="main-content mt-1">
+    <div class="card">
+        <div class="card-header">
+            <h4>Items List</h4>
+            <a href="{% url 'item_create' %}" class="btn btn-primary">Add New Item</a>
+        </div>
+        <div class="card-body">
+            <table class="table table-stripped" id="table-1">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Name</th>
+                        <th>Category</th>
+                        <th>Quantity in Stock</th>
+                        <th>Reorder Level</th>
+                        <th>Expiry Date</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in items %}
+                    <tr>
+                        <td>{{ item.id }}</td>
+                        <td>{{ item.name }}</td>
+                        <td>
+                            {% if item.category %}
+                                {{ item.category.name }}
+                            {% else %}
+                                None
+                            {% endif %}
+                        </td>
+                        <td>{{ item.quantity_in_stock }}</td>
+                        <td>{{ item.reorder_level }}</td>
+                        <td>{{ item.expiry_date }}</td>
+                        <td>
+                            <a href="{% url 'item_update' item.id %}" class="btn btn-warning btn-sm">Edit</a>
+                            <a href="{% url 'item_delete' item.id %}" class="btn btn-danger btn-sm">Delete</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock content %}

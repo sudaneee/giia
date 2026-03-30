@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Select Payment Type | Secure Payment Portal</title>
+    <style>
+        :root {
+            --navy: #0f2a47;
+            --royal-blue: #2c5aa0;
+            --sky-blue: #4a8cff;
+            --soft-blue: #f0f7ff;
+            --light-gray: #f8f9fa;
+            --medium-gray: #e9ecef;
+            --dark-gray: #6c757d;
+            --success: #28a745;
+            --white: #ffffff;
+            --shadow: 0 8px 30px rgba(0, 46, 109, 0.08);
+            --shadow-hover: 0 12px 40px rgba(0, 46, 109, 0.12);
+            --border-radius: 16px;
+            --transition: all 0.3s ease;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, var(--soft-blue) 0%, #f9fbff 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 40px 24px;
+            color: var(--navy);
+            line-height: 1.6;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 520px;
+            margin: 0 auto;
+            animation: fadeIn 0.6s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .logo-container {
+            margin-bottom: 28px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .logo {
+            height: 72px;
+            width: auto;
+            object-fit: contain;
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
+        }
+
+        .page-title {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--navy);
+            margin-bottom: 12px;
+            letter-spacing: -0.5px;
+            background: linear-gradient(90deg, var(--navy), var(--royal-blue));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .subtitle {
+            font-size: 1.1rem;
+            color: var(--dark-gray);
+            font-weight: 400;
+            max-width: 500px;
+            margin: 0 auto;
+        }
+
+        .payment-card {
+            background: var(--white);
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+            padding: 44px 40px;
+            transition: var(--transition);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .payment-card:hover {
+            box-shadow: var(--shadow-hover);
+        }
+
+        .payment-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(90deg, var(--sky-blue), var(--royal-blue));
+        }
+
+        .form-group {
+            margin-bottom: 28px;
+            position: relative;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: var(--navy);
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .form-label-icon {
+            color: var(--sky-blue);
+            font-size: 1.1rem;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 16px 18px;
+            border: 2px solid var(--medium-gray);
+            border-radius: 12px;
+            font-size: 1rem;
+            color: var(--navy);
+            background: var(--light-gray);
+            transition: var(--transition);
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: var(--sky-blue);
+            background: var(--white);
+            box-shadow: 0 0 0 3px rgba(74, 140, 255, 0.1);
+        }
+
+        .form-input::placeholder {
+            color: #a0aec0;
+        }
+
+        .helper-text {
+            font-size: 0.85rem;
+            color: var(--dark-gray);
+            margin-top: 8px;
+            display: block;
+            font-style: italic;
+        }
+
+        .format-example {
+            font-size: 0.8rem;
+            color: var(--royal-blue);
+            background: rgba(74, 140, 255, 0.1);
+            padding: 6px 12px;
+            border-radius: 6px;
+            margin-top: 8px;
+            display: inline-block;
+            font-family: monospace;
+        }
+
+        .select-wrapper {
+            position: relative;
+        }
+
+        .select-arrow {
+            position: absolute;
+            right: 18px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--royal-blue);
+            pointer-events: none;
+        }
+
+        select.form-input {
+            appearance: none;
+            cursor: pointer;
+            padding-right: 48px;
+        }
+
+        .security-badge {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: var(--soft-blue);
+            border-radius: 12px;
+            padding: 18px;
+            margin: 32px 0;
+            border: 1px solid rgba(74, 140, 255, 0.2);
+        }
+
+        .security-icon {
+            color: var(--success);
+            font-size: 1.5rem;
+            flex-shrink: 0;
+        }
+
+        .security-text {
+            font-size: 0.95rem;
+            color: var(--navy);
+            font-weight: 500;
+        }
+
+        .submit-button {
+            width: 100%;
+            padding: 20px;
+            background: linear-gradient(135deg, var(--royal-blue), var(--navy));
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            letter-spacing: 0.5px;
+        }
+
+        .submit-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(44, 90, 160, 0.25);
+            background: linear-gradient(135deg, var(--sky-blue), var(--royal-blue));
+        }
+
+        .submit-button:active {
+            transform: translateY(0);
+        }
+
+        .button-icon {
+            font-size: 1.2rem;
+        }
+
+        /* ===============================
+        Django Messages Styling
+        =============================== */
+
+        .alert {
+            padding: 16px 18px;
+            border-radius: 12px;
+            margin-bottom: 24px;
+            font-size: 0.95rem;
+            font-weight: 500;
+            animation: fadeSlide 0.4s ease;
+        }
+
+        .alert-error {
+            background: #fdecea;
+            color: #a61b1b;
+            border: 1px solid #f5c6cb;
+        }
+
+        .alert-success {
+            background: #e6f7ee;
+            color: #1e7e34;
+            border: 1px solid #c3e6cb;
+        }
+
+        .alert-info {
+            background: #eef5ff;
+            color: #084298;
+            border: 1px solid #b6d4fe;
+        }
+
+        @keyframes fadeSlide {
+            from {
+                opacity: 0;
+                transform: translateY(-6px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+
+        .footer {
+            text-align: center;
+            margin-top: 32px;
+            color: var(--dark-gray);
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+
+        .footer a {
+            color: var(--royal-blue);
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .footer a:hover {
+            text-decoration: underline;
+        }
+
+        @media (max-width: 640px) {
+            .container {
+                padding: 0;
+            }
+            
+            .payment-card {
+                padding: 36px 28px;
+            }
+            
+            .page-title {
+                font-size: 2rem;
+            }
+            
+            .subtitle {
+                font-size: 1rem;
+            }
+            
+            body {
+                padding: 24px 16px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .payment-card {
+                padding: 28px 20px;
+            }
+            
+            .page-title {
+                font-size: 1.75rem;
+            }
+            
+            .form-input {
+                padding: 14px 16px;
+            }
+            
+            .submit-button {
+                padding: 18px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+
+    <!-- 🔹 HEADER -->
+    <div class="header">
+        <div class="logo-container">
+            <img src="{{ data.logo.url }}" alt="School Logo" class="logo">
+        </div>
+        <h1 class="page-title">Payment Portal</h1>
+        <p class="subtitle">
+            Please select the type of payment you wish to make
+        </p>
+    </div>
+
+    <!-- 🔹 SELECTION CARD -->
+    <div class="payment-card">
+
+        <div class="option-card">
+            <div class="option-icon">🎓</div>
+            <h3>School Fees</h3>
+            <p>
+                Pay tuition and approved school fees
+                for enrolled students.
+            </p>
+
+            <a href="{% url 'public_payment' %}" class="submit-button">
+                Proceed to School Fees
+            </a>
+        </div>
+
+        <hr style="margin: 30px 0;">
+
+        <div class="option-card">
+            <div class="option-icon">🧾</div>
+            <h3>Other Payments</h3>
+            <p>
+                Pay for uniforms, transport, tahfeez fees,
+                cardigans and other services.
+            </p>
+
+            <a href="{% url 'other_fee_payment' %}" class="submit-button secondary">
+                Proceed to Other Payments
+            </a>
+        </div>
+
+    </div>
+
+    <!-- 🔹 SECURITY NOTICE -->
+    <div class="security-badge">
+        <div class="security-icon">🔒</div>
+        <div class="security-text">
+            All payments are processed securely via Paystack.
+            We do not store card or bank details.
+        </div>
+    </div>
+
+    <!-- 🔹 FOOTER -->
+    <div class="footer">
+        <p>
+            Need help? Contact the Bursary Department at
+            <a href="mailto:info@giia.com.ng">info@giia.com.ng</a>
+            or +234-706-5811-343
+        </p>
+        <p style="margin-top:8px;">
+            © 2025 Great Insight Int'l Academy Zaria
+        </p>
+    </div>
+
+</div>
+
+</body>
+</html>

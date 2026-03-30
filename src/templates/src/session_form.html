@@ -1,0 +1,34 @@
+{% extends "src/partials/base.html" %}
+{% block content %}
+<div class="main-content mt-1">
+    <div class="card">
+        <div class="card-header">
+            <h4>{% if session %}Edit Session{% else %}Add New Session{% endif %}</h4>
+        </div>
+        <div class="card-body">
+            <form method="POST">
+                {% csrf_token %}
+                <div class="form-group">
+                    <label>Name</label>
+                    <input type="text" name="name" class="form-control" value="{{ session.name|default:'' }}" required>
+                </div>
+                <div class="form-group">
+                    <label>Start Date</label>
+                    <input type="date" name="start_date" class="form-control" value="{% if session.start_date %}{{ session.start_date|date:"Y-m-d" }}{% else %}{{ '' }}{% endif %}" required>
+                </div>
+                <div class="form-group">
+                    <label>End Date</label>
+                    <input type="date" name="end_date" class="form-control" value="{% if session.end_date %}{{ session.end_date|date:"Y-m-d" }}{% else %}{{ '' }}{% endif %}" required>
+                </div>
+                <div class="form-group">
+                    <label>Current</label>
+                    <input type="checkbox" name="current" {% if session.current %}checked{% endif %}>
+                </div>
+                <div class="card-footer text-right">
+                    <button class="btn btn-primary" type="submit">{% if session %}Update{% else %}Add{% endif %} Session</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock content %}

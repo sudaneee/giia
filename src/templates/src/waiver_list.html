@@ -1,0 +1,72 @@
+{% extends "src/partials/base.html" %}
+{% block content %}
+<div class="main-content mt-1">
+  <div class="card">
+    <div class="card-header">
+      <h4>Fee Waiver Approvals</h4>
+      <a href="{% url 'waiver_create' %}" class="btn btn-primary">
+        Add Fee Waiver
+      </a>
+    </div>
+
+    <div class="card-body">
+      <table class="table table-striped" id="table-1">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Student</th>
+            <th>Session</th>
+            <th>Term</th>
+            <th>Waiver (%)</th>
+            <th>Status</th>
+            <th>Approved By</th>
+            <th>Date</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {% for waiver in waivers %}
+          <tr>
+            <td>{{ waiver.id }}</td>
+            <td>
+              {{ waiver.student }}
+              <br>
+              <small>{{ waiver.student.admission_number }}</small>
+            </td>
+            <td>{{ waiver.session.name }}</td>
+            <td>{{ waiver.term.name }}</td>
+            <td>{{ waiver.waiver_percentage }}%</td>
+            <td>
+              <span class="badge
+                {% if waiver.status == 'active' %}badge-success
+                {% elif waiver.status == 'used' %}badge-warning
+                {% else %}badge-danger{% endif %}
+              ">
+                {{ waiver.status|title }}
+              </span>
+            </td>
+            <td>{{ waiver.approved_by|default:"—" }}</td>
+            <td>{{ waiver.created_at|date:"Y-m-d" }}</td>
+            <td>
+              <a href="{% url 'waiver_update' waiver.id %}" class="btn btn-sm btn-warning">
+                Edit
+              </a>
+              <a href="{% url 'waiver_delete' waiver.id %}" class="btn btn-sm btn-danger">
+                Delete
+              </a>
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="9" class="text-center">
+              No fee waivers found.
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,49 @@
+{% extends "src/partials/base.html" %}
+{% block content %}
+<div class="main-content mt-1">
+    <div class="card">
+        <div class="card-header">
+            <h4>Fee Components</h4>
+            <a href="{% url 'feecomponent_create' %}" class="btn btn-primary">
+                Add Fee Component
+            </a>
+        </div>
+
+        <div class="card-body">
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Fee Structure</th>
+                        <th>Component Name</th>
+                        <th>Amount</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for comp in components %}
+                    <tr>
+                        <td>{{ forloop.counter }}</td>
+                        <td>{{ comp.fee_structure }}</td>
+                        <td>{{ comp.name }}</td>
+                        <td>₦{{ comp.amount }}</td>
+                        <td>
+                            <a href="{% url 'feecomponent_update' comp.id %}" class="btn btn-warning btn-sm">Edit</a>
+                            <a href="{% url 'feecomponent_delete' comp.id %}"
+                               class="btn btn-danger btn-sm"
+                               onclick="return confirm('Delete this component?')">
+                               Delete
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="text-center">No components found</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

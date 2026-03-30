@@ -1,0 +1,56 @@
+{% extends "src/partials/base.html" %}
+{% block content %}
+<div class="main-content mt-1">
+    <div class="card">
+        <div class="card-header">
+            <h4>Upload Results Using Excel</h4>
+        </div>
+        <div class="card-body">
+            <form method="POST" enctype="multipart/form-data">
+                {% csrf_token %}
+                <div class="form-group">
+                    <label>Term</label>
+                    <select name="term" class="form-control" required>
+                        <option value="">Select Term</option>
+                        {% for term in terms %}
+                        <option value="{{ term.id }}">{{ term.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Session</label>
+                    <select name="session" class="form-control select2" required>
+                        <option value="">Select Session</option>
+                        {% for session in sessions %}
+                        <option value="{{ session.id }}">{{ session.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Class</label>
+                    <select name="class_assigned" class="form-control select2" required>
+                        <option value="">Select Class</option>
+                        {% for school_class in classes %}
+                        <option value="{{ school_class.id }}">{{ school_class.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Subject</label>
+                    <select name="subject" class="form-control select2" required>
+                        <option value="">Select Subject</option>
+                        {% for subject in subjects %}
+                        <option value="{{ subject.id }}">{{ subject.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Upload Excel File</label>
+                    <input type="file" name="excel_file" class="form-control" required>
+                </div>
+                <button type="submit" class="btn btn-primary">Upload Results</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock content %}

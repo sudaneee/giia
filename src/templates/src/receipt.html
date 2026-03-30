@@ -1,0 +1,371 @@
+<!-- templates/src/receipt.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payment Receipt</title>
+    <style>
+        :root {
+            --navy: #0f2a47;
+            --royal-blue: #2c5aa0;
+            --light-gray: #f8f9fa;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', sans-serif;
+        }
+
+        body {
+            background: #f5f5f5;
+            padding: 40px 20px;
+        }
+
+        .receipt-container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .receipt {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+            padding: 50px;
+        }
+
+        .header-section {
+            text-align: center;
+            margin-bottom: 40px;
+            padding-bottom: 30px;
+            border-bottom: 2px solid #eee;
+        }
+
+        .school-logo {
+            max-width: 200px;
+            margin-bottom: 20px;
+        }
+
+        .school-name {
+            color: var(--navy);
+            font-size: 1.8rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+
+        .receipt-title {
+            color: #666;
+            font-size: 1.2rem;
+            margin-bottom: 30px;
+        }
+
+        .reference-number {
+            background: var(--light-gray);
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 1.1rem;
+            color: var(--navy);
+            display: inline-block;
+        }
+
+        .details-section {
+            margin-bottom: 40px;
+        }
+
+        .details-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        .detail-item h3 {
+            color: #666;
+            font-size: 0.9rem;
+            margin-bottom: 5px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .detail-item p {
+            color: var(--navy);
+            font-size: 1.1rem;
+            font-weight: 500;
+        }
+
+        .payments-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 30px 0;
+        }
+
+        .payments-table th {
+            background: var(--light-gray);
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+            color: var(--navy);
+            border-bottom: 2px solid #ddd;
+        }
+
+        .payments-table td {
+            padding: 15px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .total-section {
+            text-align: right;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 2px solid #eee;
+        }
+
+        .total-amount {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--navy);
+        }
+
+        .footer-section {
+            margin-top: 50px;
+            padding-top: 30px;
+            border-top: 2px solid #eee;
+            text-align: center;
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .signature-section {
+            margin-top: 40px;
+            text-align: right;
+        }
+
+        .signature-image {
+            max-width: 200px;
+            height: auto;
+            margin-bottom: 10px;
+        }
+
+        .actions {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-top: 40px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .btn-primary {
+            background: var(--royal-blue);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--navy);
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        @media print {
+            body {
+                background: white;
+                padding: 0;
+            }
+            
+            .actions {
+                display: none;
+            }
+            
+            .receipt {
+                box-shadow: none;
+                padding: 20px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .receipt {
+                padding: 30px 20px;
+            }
+            
+            .details-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .actions {
+                flex-direction: column;
+            }
+            
+            .btn {
+                width: 100%;
+                text-align: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="receipt-container">
+        <div class="receipt">
+            <div class="header-section">
+                {% if school.header_image %}
+                <img src="{{ school.header_image.url }}" alt="School Logo" class="school-logo">
+                {% endif %}
+                <h1 class="school-name">Great Insight Int'l Academy Zaria</h1>
+                <h2 class="receipt-title">OFFICIAL PAYMENT RECEIPT</h2>
+                <div class="reference-number">
+                    Reference: {{ batch.reference }}
+                </div>
+            </div>
+
+            <div class="details-section">
+                <div class="details-grid">
+                    <div class="detail-item">
+                        <h3>Parent Email</h3>
+                        <p>{{ batch.parent_email }}</p>
+                    </div>
+                    <div class="detail-item">
+                        <h3>Payment Date</h3>
+                        <p>{{ batch.created_at|date:"F d, Y" }}</p>
+                    </div>
+                    <div class="detail-item">
+                        <h3>Academic Session</h3>
+                        <p>{{ batch.session.name }}</p>
+                    </div>
+                    <div class="detail-item">
+                        <h3>Term</h3>
+                        <p>{{ batch.term.name }}</p>
+                    </div>
+                    <div class="detail-item">
+                        <h3>Payment Method</h3>
+                        <p>{{ payment_method }}</p>
+                    </div>
+                </div>
+
+                <h3 style="color: var(--navy); margin-bottom: 20px;">Student Payment Details</h3>
+                <table class="payments-table">
+                    <thead>
+                        <tr>
+                            <th>Student Name</th>
+                            <th>Admission Number</th>
+                            <th>Amount</th>
+                            <th>Type</th>
+                            <th>Payment for</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for payment in payments %}
+                        <tr>
+                            <td>{{ payment.student.first_name }} {{ payment.student.last_name }}</td>
+                            <td>{{ payment.student.admission_number }}</td>
+                            <td>₦{{ payment.amount_paid|floatformat:2 }}</td>
+                            <td>{{ payment.payment_method|title }}</td>
+                            <td>
+                            {% if payment.fee_structure %}
+                                School Fees
+                            {% elif payment.other_fee %}
+                                {{ payment.other_fee.name }}
+                            {% endif %}
+                            </td>
+
+
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+
+                <!-- 🔹 FINANCIAL SUMMARY -->
+                <!-- 🔹 FINANCIAL SUMMARY -->
+                <div class="total-section">
+                    <table style="width:100%; margin-top:20px;">
+
+                        {% if school_total > 0 %}
+                        <tr>
+                            <td><strong>Total School Fees Paid:</strong></td>
+                            <td style="text-align:right;">
+                                ₦{{ school_total|floatformat:2 }}
+                            </td>
+                        </tr>
+                        {% endif %}
+
+                        {% if other_fees_total > 0 %}
+                        <tr>
+                            <td><strong>Total Other Fees Paid:</strong></td>
+                            <td style="text-align:right;">
+                                ₦{{ other_fees_total|floatformat:2 }}
+                            </td>
+                        </tr>
+                        {% endif %}
+
+                        {% if total_waiver and total_waiver > 0 %}
+                        <tr>
+                            <td><strong>Total Waiver Applied:</strong></td>
+                            <td style="text-align:right;">
+                                − ₦{{ total_waiver|floatformat:2 }}
+                            </td>
+                        </tr>
+                        {% endif %}
+
+                        {% if paystack_fee > 0 %}
+                        <tr>
+                            <td><strong>Paystack Transaction Fee:</strong></td>
+                            <td style="text-align:right;">
+                                ₦{{ paystack_fee|floatformat:2 }}
+                            </td>
+                        </tr>
+                        {% endif %}
+
+                        <tr style="border-top:2px solid #ccc;">
+                            <td><strong>Total Amount Charged:</strong></td>
+                            <td style="text-align:right; font-size:18px;">
+                                ₦{{ grand_total|floatformat:2 }}
+                            </td>
+                        </tr>
+
+                    </table>
+                </div>
+
+            </div>
+
+            <div class="signature-section">
+                {% if school.signature_image %}
+                <img src="{{ school.signature_image.url }}" alt="Authorized Signature" class="signature-image">
+                {% endif %}
+                <p style="color: #666;">Authorized Signature</p>
+                <p>School Bursary Department</p>
+            </div>
+
+            <div class="footer-section">
+                <p>Great Insight Int'l Academy Zaria | +234-706-5811-343 | info@giia.com.ng</p>
+                <p style="margin-top: 10px;">
+                    This receipt reflects all payments, waivers, and transaction charges.
+                </p>
+            </div>
+        </div>
+
+        <div class="actions">
+            <button onclick="window.print()" class="btn btn-primary">Print Receipt</button>
+            <a href="{% url 'parent_dashboard' %}" class="btn btn-secondary">Back to Dashboard</a>
+            <a href="{% url 'public_payment' %}" class="btn" style="background: #e9ecef; color: var(--navy);">
+                Make Another Payment
+            </a>
+        </div>
+    </div>
+</body>
+
+</html>

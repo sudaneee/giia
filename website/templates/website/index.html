@@ -1,0 +1,465 @@
+{% extends 'website/base.html' %}
+{% load static %}
+{% block content %}
+<div class="page-wrapper">
+
+    <!-- Preloader -->
+    <div class="preloader"></div>
+
+    <!-- Main Header-->
+    {% include 'website/header.html'%}
+
+
+    <!--Main Slider-->
+    <section class="main-slider">
+
+        <div class="main-slider-carousel owl-carousel owl-theme">
+
+
+            {% for carousel in carousels%}
+            <div class="slide" style="background-image:url('{{carousel.image.url}}')">
+                <div class="auto-container">
+                    <div class="content centered clearfix">
+                        <div class="title"></div>
+                        <h1>{{carousel.title}}</h1>
+                        <div class="text">{{carousel.content}}</div>
+                        <div class="link-box">
+                            <a href="#" class="theme-btn btn-style-one">Learn More</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+
+
+
+            <div class="slide" style="background-image:url('{{car5.image.url}}')">
+                <div class="auto-container">
+                    <div class="content centered clearfix">
+                        <div class="title"></div>
+                        {% comment %} <h1>{{car5.title}}</h1>
+                        <div class="text">{{car5.content}}</div> {% endcomment %}
+                        <div class="link-box">
+                            <a href="#" class="theme-btn btn-style-one">Learn More</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+
+        </div>
+    </section>
+    <!--End Main Slider-->
+
+    <!--About Section-->
+    <section class="about-section-two">
+        <div class="auto-container">
+            <div class="row clearfix">
+                <!--Column-->
+                <div class="column col-lg-7 col-md-12 col-sm-12">
+                    <div class="about-content-box">
+                        <div class="sec-title">
+                            <h2>About Great Insight Int'l Academy</h2>
+                        </div>
+    
+                        <div class="text-justify" style="font-size: 13px;">{{data.preamble}}</div>
+
+                    </div>
+                </div>
+
+                <!--Column-->
+                <div class="column col-lg-5 col-md-12 col-sm-12">
+                    <div class="image-box">
+                        <figure class="image">
+                            <img src="{{about1.image.url}}" alt="" />
+                        </figure>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!--Fluid Section One-->
+    <section class="fluid-section-one">
+        <div class="outer-container clearfix">
+
+            <!--Image Column-->
+            <div class="image-column" style="background-image:url('{{choose1.image.url}}');">
+                <figure class="image-box"><img src="{{choose1.image.url}}" alt=""></figure>
+            </div>
+
+            <!--Content Column-->
+            <div class="content-column">
+                <div class="inner-column">
+                    <h2>Why Choose Us</h2>
+                    <div class="text">{{choose_p.content}}</div>
+                    <div class="row clearfix">
+
+                        <!--Column-->
+                        <div class="column col-lg-6 col-md-6 col-sm-12">
+                            <!--Featured Block-->
+                            <div class="featured-block">
+                                <div class="feature-inner">
+                                    <div class="icon-box">
+                                        <span class="icon flaticon-graph"></span>
+                                    </div>
+                                    <h3>Rich <br> Academics</h3>
+                                </div>
+                            </div>
+                        </div>
+                        <!--Column-->
+                        <div class="column col-lg-6 col-md-6 col-sm-12">
+                            <!--Featured Block-->
+                            <div class="featured-block">
+                                <div class="feature-inner">
+                                    <div class="icon-box">
+                                        <span class="icon flaticon-time-1"></span>
+                                    </div>
+                                    <h3>Vibrant <br> Campus</h3>
+                                </div>
+                            </div>
+                        </div>
+                        <!--Column-->
+                        <div class="column col-lg-6 col-md-6 col-sm-12">
+                            <!--Featured Block-->
+                            <div class="featured-block">
+                                <div class="feature-inner">
+                                    <div class="icon-box">
+                                        <span class="icon flaticon-graphic-1"></span>
+                                    </div>
+                                    <h3>Information <br> Technology</h3>
+                                </div>
+                            </div>
+                        </div>
+                        <!--Column-->
+                        <div class="column col-lg-6 col-md-6 col-sm-12">
+                            <!--Featured Block-->
+                            <div class="featured-block">
+                                <div class="feature-inner">
+                                    <div class="icon-box">
+                                        <span class="icon flaticon-analytics"></span>
+                                    </div>
+                                    <h3>Student <br> Support</h3>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!--Fun Facts Section-->
+    <div class="fact-counter-section">
+        <div class="fact-counter">
+            <div class="auto-container">
+                <div class="row clearfix">
+
+                    <!--Column-->
+                    <div class="column counter-column col-lg-4 col-md-6 col-sm-12">
+                        <div class="inner">
+                            <div class="count-outer count-box">
+                                <span class="count-text" data-speed="2000" data-stop="500">0+</span>
+                                <h5 class="counter-title">Students</h5>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!--Column-->
+                    <div class="column counter-column col-lg-4 col-md-6 col-sm-12">
+                        <div class="inner">
+                            <div class="count-outer count-box">
+                                <span class="count-text" data-speed="3500" data-stop="50">0+</span>
+                                <h5 class="counter-title">Amazing Subjects and Projects</h5>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!--Column-->
+                    <div class="column counter-column col-lg-4 col-md-6 col-sm-12">
+                        <div class="inner">
+                            <div class="count-outer count-box">
+                                <span class="count-text" data-speed="2000" data-stop="100">0+</span>
+                                <h5 class="counter-title">New Students Every Year</h5>
+                            </div>
+                        </div>
+                    </div>
+
+
+
+                </div>
+            </div>
+        </div>
+    </div>
+    <!--End Fun Facts Section-->
+
+    {% comment %} <!--Case Section-->
+    <section class="case-section">
+        <div class="auto-container">
+            <!--Sec Title-->
+            <div class="sec-title centered">
+                <h2>Our Courses</h2>
+            </div>
+        </div>
+        <!--Four Item Carousel-->
+        <div class="four-item-carousel owl-carousel owl-theme">
+
+            {% for course in courses %}
+            <!--Case block-->
+            <div class="case-block">
+                <div class="inner-box">
+                    <div class="image">
+                        <img src="{{course.image.url}}" alt="" />
+                        <div class="overlay-box">
+                            <div class="overlay-inner">
+                                <div class="content">
+                                    <h3><a href="gallery-single.html">{{course.title}}</a></h3>
+                                    <div class="text">{{course.content|slice:60}}...</div>
+                                    <a href="gallery-single.html" class="read-more">Read More <span class="fa fa-long-arrow-right"></span></a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+
+        </div>
+        <!--Lower Box-->
+        <div class="lower-box">
+            <div class="case-text">Want to start journery with us? <a href="#">Apply Now.</a> Our Application process is aasy</div>
+        </div>
+
+    </section>
+    <!--End Case Section--> {% endcomment %}
+
+    <!--Team Section-->
+    <section class="team-section">
+        <div class="auto-container">
+            <!--Sec Title-->
+            <div class="sec-title centered">
+                <h2>Meet Our Management Team</h2>
+            </div>
+
+            <div class="row clearfix">
+
+                {% for staff in staffs%}
+                <!--Team Member-->
+                <div class="team-member col-lg-3 col-md-6 col-sm-12">
+                    <div class="inner-box wow fadeIn" data-wow-delay="0ms" data-wow-duration="1500ms">
+                        <div class="image-box">
+                            <figure class="image"><img src="{{staff.image.url}}" alt=""></figure>
+                            <ul class="social-icon-two">
+                                <li><a href="#"><span class="fa fa-facebook-f"></span></a></li>
+                                <li><a href="#"><span class="fa fa-twitter"></span></a></li>
+                                <li><a href="#"><span class="fa fa-google-plus"></span></a></li>
+                                <li><a href="#"><span class="fa fa-instagram"></span></a></li>
+                            </ul>
+                        </div>
+                        <div class="lower-content mt-1">
+                            <h6><a href="{% url 'staff-single' staff.id %}">{{staff.name}}</a></h6>
+                            <div class="designation">{{staff.designation}}</div>
+                          
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+
+
+            </div>
+
+        </div>
+    </section>
+    <!--End Team Section-->
+
+    {% comment %} <!--Sponsors Section-->
+    <section class="sponsors-section" style="background-image:url({% static 'website/images/background/1.jpg' %});">
+        <div class="auto-container">
+            <div class="carousel-outer">
+                <!--Sponsors Slider-->
+                <ul class="sponsors-carousel owl-carousel owl-theme">
+                    <li>
+                        <div class="image-box">
+                            <a href="#"><img src="{% static 'website/images/clients/1.png' %}" alt=""></a>
+                        </div>
+                    </li>
+                    <li>
+                        <div class="image-box">
+                            <a href="#"><img src="{% static 'website/images/clients/2.png' %}" alt=""></a>
+                        </div>
+                    </li>
+                    <li>
+                        <div class="image-box">
+                            <a href="#"><img src="{% static 'website/images/clients/3.png' %}" alt=""></a>
+                        </div>
+                    </li>
+                    <li>
+                        <div class="image-box">
+                            <a href="#"><img src="{% static 'website/images/clients/4.png' %}" alt=""></a>
+                        </div>
+                    </li>
+                    <li>
+                        <div class="image-box">
+                            <a href="#"><img src="{% static 'website/images/clients/5.png' %}" alt=""></a>
+                        </div>
+                    </li>
+                    <li>
+                        <div class="image-box">
+                            <a href="#"><img src="{% static 'website/images/clients/1.png' %}" alt=""></a>
+                        </div>
+                    </li>
+                    <li>
+                        <div class="image-box">
+                            <a href="#"><img src="{% static 'website/images/clients/2.png' %}" alt=""></a>
+                        </div>
+                    </li>
+                    <li>
+                        <div class="image-box">
+                            <a href="#"><img src="{% static 'website/images/clients/3.png' %}" alt=""></a>
+                        </div>
+                    </li>
+                    <li>
+                        <div class="image-box">
+                            <a href="#"><img src="{% static 'website/images/clients/4.png' %}" alt=""></a>
+                        </div>
+                    </li>
+                    <li>
+                        <div class="image-box">
+                            <a href="#"><img src="{% static 'website/images/clients/5.png' %}" alt=""></a>
+                        </div>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </section>
+    <!--End Sponsors Section--> {% endcomment %}
+
+    <!--News Section-->
+    <section class="news-section">
+        <div class="auto-container">
+            <!--Sec Title-->
+            <div class="sec-title centered">
+                <h2>Our Latest News</h2>
+            </div>
+
+            <div class="row clearfix">
+
+                <!--News Block-->
+                {% for blog in blogs %}
+                <div class="news-block col-lg-4 col-md-6 col-sm-12">
+                    <div class="inner-box">
+                        <div class="image">
+                            <a href="{% url 'news-single' blog.id %}"><img src="{{blog.image.url}}" alt="" /></a>
+                            {% comment %} <ul class="category">
+                                <li><a href="blog-single.html">Initiative, </a></li>
+                                <li><a href="blog-single.html">Programs</a></li>
+                            </ul> {% endcomment %}
+                        </div>
+                        <div class="lower-content">
+                            {% comment %} <div class="author">
+                                Golifa Mona
+                            </div> {% endcomment %}
+                            <h5><a href="{% url 'news-single' blog.id %}">{{blog.title}}</a></h5>
+                            <div class="text-justify">{{blog.content}}</div>
+                            <ul class="post-date">
+                                <li>{{blog.posted}}</li>
+                            </ul> 
+                        </div>
+                    </div>
+                </div>
+                {%endfor%}
+
+
+
+            </div>
+
+        </div>
+    </section>
+    <!--End News Section-->
+
+
+
+    {% comment %} <!--Map Info Section-->
+    <section class="map-info-section">
+        <div class="outer-container">
+            <div class="clearfix">
+                <!--Left Column-->
+                <div class="left-column">
+                    <!--Map Outer-->
+                    <div class="map-outer">
+                        <!--Map Canvas-->
+                        <div class="map-canvas" data-zoom="12" data-lat="11.050738731519033" data-lng="7.686241204894909" data-type="roadmap" data-hue="#ffc400" data-title="Envato" data-icon-path="{% static 'website/images/icons/map-marker.png' %}" data-content="Melbourne VIC 3000, Australia<br><a href='mailto:info@youremail.com'>info@youremail.com</a>">
+                        </div>
+                    </div>
+                </div>
+                <!--Right Column-->
+                <div class="right-column" style="background-image:url({% static 'website/images/resource/image-1.jpg' %})">
+                    <div class="content">
+                        <h3>Request for quote</h3>
+                        <div class="text">The argument in favor of using filler text goes something like this: If you use real content in the design process.</div>
+
+                        <!-- Quote Form -->
+                        <div class="quote-form">
+
+                            <!--Contact Form-->
+                            <form method="post" action="#">
+                                <div class="row clearfix">
+
+                                    <div class="form-group col-lg-6 col-md-6 col-sm-12">
+                                        <input type="text" name="username" placeholder="How to assist you:*" required>
+                                    </div>
+
+                                    <div class="form-group col-lg-6 col-md-6 col-sm-12">
+                                        <input type="text" name="phone" placeholder="Phone number:*" required>
+                                    </div>
+
+                                    <div class="form-group col-lg-6 col-md-6 col-sm-12">
+                                        <input type="text" name="text" placeholder="Your name:*" required>
+                                    </div>
+
+                                    <div class="form-group col-lg-6 col-md-6 col-sm-12">
+                                        <button type="submit" class="theme-btn btn-style-one">Submit request <span class="icon flaticon-share-option"></span></button>
+                                    </div>
+
+                                </div>
+                            </form>
+                        </div>
+
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </section>
+    <!--End Map Info Section-->
+
+    <!--Subscribe Style One-->
+    <section class="subscribe-style-one">
+        <div class="auto-container">
+            <div class="row clearfix">
+                <div class="col-lg-5 col-md-12 col-sm-12">
+                    <h2>Newsletter Subscribe</h2>
+                    <div class="text">Sign up today for hints, tips and the latest Updates.</div>
+                </div>
+                <div class="col-lg-7 col-md-12 col-sm-12">
+                    <form method="post" action="#">
+                        <div class="form-group clearfix">
+                            <input type="email" name="email" value="" placeholder="Enter Email Address" required>
+                            <button type="submit" class="theme-btn btn-style-one">Subscribe</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </section>
+    <!--End Subscribe Style One--> {% endcomment %}
+
+    <!--Main Footer-->
+    {% include 'website/footer.html' %}
+
+</div>
+<!--End pagewrapper-->
+
+{%endblock content%}

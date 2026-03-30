@@ -1,0 +1,237 @@
+{% extends "src/partials/base.html" %}
+{% block content %}
+
+<div class="main-content mt-1">
+    <div class="card">
+
+        <!-- ================= HEADER ================= -->
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h4>Payments List</h4>
+            <a href="{% url 'payment_create' %}" class="btn btn-primary">
+                Add New Payment
+            </a>
+        </div>
+
+        <div class="card-body">
+
+            <!-- ================= FILTER FORM ================= -->
+            <form method="GET" class="mb-4">
+                <div class="form-row">
+
+                    <!-- Date Range -->
+                    <div class="form-group col-md-2">
+                        <label>Start Date</label>
+                        <input type="date" name="start_date" class="form-control">
+                    </div>
+
+                    <div class="form-group col-md-2">
+                        <label>End Date</label>
+                        <input type="date" name="end_date" class="form-control">
+                    </div>
+
+                    <!-- Session -->
+                    <div class="form-group col-md-2">
+                        <label>Session</label>
+                        <select name="session" class="form-control select2">
+                            <option value="">All Sessions</option>
+                            {% for session in sessions %}
+                                <option value="{{ session.id }}">
+                                    {{ session.name }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- Term -->
+                    <div class="form-group col-md-2">
+                        <label>Term</label>
+                        <select name="term" class="form-control select2">
+                            <option value="">All Terms</option>
+                            {% for t in terms %}
+                                <option value="{{ t.id }}">{{ t.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- Fee Structure -->
+                    <div class="form-group col-md-2">
+                        <label>Fee Structure</label>
+                        <select name="fee_structure" class="form-control select2">
+                            <option value="">All School Fees</option>
+                            {% for fee in feestructures %}
+                                <option value="{{ fee.id }}">
+                                    {{ fee }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- Fee Component -->
+                    <div class="form-group col-md-2">
+                        <label>Fee Component</label>
+                        <select name="component" class="form-control select2">
+                            <option value="">-- All Components --</option>
+                            {% for comp in components %}
+                                <option value="{{ comp.id }}">
+                                    {{ comp.name }} ({{ comp.fee_structure }})
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- Other Fees -->
+                    <div class="form-group col-md-2">
+                        <label>Other Fee</label>
+                        <select name="other_fee" class="form-control select2">
+                            <option value="">All Other Fees</option>
+                            {% for ofee in other_fees %}
+                                <option value="{{ ofee.id }}">
+                                    {{ ofee.name }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- Payment Method -->
+                    <div class="form-group col-md-2">
+                        <label>Payment Method</label>
+                        <select name="payment_method" class="form-control">
+                            <option value="">All</option>
+                            <option value="cash">Cash</option>
+                            <option value="credit_card">Card</option>
+                            <option value="bank_transfer">Transfer</option>
+                            <option value="waiver">Waiver</option>
+                        </select>
+                    </div>
+
+                    <!-- Status -->
+                    <div class="form-group col-md-2">
+                        <label>Status</label>
+                        <select name="status" class="form-control">
+                            <option value="">All</option>
+                            <option value="paid">Paid</option>
+                            <option value="pending">Pending</option>
+                            <option value="overdue">Overdue</option>
+                        </select>
+                    </div>
+
+                    <!-- Reference ID -->
+                    <div class="form-group col-md-2">
+                        <label>Reference ID</label>
+                        <input type="text" name="reference_id" class="form-control">
+                    </div>
+
+                    <!-- Submit -->
+                    <div class="form-group col-md-2 align-self-end">
+                        <button type="submit" class="btn btn-primary btn-block">
+                            Apply Filters
+                        </button>
+                    </div>
+
+                </div>
+            </form>
+
+            <!-- ================= COMPONENT REPORT ================= -->
+            {% if component_report %}
+            <div class="card mb-4">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">
+                        Fee Component Earnings Report:
+                        {{ component_report.component.name }}
+                    </h5>
+                </div>
+
+                <div class="card-body">
+                    <table class="table table-bordered">
+                        <tr>
+                            <th>Component</th>
+                            <td>{{ component_report.component.name }}</td>
+                        </tr>
+                        <tr>
+                            <th>Gross Collected</th>
+                            <td>₦{{ component_report.gross }}</td>
+                        </tr>
+                        <tr>
+                            <th>Waived Amount</th>
+                            <td>₦{{ component_report.waived }}</td>
+                        </tr>
+                        <tr class="table-success">
+                            <th>Net Collected</th>
+                            <td><strong>₦{{ component_report.net }}</strong></td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- ================= TOTAL ================= -->
+            {% if not component_report %}
+            <h5 class="mb-3">
+                Total Amount Paid:
+                <strong>₦{{ total_sum }}</strong>
+            </h5>
+            {% endif %}
+
+            <!-- ================= NORMAL PAYMENTS TABLE ================= -->
+            {% if not component_report %}
+            <table class="table table-striped" id="table-1">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Student</th>
+                        <th>Amount</th>
+                        <th>Batch Reference</th>
+                        <th>Type</th>
+                        <th>Method</th>
+                        <th>Status</th>
+                        <th>Date</th>
+                        <th>Term</th>
+                        <th>Session</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for payment in payments %}
+                    <tr>
+                        <td>{{ payment.id }}</td>
+                        <td>
+                            {{ payment.student }}
+                            <br>
+                            <small class="text-muted">
+                                {{ payment.student.admission_number }}
+                            </small>
+                        </td>
+                        <td>₦{{ payment.amount_paid }}</td>
+                        <td>
+                            {{ payment.payment_batch.reference }}
+                        </td>
+                        <td>
+                            {% if payment.fee_structure %}
+                                School Fee
+                            {% elif payment.other_fee %}
+                                {{ payment.other_fee.name }}
+                            {% else %}
+                                —
+                            {% endif %}
+                        </td>
+                        <td>{{ payment.payment_method|title }}</td>
+                        <td>{{ payment.status|title }}</td>
+                        <td>{{ payment.payment_date }}</td>
+                        <td>{{ payment.term.name }}</td>
+                        <td>{{ payment.session.name }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="10" class="text-center">
+                            No payments found for the selected filters.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% endif %}
+
+        </div>
+    </div>
+</div>
+
+{% endblock content %}

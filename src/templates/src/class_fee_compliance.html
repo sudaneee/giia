@@ -1,0 +1,92 @@
+{% extends "src/partials/base.html" %}
+{% block content %}
+
+<div class="main-content">
+    <div class="card">
+        <div class="card-header">
+            <h4>Class Fee Compliance Report</h4>
+        </div>
+
+        <div class="card-body">
+
+            <!-- FILTER FORM -->
+            <form method="get" class="form-row mb-4">
+                <div class="form-group col-md-3">
+                    <label>Session</label>
+                    <select name="session" class="form-control select2" required>
+                        <option value="">Select</option>
+                        {% for s in sessions %}
+                            <option value="{{ s.id }}">{{ s.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-group col-md-3">
+                    <label>Term</label>
+                    <select name="term" class="form-control select2" required>
+                        <option value="">Select</option>
+                        {% for t in terms %}
+                            <option value="{{ t.id }}">{{ t.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-group col-md-3">
+                    <label>Class</label>
+                    <select name="class" class="form-control select2" required>
+                        <option value="">Select</option>
+                        {% for c in classes %}
+                            <option value="{{ c.id }}">{{ c }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-group col-md-3 align-self-end">
+                    <button class="btn btn-primary btn-block">
+                        View Report
+                    </button>
+                </div>
+            </form>
+
+            {% if results %}
+            <table class="table table-bordered table-striped">
+                <thead>
+                    <tr>
+                        <th>Student</th>
+                        <th>Admission No</th>
+                        <th>Expected</th>
+                        <th>Paid</th>
+                        <th>Waived</th>
+                        <th>Outstanding</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in results %}
+                    <tr>
+                        <td>{{ row.student }}</td>
+                        <td>{{ row.student.admission_number }}</td>
+                        <td>₦{{ row.expected }}</td>
+                        <td>₦{{ row.paid }}</td>
+                        <td>₦{{ row.waived }}</td>
+                        <td>₦{{ row.outstanding }}</td>
+                        <td>
+                            {% if row.status == "Fully Paid" %}
+                                <span class="badge badge-success">Fully Paid</span>
+                            {% elif row.status == "Partially Paid" %}
+                                <span class="badge badge-warning">Partially Paid</span>
+                            {% else %}
+                                <span class="badge badge-danger">Not Paid</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% endif %}
+
+        </div>
+    </div>
+</div>
+
+{% endblock %}

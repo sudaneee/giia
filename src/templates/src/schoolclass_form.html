@@ -1,0 +1,39 @@
+{% extends "src/partials/base.html" %}
+{% block content %}
+<div class="main-content mt-1">
+    <div class="card">
+        <div class="card-header">
+            <h4>{% if schoolclass %}Edit School Class{% else %}Add New School Class{% endif %}</h4>
+        </div>
+        <div class="card-body">
+            <form method="POST">
+                {% csrf_token %}
+                <div class="form-group">
+                    <label>Name</label>
+                    <input type="text" name="name" class="form-control" value="{{ schoolclass.name|default:'' }}" required>
+                </div>
+                <div class="form-group">
+                    <label>Level</label>
+                    <input type="text" name="level" class="form-control" value="{{ schoolclass.level|default:'' }}" required>
+                </div>
+                <div class="form-group">
+                    <label>Arm</label>
+                    <select name="arm" class="form-control">
+                        <option value="A" {% if schoolclass.arm == 'A' %}selected{% endif %}>A</option>
+                        <option value="B" {% if schoolclass.arm == 'B' %}selected{% endif %}>B</option>
+                        <option value="C" {% if schoolclass.arm == 'C' %}selected{% endif %}>C</option>
+                        <option value="D" {% if schoolclass.arm == 'D' %}selected{% endif %}>D</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Description</label>
+                    <textarea name="description" class="form-control">{{ schoolclass.description|default:'' }}</textarea>
+                </div>
+                <div class="card-footer text-right">
+                    <button class="btn btn-primary" type="submit">{% if schoolclass %}Update{% else %}Add{% endif %} School Class</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock content %}

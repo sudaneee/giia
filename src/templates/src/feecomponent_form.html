@@ -1,0 +1,46 @@
+{% extends "src/partials/base.html" %}
+{% block content %}
+<div class="main-content mt-1">
+    <div class="card">
+        <div class="card-header">
+            <h4>
+                {% if component %}Update{% else %}Add{% endif %} Fee Component
+            </h4>
+        </div>
+
+        <div class="card-body">
+            <form method="POST">
+                {% csrf_token %}
+
+                <div class="form-group">
+                    <label>Fee Structure</label>
+                    <select name="fee_structure" class="form-control" required>
+                        <option value="">Select Fee Structure</option>
+                        {% for fs in feestructures %}
+                        <option value="{{ fs.id }}"
+                            {% if component and component.fee_structure.id == fs.id %}selected{% endif %}>
+                            {{ fs }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Component Name</label>
+                    <input type="text" name="name" class="form-control"
+                           value="{{ component.name|default:'' }}" required>
+                </div>
+
+                <div class="form-group">
+                    <label>Amount</label>
+                    <input type="number" name="amount" step="0.01" class="form-control"
+                           value="{{ component.amount|default:'' }}" required>
+                </div>
+
+                <button type="submit" class="btn btn-primary">Save</button>
+                <a href="{% url 'feecomponent_list' %}" class="btn btn-secondary">Cancel</a>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

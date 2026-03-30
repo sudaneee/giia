@@ -1,0 +1,34 @@
+{% extends "src/partials/base.html" %}
+{% block content %}
+<div class="main-content mt-1">
+    <div class="card">
+        <div class="card-header">
+            <h4>{% if supplier %}Edit Supplier{% else %}Add New Supplier{% endif %}</h4>
+        </div>
+        <div class="card-body">
+            <form method="POST">
+                {% csrf_token %}
+                <div class="form-group">
+                    <label>Name</label>
+                    <input type="text" name="name" class="form-control" value="{{ supplier.name|default:'' }}" required>
+                </div>
+                <div class="form-group">
+                    <label>Email</label>
+                    <input type="email" name="contact_email" class="form-control" value="{{ supplier.contact_email|default:'' }}">
+                </div>
+                <div class="form-group">
+                    <label>Phone</label>
+                    <input type="text" name="contact_phone" class="form-control" value="{{ supplier.contact_phone|default:'' }}">
+                </div>
+                <div class="form-group">
+                    <label>Address</label>
+                    <textarea name="address" class="form-control">{{ supplier.address|default:'' }}</textarea>
+                </div>
+                <div class="card-footer text-right">
+                    <button class="btn btn-primary" type="submit">{% if supplier %}Update{% else %}Add{% endif %} Supplier</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock content %}

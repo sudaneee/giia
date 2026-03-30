@@ -1,0 +1,40 @@
+{% extends "src/partials/base.html" %}
+{% block content %}
+<div class="main-content mt-1">
+    <div class="card">
+        <div class="card-header">
+            <h4>Terms List</h4>
+            <a href="{% url 'term_create' %}" class="btn btn-primary">Add New Term</a>
+        </div>
+        <div class="card-body">
+            <table class="table table-stripped" id="table-1">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Name</th>
+                        <th>Session</th>
+                        <th>Start Date</th>
+                        <th>End Date</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for term in terms %}
+                    <tr>
+                        <td>{{ term.id }}</td>
+                        <td>{{ term.name }}</td>
+                        <td>{{ term.session.name }}</td>
+                        <td>{{ term.start_date }}</td>
+                        <td>{{ term.end_date }}</td>
+                        <td>
+                            <a href="{% url 'term_update' term.id %}" class="btn btn-warning btn-sm">Edit</a>
+                            <a href="{% url 'term_delete' term.id %}" class="btn btn-danger btn-sm">Delete</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock content %}

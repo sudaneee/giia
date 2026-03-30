@@ -1,0 +1,100 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.5.3/dist/css/bootstrap.min.css" integrity="sha384-TX8t27EcRE3e/ihU7zmQxVncDAy5uIKz4rEkgIXeMed4M0jlfIDPvg6uqKI2xXr2" crossorigin="anonymous">
+    <link rel="stylesheet" type="text/css" href="{% static 'src/main.css' %}">
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        @media print {
+            @page {
+                size: A4 landscape;
+            }
+            .a-page {
+                float: left;
+                page-break-inside: avoid;
+            }
+            body {
+                background: #fff !important;
+            }
+        }
+    </style>
+    <title>Result Summary</title>
+  </head>
+  <body id="printarea">
+    <div class="card">
+      <div class="card-body">
+        <table border="0" width="100%" style="color:black">
+          <thead>
+            <tr>
+              <th>Class:</th>
+              <td colspan="3">{{ school_class.name }}</td>
+            </tr>
+            <tr>
+              <th>Term:</th>
+              <td>{{ term.name }}</td>
+              <th>Session:</th>
+              <td>{{ session.name }}</td>
+            </tr>
+          </thead>
+        </table>
+
+        <table border="1" style="color:black" width="100%">
+          <thead>
+            <tr>
+              <th>Names/Subjects</th>
+              {% for result in results_data.0.results %}
+              <th colspan="7" style="text-align: center;">{{ result.subject.name }}</th>
+              {% endfor %}
+            </tr>
+            <tr>
+              <th></th>
+              {% for result in results_data.0.results %}
+              <th style="writing-mode: vertical-rl; text-orientation: mixed; transform: rotate(180deg);">1st C.A</th>
+              <th style="writing-mode: vertical-rl; text-orientation: mixed; transform: rotate(180deg);">2nd C.A</th>
+              <th style="writing-mode: vertical-rl; text-orientation: mixed; transform: rotate(180deg);">Home Word</th>
+              <th style="writing-mode: vertical-rl; text-orientation: mixed; transform: rotate(180deg);">Activity</th>
+              <th style="writing-mode: vertical-rl; text-orientation: mixed; transform: rotate(180deg);">Exams</th>
+              <th style="writing-mode: vertical-rl; text-orientation: mixed; transform: rotate(180deg);">Total</th>
+              <th style="writing-mode: vertical-rl; text-orientation: mixed; transform: rotate(180deg);">Grade</th>
+              {% endfor %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for data in results_data %}
+            <tr>
+              <td>{{ data.student }}</td>
+              {% for result in data.results %}
+              <td style="text-align: center;">{{ result.ca1_marks }}</td>
+              <td style="text-align: center;">{{ result.ca2_marks }}</td>
+              <td style="text-align: center;">{{ result.home_work_marks }}</td>
+              <td style="text-align: center;">{{ result.activity_marks }}</td>
+              <td style="text-align: center;">{{ result.exam_marks }}</td>
+              <td style="text-align: center;">{{ result.total_marks }}</td>
+              <td style="text-align: center;">{{ result.grade }}</td>
+              {% endfor %}
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+
+        <table class="table" border="0" width="100%" style="color:black">
+          <thead>
+            <tr>
+              <th colspan="8">{{ school_config.principal_name }}:</th>
+              <th colspan="3">{{ school_config.director_academics_name }}:</th>
+            </tr>
+          </thead>
+        </table>
+      </div>
+    </div>
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js" integrity="sha384-DfXdz2htPH0lsSSs5nCTpuZy4C+OGpamoFVy38MVBnE+IbbVYUew+OrCXaRkfj" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-ho+j7jyWK8fNQe+A12Hb8AhRq26LrZ/JpcUGGOn+Y7RsweNrtN/tE3MoK7ZeZDyx" crossorigin="anonymous"></script>
+  </body>
+</html>

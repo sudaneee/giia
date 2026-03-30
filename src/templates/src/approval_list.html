@@ -1,0 +1,79 @@
+{% extends "src/partials/base.html" %}
+{% block content %}
+<div class="main-content mt-1">
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h4>Part Payment Approvals</h4>
+            <a href="{% url 'approval_create' %}" class="btn btn-primary">
+                Approve Part Payment
+            </a>
+        </div>
+
+        <div class="card-body">
+            <table class="table table-striped" id="table-1">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Parent Email</th>
+                        <th>Session</th>
+                        <th>Term</th>
+                        <th>Approved Amount</th>
+                        <th>Status</th>
+                        <th>Approved By</th>
+                        <th>Date</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for approval in approvals %}
+                    <tr>
+                        <td>{{ forloop.counter }}</td>
+                        <td>{{ approval.parent_email }}</td>
+                        <td>{{ approval.session.name }}</td>
+                        <td>{{ approval.term.name }}</td>
+                        <td>₦{{ approval.approved_amount }}</td>
+
+                        <td>
+                            {% if approval.status == "active" %}
+                                <span class="badge badge-success">Active</span>
+                            {% elif approval.status == "used" %}
+                                <span class="badge badge-secondary">Used</span>
+                            {% else %}
+                                <span class="badge badge-danger">Expired</span>
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            {{ approval.approved_by|default:"—" }}
+                        </td>
+
+                        <td>{{ approval.created_at|date:"Y-m-d" }}</td>
+
+                        <td>
+                            {% if approval.status == "active" %}
+                                <a href="{% url 'approval_update' approval.id %}"
+                                   class="btn btn-warning btn-sm">
+                                    Edit
+                                </a>
+                            {% endif %}
+
+                            <a href="{% url 'approval_delete' approval.id %}"
+                               class="btn btn-danger btn-sm"
+                               onclick="return confirm('Delete this approval?')">
+                               Delete
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="9" class="text-center">
+                            No part-payment approvals found
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

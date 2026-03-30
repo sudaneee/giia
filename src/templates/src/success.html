@@ -1,0 +1,162 @@
+<!-- templates/src/success.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payment Successful</title>
+    <style>
+        :root {
+            --success: #28a745;
+            --navy: #0f2a47;
+            --soft-blue: #f0f7ff;
+            --white: #ffffff;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', sans-serif;
+        }
+
+        body {
+            background: var(--soft-blue);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .success-card {
+            background: var(--white);
+            border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+            padding: 50px;
+            text-align: center;
+            max-width: 500px;
+            width: 100%;
+        }
+
+        .success-icon {
+            font-size: 4rem;
+            color: var(--success);
+            margin-bottom: 20px;
+        }
+
+        .title {
+            color: var(--navy);
+            font-size: 2rem;
+            margin-bottom: 10px;
+        }
+
+        .message {
+            color: #666;
+            margin-bottom: 30px;
+            line-height: 1.6;
+        }
+
+        .reference {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            font-family: monospace;
+            font-size: 1.2rem;
+        }
+
+        .actions {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-top: 30px;
+        }
+
+        .btn {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .btn-primary {
+            background: var(--success);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #218838;
+            transform: translateY(-2px);
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+
+        .info-box {
+            background: #e8f5e9;
+            border-left: 4px solid var(--success);
+            padding: 15px;
+            margin: 20px 0;
+            text-align: left;
+        }
+
+        @media (max-width: 480px) {
+            .success-card {
+                padding: 30px 20px;
+            }
+            
+            .actions {
+                flex-direction: column;
+            }
+            
+            .btn {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="success-card">
+        <div class="success-icon">✓</div>
+        <h1 class="title">Payment Successful!</h1>
+        
+        <p class="message">
+            Your payment has been processed successfully. A receipt has been sent to your email.
+        </p>
+        
+        <div class="reference">
+            Reference: {{ reference }}
+        </div>
+        
+        <div class="info-box">
+            <strong>Important:</strong> Please save your reference number for future reference.
+            You can use it to track your payment on the parent dashboard.
+        </div>
+        
+        <div class="actions">
+            <a href="{% url 'payment_receipt' reference=reference %}" class="btn btn-primary">
+                View Receipt
+            </a>
+            <a href="{% url 'parent_dashboard' %}" class="btn btn-secondary">
+                Go to Dashboard
+            </a>
+        </div>
+        
+        <p style="margin-top: 30px; color: #666; font-size: 0.9rem;">
+            <a href="{% url 'public_payment' %}" style="color: #2c5aa0;">Make another payment</a>
+        </p>
+    </div>
+</body>
+</html>

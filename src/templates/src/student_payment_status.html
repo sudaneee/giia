@@ -1,0 +1,82 @@
+{% extends "src/partials/base.html" %}
+{% block content %}
+<div class="main-content mt-1">
+    <div class="card">
+        <div class="card-header">
+            <h4>Student Fee Payment Status</h4>
+        </div>
+
+        <div class="card-body">
+            <form method="GET" class="form-row mb-4">
+                <div class="col-md-3">
+                    <select name="session" class="form-control" required>
+                        <option value="">Select Session</option>
+                        {% for s in sessions %}
+                        <option value="{{ s.id }}">{{ s.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="col-md-3">
+                    <select name="term" class="form-control" required>
+                        <option value="">Select Term</option>
+                        {% for t in terms %}
+                        <option value="{{ t.id }}">{{ t.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="col-md-3">
+                    <select name="school_class" class="form-control" required>
+                        <option value="">Select Class</option>
+                        {% for c in classes %}
+                        <option value="{{ c.id }}">{{ c }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="col-md-3">
+                    <button class="btn btn-primary btn-block">Generate</button>
+                </div>
+            </form>
+
+            {% if results %}
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Student</th>
+                        <th>Admission No</th>
+                        <th>Expected</th>
+                        <th>Paid</th>
+                        <th>Waiver</th>
+                        <th>Outstanding</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in results %}
+                    <tr>
+                        <td>{{ r.student }}</td>
+                        <td>{{ r.student.admission_number }}</td>
+                        <td>₦{{ r.expected }}</td>
+                        <td>₦{{ r.paid }}</td>
+                        <td>₦{{ r.waiver }}</td>
+                        <td>₦{{ r.outstanding }}</td>
+                        <td>
+                            <span class="badge 
+                                {% if r.status == 'PAID' %}badge-success
+                                {% elif r.status == 'PARTIAL' %}badge-warning
+                                {% else %}badge-danger{% endif %}
+                            ">
+                                {{ r.status }}
+                            </span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

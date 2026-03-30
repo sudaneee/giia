@@ -1,0 +1,140 @@
+{% extends "src/partials/base.html" %}
+{% block content %}
+<div class="main-content mt-1">
+    <div class="card">
+        <div class="card-header">
+            <h4>Select Criteria for Viewing Examination Results</h4>
+        </div>
+        <div class="card-body">
+            <form method="POST">
+                {% csrf_token %}
+                <div class="form-group">
+                    <label>Select Session</label>
+                    <select name="session" class="form-control" required>
+                        <option value="">Select Session</option>
+                        {% for session in sessions %}
+                        <option value="{{ session.id }}">{{ session.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Select Term</label>
+                    <select name="term" class="form-control" required>
+                        <option value="">Select Term</option>
+                        {% for term in terms %}
+                        <option value="{{ term.id }}">{{ term.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Select Class</label>
+                    <select name="class_assigned" class="form-control" required>
+                        <option value="">Select Class</option>
+                        {% for school_class in classes %}
+                        <option value="{{ school_class.id }}">{{ school_class.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary">View Results</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% if results_data %}
+<div class="main-content mt-1">
+    <div class="card">
+        <div class="card-body">
+            {% if school_config %}
+            <div class="header">
+                <img src="{{ school_config.header_image.url }}" alt="School Header">
+            </div>
+            {% endif %}
+
+            <div class="title">
+                <h2>Examination Report Card1</h2>
+            </div>
+
+            {% for data in results_data %}
+            <div class="result-section">
+                <h3>Student: {{ data.student.first_name }} {{ data.student.last_name }}</h3>
+                <p><strong>Admission Number:</strong> {{ data.student.admission_number }}</p>
+                <p><strong>Current Class:</strong> {{ data.student.enrolled_class }}</p>
+                <p><strong>Gender:</strong> {{ data.student.gender }}</p>
+
+                <div class="table">
+                    <table class="table table-stripped" id="table-1">
+                        <thead>
+                            <tr>
+                                <th>Subject</th>
+                                <th>CA1</th>
+                                <th>CA2</th>
+                                <th>Home Work</th>
+                                <th>Activity</th>
+                                <th>Exam</th>
+                                <th>Total</th>
+                                <th>Grade</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for result in data.results %}
+                            <tr>
+                                <td>{{ result.subject.name }}</td>
+                                <td>{{ result.ca1_marks }}</td>
+                                <td>{{ result.ca2_marks }}</td>
+                                <td>{{ result.home_work_marks }}</td>
+                                <td>{{ result.activity_marks }}</td>
+                                <td>{{ result.exam_marks }}</td>
+                                <td>{{ result.ca1_marks|add:result.ca2_marks|add:result.home_work_marks|add:result.activity_marks|add:result.exam_marks }}</td>
+                                <td>{{ result.grade }}</td>
+                            </tr>
+                            {% endfor %}
+                            <tr>
+                                <td colspan="4"><strong>Total Score</strong></td>
+                                <td>{{ data.total_score }}</td>
+                                <td colspan="1"><strong>Average: {{ data.average_score|floatformat:2 }}%</strong></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                {% if data.behavioral_assessment %}
+                <div class="table">
+                    <h4>Behavioral Assessment</h4>
+                    <table class="table table-stripped" id="table-1">
+                        <tr><td>Conduct</td><td>{{ data.behavioral_assessment.conduct }}</td></tr>
+                        <tr><td>Punctuality</td><td>{{ data.behavioral_assessment.punctuality }}</td></tr>
+                        <tr><td>Dedication</td><td>{{ data.behavioral_assessment.dedication }}</td></tr>
+                        <tr><td>Participation</td><td>{{ data.behavioral_assessment.participation }}</td></tr>
+                        <tr><td>Hospitality</td><td>{{ data.behavioral_assessment.hospitality }}</td></tr>
+                        <tr><td>Neatness</td><td>{{ data.behavioral_assessment.neatness }}</td></tr>
+                        <tr><td>Creativity</td><td>{{ data.behavioral_assessment.creativity }}</td></tr>
+                        <tr><td>Physical</td><td>{{ data.behavioral_assessment.physical }}</td></tr>
+                    </table>
+                </div>
+                {% endif %}
+
+                <div class="table">
+                    <h4>General Comments</h4>
+                    <p>{{ data.comments }}</p>
+                </div>
+
+                <div class="table">
+                    <h4>Payment Status</h4>
+                    <p><strong>Status:</strong> {{ data.fee_status }}</p>
+                    <p><strong>Outstanding Balance:</strong> {{ data.outstanding_balance }}</p>
+                </div>
+
+                {% if school_config %}
+                <div class="footer">
+                    <img src="{{ school_config.signature_image.url }}" alt="Signature">
+                </div>
+                {% endif %}
+            </div>
+            <hr>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock content %}

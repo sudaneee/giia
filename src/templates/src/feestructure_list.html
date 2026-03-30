@@ -1,0 +1,78 @@
+{% extends "src/partials/base.html" %}
+{% block content %}
+<div class="main-content mt-1">
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h4>Fee Structures</h4>
+            <a href="{% url 'feestructure_create' %}" class="btn btn-primary">
+                Add New Fee Structure
+            </a>
+        </div>
+
+        <div class="card-body">
+            <table class="table table-striped" id="table-1">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Section</th>
+                        <th>Session</th>
+                        <th>Term Group</th>
+                        <th>Student Type</th>
+                        <th>Transport</th>
+                        <th>Total Amount (₦)</th>
+                        <th>Description</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {% for feestructure in feestructures %}
+                    <tr>
+                        <td>{{ forloop.counter }}</td>
+
+                        <td>{{ feestructure.section }}</td>
+
+                        <td>{{ feestructure.session.name }}</td>
+
+                        <td>{{ feestructure.get_term_group_display }}</td>
+
+                        <td>{{ feestructure.get_student_type_display }}</td>
+
+                        <td>
+                            {% if feestructure.transport %}
+                                <span class="badge badge-success">Yes</span>
+                            {% else %}
+                                <span class="badge badge-secondary">No</span>
+                            {% endif %}
+                        </td>
+
+                        <td>₦{{ feestructure.total_amount|floatformat:2 }}</td>
+
+                        <td>{{ feestructure.description|default:"—" }}</td>
+
+                        <td>
+                            <a href="{% url 'feestructure_update' feestructure.id %}"
+                               class="btn btn-warning btn-sm">
+                                Edit
+                            </a>
+
+                            <a href="{% url 'feestructure_delete' feestructure.id %}"
+                               class="btn btn-danger btn-sm"
+                               onclick="return confirm('Delete this fee structure?')">
+                                Delete
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="9" class="text-center">
+                            No fee structures found
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock content %}

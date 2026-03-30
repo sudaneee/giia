@@ -1,0 +1,38 @@
+{% extends "src/partials/base.html" %}
+{% block content %}
+<div class="main-content mt-1">
+    <div class="card">
+        <div class="card-header">
+            <h4>Move Students to Another Class</h4>
+        </div>
+        <div class="card-body">
+            <form method="POST">
+                {% csrf_token %}
+                <div class="form-group">
+                    <label for="from_class">Select Source Class</label>
+                    <select name="from_class" id="from_class" class="form-control" required>
+                        <option value="">-- Select Class --</option>
+                        {% for cls in classes %}
+                            <option value="{{ cls.id }}">{{ cls.name }} {{ cls.arm }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-group mt-2">
+                    <label for="to_class">Select Destination Class</label>
+                    <select name="to_class" id="to_class" class="form-control" required>
+                        <option value="">-- Select Class --</option>
+                        {% for cls in classes %}
+                            <option value="{{ cls.id }}">{{ cls.name }} {{ cls.arm }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="card-footer text-right mt-3">
+                    <button class="btn btn-primary" type="submit">Move Students</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock content %}

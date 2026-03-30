@@ -1,0 +1,95 @@
+{% load static %}
+<div class="bottom-parallax">
+    <footer class="main-footer">
+        <!--Widgets Section-->
+        <div class="auto-container">
+
+            <div class="widgets-section">
+                <div class="row clearfix">
+
+                    <!--Footer Column-->
+                    <div class="footer-column col-lg-6 col-md-6 col-sm-12">
+                        <!--About Widget-->
+                        <div class="footer-widget logo-widget">
+                            <div class="logo">
+                                <a href="index-2.html"><img src="{{ data.footer_logo.url }}" alt="" style="width: 150px;" /></a>
+                            </div>
+                            <div class="text">{{data.preamble|slice:350}}...</div>
+                            <a href="{% url 'about' %}" class="theme-btn btn-style-two">Read More</a>
+                        </div>
+                    </div>
+
+        
+
+                    <!--Footer Column-->
+                    <div class="footer-column col-lg-6 col-md-6 col-sm-12">
+                        <!--About Widget-->
+                        <div class="footer-widget news-widget">
+                            <h5>Latest News</h5>
+
+                            {%for blog in blogs%}
+                            <div class="news-widget-block">
+                                <div class="inner">
+                                    <div class="icon flaticon-world"></div>
+                                    <div class="post-date">{{blog.posted}}</div>
+                                    <div class="text"><a href="{% url 'news-single' blog.id %}">{{blog.title}}</a></div>
+                                </div>
+                            </div>
+                            {%endfor%}
+
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!--Footer Info Section-->
+            <div class="footer-info-section">
+                <div class="row clearfix">
+
+                    <!--Info Block-->
+                    <div class="info-block col-md-4 col-sm-6 col-xs-12">
+                        <div class="inner">
+                            <div class="icon flaticon-pin"></div>
+                            <h6>Address</h6>
+                            <div class="text">{{data.address}}</div>
+                        </div>
+                    </div>
+
+                    <!--Info Block-->
+                    <div class="info-block col-md-4 col-sm-6 col-xs-12">
+                        <div class="inner">
+                            <div class="icon flaticon-technology-1"></div>
+                            <h6>Call Us On</h6>
+                            <div class="text">Front Desk: {{data.phone_number}}</div>
+                        </div>
+                    </div>
+
+                    <!--Info Block-->
+                    <div class="info-block col-md-4 col-sm-6 col-xs-12">
+                        <div class="inner">
+                            <div class="icon flaticon-web"></div>
+                            <h6>Email at</h6>
+                            <div class="text">{{data.email}}</div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+        </div>
+
+        <!--Footer Bottom-->
+        <div class="footer-bottom">
+            <div class="auto-container">
+                <div class="row clearfix">
+                    <div class="column col-md-6 col-sm-12 col-xs-12">
+                        <div class="copyright"><a target="_blank" href="#">Copyright © 2024 GIIA, All rights reserved.</a></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!--End Footer Bottom-->
+
+    </footer>
+</div>

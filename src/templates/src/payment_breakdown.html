@@ -1,0 +1,609 @@
+<!-- templates/src/payment_breakdown.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payment Breakdown - School Fees</title>
+    <style>
+        :root {
+            --navy: #0f2a47;
+            --royal-blue: #2c5aa0;
+            --sky-blue: #4a8cff;
+            --soft-blue: #f0f7ff;
+            --light-gray: #f8f9fa;
+            --success: #28a745;
+            --warning: #ffc107;
+            --danger: #dc3545;
+            --white: #ffffff;
+            --border-radius: 12px;
+            --shadow-sm: 0 4px 12px rgba(0, 46, 109, 0.08);
+            --shadow-md: 0 8px 30px rgba(0, 46, 109, 0.12);
+            --shadow-lg: 0 15px 40px rgba(0, 46, 109, 0.15);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', 'Inter', sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #f8fbff 0%, var(--soft-blue) 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 40px 20px;
+            color: var(--navy);
+            line-height: 1.6;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            padding: 0 20px;
+        }
+
+        .page-title {
+            font-size: 2.2rem;
+            font-weight: 800;
+            color: var(--navy);
+            margin-bottom: 12px;
+            letter-spacing: -0.5px;
+        }
+
+        .subtitle {
+            color: #5a6d87;
+            font-size: 1.05rem;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .summary-card {
+            background: var(--white);
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow-lg);
+            padding: 40px;
+            margin-bottom: 35px;
+            border: 1px solid rgba(44, 90, 160, 0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .summary-card:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-lg), 0 10px 40px rgba(44, 90, 160, 0.1);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid var(--light-gray);
+        }
+
+        .card-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--navy);
+        }
+
+        .student-count {
+            background: linear-gradient(135deg, var(--royal-blue), var(--navy));
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+
+        .student-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 30px;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .student-table th {
+            background: linear-gradient(135deg, var(--royal-blue), var(--navy));
+            color: white;
+            padding: 18px 20px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 0.95rem;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+
+        .student-table th:first-child {
+            border-top-left-radius: 10px;
+        }
+
+        .student-table th:last-child {
+            border-top-right-radius: 10px;
+        }
+
+        .student-table td {
+            padding: 20px;
+            border-bottom: 1px solid #eef2f7;
+            transition: background-color 0.2s;
+        }
+
+        .student-table tr:not(:last-child) td {
+            border-bottom: 1px solid #eef2f7;
+        }
+
+        .student-table tr:hover td {
+            background-color: rgba(240, 247, 255, 0.5);
+        }
+
+        .student-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .student-name {
+            font-weight: 600;
+            color: var(--navy);
+        }
+
+        .amount {
+            font-weight: 700;
+            font-size: 1.05rem;
+        }
+
+        .paid {
+            color: var(--success);
+        }
+
+        .balance {
+            color: var(--danger);
+        }
+
+        .total-section {
+            background: linear-gradient(135deg, #f8fafd 0%, var(--light-gray) 100%);
+            padding: 30px;
+            border-radius: var(--border-radius);
+            margin: 40px 0 30px;
+            border: 1px solid rgba(44, 90, 160, 0.08);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .total-header {
+            font-size: 1rem;
+            color: #5a6d87;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 600;
+        }
+
+        .grand-total {
+            font-size: 2.2rem;
+            font-weight: 800;
+            color: var(--navy);
+            display: block;
+            margin-top: 5px;
+        }
+
+        .payment-section {
+            background: var(--white);
+            padding: 30px;
+            border-radius: var(--border-radius);
+            margin-top: 30px;
+            border: 1px solid rgba(44, 90, 160, 0.1);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .payment-title {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: var(--navy);
+            margin-bottom: 20px;
+        }
+
+        .payment-form {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .form-label {
+            font-weight: 600;
+            color: var(--navy);
+            font-size: 0.95rem;
+        }
+
+        .amount-input-group {
+            position: relative;
+            max-width: 300px;
+        }
+
+        .amount-input {
+            width: 100%;
+            padding: 16px 20px;
+            border: 2px solid #e0e7f1;
+            border-radius: 10px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--navy);
+            background: #fafcff;
+            transition: all 0.3s;
+        }
+
+        .amount-input:focus {
+            outline: none;
+            border-color: var(--sky-blue);
+            box-shadow: 0 0 0 3px rgba(74, 140, 255, 0.1);
+            background: white;
+        }
+
+        .currency-symbol {
+            position: absolute;
+            left: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-weight: 700;
+            color: var(--royal-blue);
+            font-size: 1.1rem;
+        }
+
+        .amount-input.with-symbol {
+            padding-left: 50px;
+        }
+
+        .amount-hint {
+            font-size: 0.9rem;
+            color: #6c757d;
+            margin-top: 5px;
+        }
+
+        .actions {
+            display: flex;
+            gap: 20px;
+            justify-content: flex-start;
+            margin-top: 10px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 18px 35px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            min-width: 200px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--royal-blue), var(--navy));
+            color: white;
+            box-shadow: 0 6px 20px rgba(44, 90, 160, 0.25);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 25px rgba(44, 90, 160, 0.35);
+        }
+
+        .btn-primary:active {
+            transform: translateY(-1px);
+        }
+
+        .btn-secondary {
+            background: white;
+            color: #5a6d87;
+            border: 2px solid #e0e7f1;
+        }
+
+        .btn-secondary:hover {
+            background: #f8fafd;
+            border-color: var(--royal-blue);
+            color: var(--royal-blue);
+            transform: translateY(-3px);
+            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.05);
+        }
+
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 30px;
+            color: var(--royal-blue);
+            text-decoration: none;
+            font-weight: 600;
+            padding: 10px 0;
+            transition: all 0.3s;
+        }
+
+        .back-link:hover {
+            gap: 12px;
+            color: var(--navy);
+        }
+
+        .icon {
+            font-size: 1.2rem;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 0;
+            }
+            
+            .summary-card {
+                padding: 25px 20px;
+            }
+            
+            .student-table {
+                display: block;
+                overflow-x: auto;
+            }
+            
+            .student-table th,
+            .student-table td {
+                padding: 15px 12px;
+                font-size: 0.9rem;
+            }
+            
+            .card-header {
+                flex-direction: column;
+                gap: 15px;
+                text-align: center;
+            }
+            
+            .actions {
+                flex-direction: column;
+            }
+            
+            .btn {
+                width: 100%;
+                min-width: unset;
+            }
+            
+            .page-title {
+                font-size: 1.8rem;
+            }
+            
+            .grand-total {
+                font-size: 1.8rem;
+            }
+            
+            .amount-input-group {
+                max-width: 100%;
+            }
+        }
+
+        /* Animation for table rows */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .student-table tbody tr {
+            animation: fadeInUp 0.4s ease-out;
+            animation-fill-mode: both;
+        }
+
+        .student-table tbody tr:nth-child(1) { animation-delay: 0.1s; }
+        .student-table tbody tr:nth-child(2) { animation-delay: 0.2s; }
+        .student-table tbody tr:nth-child(3) { animation-delay: 0.3s; }
+        .student-table tbody tr:nth-child(4) { animation-delay: 0.4s; }
+        .student-table tbody tr:nth-child(5) { animation-delay: 0.5s; }
+    </style>
+</head>
+
+<body>
+  <div class="container">
+    <div class="header">
+      <h1 class="page-title">Payment Breakdown</h1>
+      <p class="subtitle">
+        Review and confirm the academic and payment details before proceeding
+      </p>
+    </div>
+
+    <!-- 🔹 PAYMENT CONTEXT -->
+    <div class="summary-card">
+      <div class="card-header">
+        <h2 class="card-title">Payment Information</h2>
+      </div>
+
+      <div class="info-grid">
+        <div class="info-item">
+          <span class="info-value">
+            <strong>Session:</strong> {{ session_name }}
+          </span>
+        </div>
+
+        <div class="info-item">
+          <span class="info-value">
+            <strong>Term:</strong>
+            {% if request.session.payment_data.term_group == "first" %}
+              First Term
+            {% elif request.session.payment_data.term_group == "second" %}
+              Second Term
+            {% elif request.session.payment_data.term_group == "third" %}
+              Third Term
+            {% endif %}
+          </span>
+        </div>
+
+        <div class="info-item">
+          <span class="info-value">
+            <strong>Transport:</strong>
+            {% if request.session.payment_data.transport %}
+              Included
+            {% else %}
+              Not Included
+            {% endif %}
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 🔹 STUDENT FEE SUMMARY -->
+    <div class="summary-card">
+      <div class="card-header">
+        <h2 class="card-title">Student Fee Summary</h2>
+        <div class="student-count">
+          {{ breakdown|length }} Student{% if breakdown|length != 1 %}s{% endif %}
+        </div>
+      </div>
+
+      <table class="student-table">
+        <thead>
+          <tr>
+            <th>Student Name</th>
+            <th>Admission No.</th>
+            <th>Class</th>
+            <th>Total Fee</th>
+            <th>Paid</th>
+            <th>Waiver</th>
+            <th>Waived Amount</th>
+            <th>Net Payable</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in breakdown %}
+          <tr>
+            <td class="student-name">
+              {{ item.student.first_name }} {{ item.student.last_name }}
+            </td>
+            <td>{{ item.student.admission_number }}</td>
+            <td>{{ item.student.enrolled_class }}</td>
+
+            <td class="amount">₦{{ item.fee|floatformat:2 }}</td>
+            <td class="amount paid">₦{{ item.paid|floatformat:2 }}</td>
+
+            <td>
+              {% if item.waiver_percentage %}
+                {{ item.waiver_percentage }}%
+              {% else %}
+                —
+              {% endif %}
+            </td>
+
+            <td class="amount">
+              {% if item.waived_amount and item.waived_amount > 0 %}
+                ₦{{ item.waived_amount|floatformat:2 }}
+              {% else %}
+                —
+              {% endif %}
+            </td>
+
+            <td class="amount balance">
+              ₦{{ item.balance|floatformat:2 }}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+
+      <!-- 🔹 TOTAL -->
+      <div class="total-section">
+        <div class="total-header">Total Amount Due</div>
+        <span class="grand-total">
+          ₦{{ grand_total|floatformat:2 }}
+        </span>
+      </div>
+
+      <!-- 🔹 PAYMENT FORM -->
+      <div class="payment-section">
+        <h3 class="payment-title">Payment Amount</h3>
+
+        <form method="POST" action="{% url 'initialize_paystack' %}" class="payment-form">
+          {% csrf_token %}
+
+          <!-- 🔹 AMOUNT -->
+          <div class="form-group">
+            <label class="form-label">Amount to Pay</label>
+            <div class="amount-input-group">
+              <span class="currency-symbol">₦</span>
+              <input
+                type="number"
+                name="pay_amount"
+                min="1"
+                max="{{ grand_total }}"
+                step="0.01"
+                value="{{ grand_total }}"
+                required
+                class="amount-input with-symbol"
+              >
+            </div>
+
+            <div class="amount-hint">
+              Full payment is required unless part-payment is approved by the school.
+              Approved fee waivers have already been deducted.
+            </div>
+          </div>
+
+          <!-- 🔹 PAYMENT METHOD (NEW) -->
+          <div class="form-group">
+            <label class="form-label">Payment Method</label>
+
+            <label style="display:block; margin-bottom:8px;">
+              <input type="radio" name="payment_method" value="card" required>
+              Pay with Card (0.7% capped at ₦1,500)
+            </label>
+
+            <label style="display:block;">
+              <input type="radio" name="payment_method" value="other">
+              Pay with Bank Transfer / USSD (₦300 flat)
+            </label>
+
+            <small style="color:#666;">
+              Transaction charges are paid by the parent.
+            </small>
+          </div>
+
+          <!-- 🔹 ACTIONS -->
+          <div class="actions">
+            <button type="submit" class="btn btn-primary">
+              💳 Proceed to Secure Payment
+            </button>
+
+            <a href="{% url 'public_payment' %}" class="btn btn-secondary">
+              ← Go Back
+            </a>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <a href="{% url 'public_payment' %}" class="back-link">
+      ← Make another payment selection
+    </a>
+  </div>
+</body>
+
+
+</html>

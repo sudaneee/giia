@@ -1,0 +1,153 @@
+<!-- templates/payments/failed.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payment Failed</title>
+    <style>
+        :root {
+            --danger: #dc3545;
+            --navy: #0f2a47;
+            --soft-blue: #f0f7ff;
+            --white: #ffffff;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', sans-serif;
+        }
+
+        body {
+            background: var(--soft-blue);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .error-card {
+            background: var(--white);
+            border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+            padding: 50px;
+            text-align: center;
+            max-width: 500px;
+            width: 100%;
+        }
+
+        .error-icon {
+            font-size: 4rem;
+            color: var(--danger);
+            margin-bottom: 20px;
+        }
+
+        .title {
+            color: var(--navy);
+            font-size: 2rem;
+            margin-bottom: 10px;
+        }
+
+        .message {
+            color: #666;
+            margin-bottom: 30px;
+            line-height: 1.6;
+        }
+
+        .actions {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-top: 30px;
+        }
+
+        .btn {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .btn-primary {
+            background: var(--danger);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #c82333;
+            transform: translateY(-2px);
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+
+        .info-box {
+            background: #f8d7da;
+            border-left: 4px solid var(--danger);
+            padding: 15px;
+            margin: 20px 0;
+            text-align: left;
+            color: #721c24;
+        }
+
+        @media (max-width: 480px) {
+            .error-card {
+                padding: 30px 20px;
+            }
+            
+            .actions {
+                flex-direction: column;
+            }
+            
+            .btn {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="error-card">
+        <div class="error-icon">✕</div>
+        <h1 class="title">Payment Failed</h1>
+        
+        <div class="info-box">
+            <strong>Transaction Unsuccessful:</strong> 
+            We were unable to process your payment. This could be due to insufficient funds, 
+            incorrect card details, or network issues.
+        </div>
+        
+        <p class="message">
+            Please try again or contact your bank if the issue persists. 
+            Your account has not been charged.
+        </p>
+        
+        <div class="actions">
+            <a href="{% url 'public_payment' %}" class="btn btn-primary">
+                Try Again
+            </a>
+            <a href="{% url 'parent_dashboard' %}" class="btn btn-secondary">
+                Go to Dashboard
+            </a>
+        </div>
+        
+        <p style="margin-top: 30px; color: #666; font-size: 0.9rem;">
+            Need help? Contact our bursary department at 
+            <a href="mailto:info@giia.com.ng" style="color: var(--danger);">info@giia.com.ng</a>
+        </p>
+    </div>
+</body>
+</html>

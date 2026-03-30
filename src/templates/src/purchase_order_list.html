@@ -1,0 +1,54 @@
+{% extends "src/partials/base.html" %}
+{% block content %}
+<div class="main-content mt-1">
+    <div class="card">
+        <div class="card-header">
+            <h4>Purchase Orders List</h4>
+            <a href="{% url 'purchase_order_create' %}" class="btn btn-primary">Add New Order</a>
+        </div>
+        <div class="card-body">
+            <table class="table table-stripped" id="table-1">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Item</th>
+                        <th>Quantity Ordered</th>
+                        <th>Received Quantity</th>
+                        <th>Price per Unit</th>
+                        <th>Total Cost</th>
+                        <th>Supplier</th>
+                        <th>Order Date</th>
+                        <th>Received Date</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for order in orders %}
+                    <tr>
+                        <td>{{ order.id }}</td>
+                        <td>{{ order.item.name }}</td>
+                        <td>{{ order.quantity_ordered }}</td>
+                        <td>{{ order.received_quantity }}</td>
+                        <td>{{ order.price_per_unit }}</td>
+                        <td>{{ order.total_cost }}</td>
+                        <td>
+                            {% if order.supplier %}
+                                {{ order.supplier.name }}
+                            {% else %}
+                                N/A
+                            {% endif %}
+                        </td>
+                        <td>{{ order.order_date }}</td>
+                        <td>{{ order.received_date }}</td>
+                        <td>
+                            <a href="{% url 'purchase_order_update' order.id %}" class="btn btn-warning btn-sm">Edit</a>
+                            <a href="{% url 'purchase_order_delete' order.id %}" class="btn btn-danger btn-sm">Delete</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock content %}
