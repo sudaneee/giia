@@ -3,90 +3,339 @@
 
 <div class="main-content">
     <div class="card">
-        <div class="card-header">
+        <div class="card-header d-flex justify-content-between align-items-center">
             <h4>Class Fee Compliance Report</h4>
+            {% if results %}
+            <div>
+                <a href="?{{ request.GET.urlencode }}&export_excel=true" class="btn btn-success">
+                    <i class="fas fa-file-excel"></i> Export to Excel
+                </a>
+            </div>
+            {% endif %}
         </div>
 
         <div class="card-body">
 
             <!-- FILTER FORM -->
-            <form method="get" class="form-row mb-4">
-                <div class="form-group col-md-3">
-                    <label>Session</label>
-                    <select name="session" class="form-control select2" required>
-                        <option value="">Select</option>
-                        {% for s in sessions %}
-                            <option value="{{ s.id }}">{{ s.name }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
+            <form method="get" class="mb-4">
+                <div class="form-row">
+                    <div class="form-group col-md-3">
+                        <label>Session <span class="text-danger">*</span></label>
+                        <select name="session" class="form-control select2" required>
+                            <option value="">Select Session</option>
+                            {% for s in sessions %}
+                                <option value="{{ s.id }}" {% if selected_session == s.id|stringformat:"s" %}selected{% endif %}>
+                                    {{ s.name }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
 
-                <div class="form-group col-md-3">
-                    <label>Term</label>
-                    <select name="term" class="form-control select2" required>
-                        <option value="">Select</option>
-                        {% for t in terms %}
-                            <option value="{{ t.id }}">{{ t.name }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
+                    <div class="form-group col-md-3">
+                        <label>Term <span class="text-danger">*</span></label>
+                        <select name="term" class="form-control select2" required>
+                            <option value="">Select Term</option>
+                            {% for t in terms %}
+                                <option value="{{ t.id }}" {% if selected_term == t.id|stringformat:"s" %}selected{% endif %}>
+                                    {{ t.name }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
 
-                <div class="form-group col-md-3">
-                    <label>Class</label>
-                    <select name="class" class="form-control select2" required>
-                        <option value="">Select</option>
-                        {% for c in classes %}
-                            <option value="{{ c.id }}">{{ c }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
+                    <div class="form-group col-md-3">
+                        <label>Class</label>
+                        <select name="class" class="form-control select2">
+                            <option value="">All Classes</option>
+                            {% for c in classes %}
+                                <option value="{{ c.id }}" {% if selected_class == c.id|stringformat:"s" %}selected{% endif %}>
+                                    {{ c.name }} {{ c.arm }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                        <small class="text-muted">Leave empty to view all classes</small>
+                    </div>
 
-                <div class="form-group col-md-3 align-self-end">
-                    <button class="btn btn-primary btn-block">
-                        View Report
-                    </button>
+                    <div class="form-group col-md-2">
+                        <label>Compliance Status</label>
+                        <select name="compliance_status" class="form-control">
+                            <option value="">All Students</option>
+                            <option value="fully_paid" {% if selected_status == "fully_paid" %}selected{% endif %}>
+                                Fully Paid
+                            </option>
+                            <option value="partially_paid" {% if selected_status == "partially_paid" %}selected{% endif %}>
+                                Partially Paid
+                            </option>
+                            <option value="not_paid" {% if selected_status == "not_paid" %}selected{% endif %}>
+                                Not Paid
+                            </option>
+                        </select>
+                    </div>
+
+                    <div class="form-group col-md-1 align-self-end">
+                        <button type="submit" class="btn btn-primary btn-block">
+                            <i class="fas fa-search"></i> View
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="form-row mt-2">
+                    <div class="col-md-12">
+                        <small class="text-muted">
+                            <i class="fas fa-info-circle"></i> 
+                            Session and Term are required. Class is optional - leave blank to see all classes.
+                        </small>
+                    </div>
                 </div>
             </form>
 
             {% if results %}
-            <table class="table table-bordered table-striped">
-                <thead>
-                    <tr>
-                        <th>Student</th>
-                        <th>Admission No</th>
-                        <th>Expected</th>
-                        <th>Paid</th>
-                        <th>Waived</th>
-                        <th>Outstanding</th>
-                        <th>Status</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for row in results %}
-                    <tr>
-                        <td>{{ row.student }}</td>
-                        <td>{{ row.student.admission_number }}</td>
-                        <td>₦{{ row.expected }}</td>
-                        <td>₦{{ row.paid }}</td>
-                        <td>₦{{ row.waived }}</td>
-                        <td>₦{{ row.outstanding }}</td>
-                        <td>
-                            {% if row.status == "Fully Paid" %}
-                                <span class="badge badge-success">Fully Paid</span>
-                            {% elif row.status == "Partially Paid" %}
-                                <span class="badge badge-warning">Partially Paid</span>
-                            {% else %}
-                                <span class="badge badge-danger">Not Paid</span>
-                            {% endif %}
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+            <!-- HEADER WITH SELECTED CRITERIA -->
+            <div class="alert alert-info">
+                <strong>Report for:</strong> 
+                {% if selected_class_name %}
+                    {{ selected_class_name }}
+                {% else %}
+                    All Classes
+                {% endif %}
+                | <strong>Session:</strong> {{ selected_session_name|default:"" }}
+                | <strong>Term:</strong> {{ selected_term_name|default:"" }}
+                {% if selected_status %}
+                    | <strong>Status Filter:</strong> 
+                    {% if selected_status == "fully_paid" %}Fully Paid
+                    {% elif selected_status == "partially_paid" %}Partially Paid
+                    {% elif selected_status == "not_paid" %}Not Paid
+                    {% endif %}
+                {% endif %}
+            </div>
+
+            <!-- SUMMARY CARDS -->
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="card bg-primary text-white">
+                        <div class="card-body">
+                            <h5 class="card-title">Total Students</h5>
+                            <h2 class="mb-0">{{ summary.total_students }}</h2>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-success text-white">
+                        <div class="card-body">
+                            <h5 class="card-title">Fully Paid</h5>
+                            <h2 class="mb-0">{{ summary.fully_paid }}</h2>
+                            <small>{{ summary.fully_paid|floatformat:0 }} / {{ summary.total_students }}</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-warning text-white">
+                        <div class="card-body">
+                            <h5 class="card-title">Partially Paid</h5>
+                            <h2 class="mb-0">{{ summary.partially_paid }}</h2>
+                            <small>{{ summary.partially_paid|floatformat:0 }} / {{ summary.total_students }}</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-danger text-white">
+                        <div class="card-body">
+                            <h5 class="card-title">Not Paid</h5>
+                            <h2 class="mb-0">{{ summary.not_paid }}</h2>
+                            <small>{{ summary.not_paid|floatformat:0 }} / {{ summary.total_students }}</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- FINANCIAL SUMMARY -->
+            <div class="card mb-4">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">Financial Summary</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <div class="text-center">
+                                <h6 class="text-muted">Total Expected</h6>
+                                <h4>₦{{ summary.total_expected|floatformat:2 }}</h4>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center">
+                                <h6 class="text-muted">Total Paid</h6>
+                                <h4 class="text-success">₦{{ summary.total_paid|floatformat:2 }}</h4>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center">
+                                <h6 class="text-muted">Total Waived</h6>
+                                <h4 class="text-warning">₦{{ summary.total_waived|floatformat:2 }}</h4>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center">
+                                <h6 class="text-muted">Total Outstanding</h6>
+                                <h4 class="text-danger">₦{{ summary.total_outstanding|floatformat:2 }}</h4>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="progress mt-3" style="height: 30px;">
+                        <div class="progress-bar bg-success" role="progressbar" 
+                             style="width: {{ summary.overall_compliance }}%"
+                             aria-valuenow="{{ summary.overall_compliance }}" 
+                             aria-valuemin="0" aria-valuemax="100">
+                            {{ summary.overall_compliance|floatformat:1 }}% Compliance
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- DETAILED TABLE - GROUPED BY CLASS IF ALL CLASSES SELECTED -->
+            {% if results_by_class %}
+                <!-- Display grouped by class -->
+                {% for class_name, class_results in results_by_class.items %}
+                <div class="card mb-4">
+                    <div class="card-header bg-secondary text-white">
+                        <h5 class="mb-0">{{ class_name }}</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-bordered table-striped table-hover">
+                                <thead class="thead-dark">
+                                    <tr>
+                                        <th>S/N</th>
+                                        <th>Student</th>
+                                        <th>Admission No</th>
+                                        <th>Expected (₦)</th>
+                                        <th>Paid (₦)</th>
+                                        <th>Waived (₦)</th>
+                                        <th>Outstanding (₦)</th>
+                                        <th>Compliance %</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for row in class_results %}
+                                    <tr>
+                                        <td>{{ forloop.counter }}</td>
+                                        <td>{{ row.student }}</td>
+                                        <td>{{ row.student.admission_number|default:"—" }}</td>
+                                        <td class="text-right">{{ row.expected|floatformat:2 }}</td>
+                                        <td class="text-right text-success">{{ row.paid|floatformat:2 }}</td>
+                                        <td class="text-right text-warning">{{ row.waived|floatformat:2 }}</td>
+                                        <td class="text-right text-danger">{{ row.outstanding|floatformat:2 }}</td>
+                                        <td class="text-center">
+                                            <div class="progress" style="height: 20px;">
+                                                <div class="progress-bar {% if row.compliance_percentage >= 100 %}bg-success{% elif row.compliance_percentage > 0 %}bg-warning{% else %}bg-danger{% endif %}" 
+                                                     role="progressbar" 
+                                                     style="width: {{ row.compliance_percentage }}%"
+                                                     aria-valuenow="{{ row.compliance_percentage }}" 
+                                                     aria-valuemin="0" 
+                                                     aria-valuemax="100">
+                                                    {{ row.compliance_percentage|floatformat:1 }}%
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            {% if row.status == "Fully Paid" %}
+                                                <span class="badge badge-success px-3 py-2">Fully Paid</span>
+                                            {% elif row.status == "Partially Paid" %}
+                                                <span class="badge badge-warning px-3 py-2">Partially Paid</span>
+                                            {% else %}
+                                                <span class="badge badge-danger px-3 py-2">Not Paid</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <!-- Display single table for specific class -->
+                <div class="table-responsive">
+                    <table class="table table-bordered table-striped table-hover" id="compliance-table">
+                        <thead class="thead-dark">
+                            <tr>
+                                <th>S/N</th>
+                                <th>Student</th>
+                                <th>Admission No</th>
+                                <th>Expected (₦)</th>
+                                <th>Paid (₦)</th>
+                                <th>Waived (₦)</th>
+                                <th>Outstanding (₦)</th>
+                                <th>Compliance %</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in results %}
+                            <tr>
+                                <td>{{ forloop.counter }}</td>
+                                <td>{{ row.student }}</td>
+                                <td>{{ row.student.admission_number|default:"—" }}</td>
+                                <td class="text-right">{{ row.expected|floatformat:2 }}</td>
+                                <td class="text-right text-success">{{ row.paid|floatformat:2 }}</td>
+                                <td class="text-right text-warning">{{ row.waived|floatformat:2 }}</td>
+                                <td class="text-right text-danger">{{ row.outstanding|floatformat:2 }}</td>
+                                <td class="text-center">
+                                    <div class="progress" style="height: 20px;">
+                                        <div class="progress-bar {% if row.compliance_percentage >= 100 %}bg-success{% elif row.compliance_percentage > 0 %}bg-warning{% else %}bg-danger{% endif %}" 
+                                             role="progressbar" 
+                                             style="width: {{ row.compliance_percentage }}%"
+                                             aria-valuenow="{{ row.compliance_percentage }}" 
+                                             aria-valuemin="0" 
+                                             aria-valuemax="100">
+                                            {{ row.compliance_percentage|floatformat:1 }}%
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    {% if row.status == "Fully Paid" %}
+                                        <span class="badge badge-success px-3 py-2">Fully Paid</span>
+                                    {% elif row.status == "Partially Paid" %}
+                                        <span class="badge badge-warning px-3 py-2">Partially Paid</span>
+                                    {% else %}
+                                        <span class="badge badge-danger px-3 py-2">Not Paid</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% endif %}
+            {% else %}
+                {% if session_id and term_id %}
+                <div class="alert alert-info text-center">
+                    <i class="fas fa-info-circle fa-2x mb-2"></i>
+                    <p>No students found for the selected criteria.</p>
+                </div>
+                {% else %}
+                <div class="alert alert-warning text-center">
+                    <i class="fas fa-filter fa-2x mb-2"></i>
+                    <p>Please select Session and Term to view the compliance report. Class is optional.</p>
+                </div>
+                {% endif %}
             {% endif %}
 
         </div>
     </div>
 </div>
 
-{% endblock %}
+{% endblock content %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        // Initialize select2
+        $('.select2').select2({
+            theme: 'bootstrap4',
+            width: '100%'
+        });
+    });
+</script>
+{% endblock extra_js %}

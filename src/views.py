@@ -4410,18 +4410,34 @@ def class_fee_compliance(request):
     class_id = request.GET.get("class")
     session_id = request.GET.get("session")
     term_id = request.GET.get("term")
+    compliance_status = request.GET.get("compliance_status")  # Filter by status
+    export_excel = request.GET.get("export_excel") == "true"  # Export flag
 
-    if class_id and session_id and term_id:
-        school_class = SchoolClass.objects.get(id=class_id)
+    # Only require session and term to be selected
+    if session_id and term_id:
         session = Session.objects.get(id=session_id)
         term = Term.objects.get(id=term_id)
+        
+        # Get students based on class selection
+        if class_id:
+            # Specific class selected
+            school_class = SchoolClass.objects.get(id=class_id)
+            students = Student.objects.filter(enrolled_class=school_class)
+            selected_class_name = str(school_class)
+        else:
+            # All classes selected
+            students = Student.objects.filter(enrolled_class__isnull=False)
+            selected_class_name = "All Classes"
 
-        students = Student.objects.filter(enrolled_class=school_class)
-
+        # Process each student
         for student in students:
+            # Skip if student has no enrolled class
+            if not student.enrolled_class:
+                continue
+                
             # 🔹 Get applicable fee structure
             fee = FeeStructure.objects.filter(
-                section=school_class.section,
+                section=student.enrolled_class.section,
                 session=session,
                 term_group=term.name.lower().split()[0],  # "First Term" → "first"
                 student_type="returning",
@@ -4452,6 +4468,7 @@ def class_fee_compliance(request):
             covered = paid + waived
             outstanding = expected - covered
 
+            # Determine status
             if expected > 0 and covered >= expected:
                 status = "Fully Paid"
             elif covered > 0:
@@ -4459,24 +4476,234 @@ def class_fee_compliance(request):
             else:
                 status = "Not Paid"
 
+            # Apply compliance status filter
+            if compliance_status:
+                if compliance_status == "fully_paid" and status != "Fully Paid":
+                    continue
+                elif compliance_status == "partially_paid" and status != "Partially Paid":
+                    continue
+                elif compliance_status == "not_paid" and status != "Not Paid":
+                    continue
+
+            # Calculate compliance percentage
+            compliance_percentage = (covered / expected * 100) if expected > 0 else 0
+
             results.append({
                 "student": student,
+                "class": student.enrolled_class,
+                "class_name": str(student.enrolled_class),
                 "expected": expected,
                 "paid": paid,
                 "waived": waived,
+                "covered": covered,
                 "outstanding": max(outstanding, Decimal("0.00")),
                 "status": status,
+                "compliance_percentage": compliance_percentage,
             })
+
+        # Sort results by class and then by status for better organization
+        results.sort(key=lambda x: (x["class_name"], 
+                                   {"Fully Paid": 1, "Partially Paid": 2, "Not Paid": 3}.get(x["status"], 4)))
+
+    # ======================================================
+    # 🔹 EXPORT TO EXCEL
+    # ======================================================
+    if export_excel and results:
+        session = Session.objects.get(id=session_id) if session_id else None
+        term = Term.objects.get(id=term_id) if term_id else None
+        return export_compliance_to_excel(results, session, term, selected_class_name, request)
+
+    # Calculate summary statistics
+    summary = {
+        "total_students": len(results),
+        "fully_paid": len([r for r in results if r["status"] == "Fully Paid"]),
+        "partially_paid": len([r for r in results if r["status"] == "Partially Paid"]),
+        "not_paid": len([r for r in results if r["status"] == "Not Paid"]),
+        "total_expected": sum(r["expected"] for r in results),
+        "total_paid": sum(r["paid"] for r in results),
+        "total_waived": sum(r["waived"] for r in results),
+        "total_outstanding": sum(r["outstanding"] for r in results),
+        "overall_compliance": (sum(r["covered"] for r in results) / sum(r["expected"] for r in results) * 100) if sum(r["expected"] for r in results) > 0 else 0,
+    }
+
+    # Group results by class for display if "All Classes" is selected
+    results_by_class = {}
+    class_totals = {}  # Store totals for each class
+    if not class_id and results:
+        for result in results:
+            class_name = result["class_name"]
+            if class_name not in results_by_class:
+                results_by_class[class_name] = []
+                class_totals[class_name] = {
+                    "expected": Decimal("0.00"),
+                    "paid": Decimal("0.00"),
+                    "waived": Decimal("0.00"),
+                    "outstanding": Decimal("0.00"),
+                    "students": 0,
+                    "fully_paid": 0,
+                    "partially_paid": 0,
+                    "not_paid": 0,
+                }
+            results_by_class[class_name].append(result)
+            
+            # Update class totals
+            class_totals[class_name]["expected"] += result["expected"]
+            class_totals[class_name]["paid"] += result["paid"]
+            class_totals[class_name]["waived"] += result["waived"]
+            class_totals[class_name]["outstanding"] += result["outstanding"]
+            class_totals[class_name]["students"] += 1
+            
+            if result["status"] == "Fully Paid":
+                class_totals[class_name]["fully_paid"] += 1
+            elif result["status"] == "Partially Paid":
+                class_totals[class_name]["partially_paid"] += 1
+            else:
+                class_totals[class_name]["not_paid"] += 1
 
     return render(request, "src/class_fee_compliance.html", {
         "classes": classes,
         "sessions": sessions,
         "terms": terms,
         "results": results,
+        "results_by_class": results_by_class,
+        "class_totals": class_totals,
+        "summary": summary,
+        "selected_class": class_id,
+        "selected_session": session_id,
+        "selected_term": term_id,
+        "selected_status": compliance_status,
+        "selected_class_name": selected_class_name if session_id and term_id else None,
+        "selected_session_name": session.name if session_id and term_id else None,
+        "selected_term_name": term.name if session_id and term_id else None,
     })
 
-
-
+def export_compliance_to_excel(results, session, term, class_name, request):
+    """
+    Export class fee compliance report to Excel
+    """
+    import pandas as pd
+    from django.http import HttpResponse
+    from io import BytesIO
+    from datetime import datetime
+    
+    # Create data list
+    data = []
+    
+    # Add report header
+    data.append({
+        'Report Type': 'Class Fee Compliance Report',
+        'Class': class_name,
+        'Session': session.name if session else '',
+        'Term': term.name if term else '',
+        'Generated On': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+    })
+    data.append({})  # Empty row for spacing
+    
+    # Add summary row
+    total_students = len(results)
+    fully_paid = len([r for r in results if r["status"] == "Fully Paid"])
+    partially_paid = len([r for r in results if r["status"] == "Partially Paid"])
+    not_paid = len([r for r in results if r["status"] == "Not Paid"])
+    total_expected = sum(r["expected"] for r in results)
+    total_paid = sum(r["paid"] for r in results)
+    total_waived = sum(r["waived"] for r in results)
+    total_outstanding = sum(r["outstanding"] for r in results)
+    
+    data.append({
+        'Summary': 'Total Students',
+        'Value': total_students,
+    })
+    data.append({
+        'Summary': 'Fully Paid',
+        'Value': fully_paid,
+        'Percentage': f"{(fully_paid/total_students*100):.1f}%" if total_students > 0 else "0%"
+    })
+    data.append({
+        'Summary': 'Partially Paid',
+        'Value': partially_paid,
+        'Percentage': f"{(partially_paid/total_students*100):.1f}%" if total_students > 0 else "0%"
+    })
+    data.append({
+        'Summary': 'Not Paid',
+        'Value': not_paid,
+        'Percentage': f"{(not_paid/total_students*100):.1f}%" if total_students > 0 else "0%"
+    })
+    data.append({
+        'Summary': 'Total Expected Amount',
+        'Value': f"₦{total_expected:,.2f}",
+    })
+    data.append({
+        'Summary': 'Total Paid Amount',
+        'Value': f"₦{total_paid:,.2f}",
+    })
+    data.append({
+        'Summary': 'Total Waived Amount',
+        'Value': f"₦{total_waived:,.2f}",
+    })
+    data.append({
+        'Summary': 'Total Outstanding Amount',
+        'Value': f"₦{total_outstanding:,.2f}",
+    })
+    data.append({})  # Empty row for spacing
+    
+    # Add detailed student records
+    for student_data in results:
+        data.append({
+            'Class': str(student_data["class"]) if student_data["class"] else '',
+            'Student Name': str(student_data["student"]),
+            'Admission Number': student_data["student"].admission_number or '',
+            'Expected Amount': float(student_data["expected"]),
+            'Paid Amount': float(student_data["paid"]),
+            'Waived Amount': float(student_data["waived"]),
+            'Total Covered': float(student_data["covered"]),
+            'Outstanding': float(student_data["outstanding"]),
+            'Compliance %': f"{student_data['compliance_percentage']:.1f}%",
+            'Status': student_data["status"],
+        })
+    
+    # Create DataFrame
+    df = pd.DataFrame(data)
+    
+    # Create Excel file
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, sheet_name='Fee Compliance Report', index=False)
+        
+        # Auto-adjust column widths
+        worksheet = writer.sheets['Fee Compliance Report']
+        for column in worksheet.columns:
+            max_length = 0
+            column_letter = column[0].column_letter
+            for cell in column:
+                try:
+                    if len(str(cell.value)) > max_length:
+                        max_length = len(str(cell.value))
+                except:
+                    pass
+            adjusted_width = min(max_length + 2, 50)
+            worksheet.column_dimensions[column_letter].width = adjusted_width
+        
+        # Add some styling to header row
+        from openpyxl.styles import Font, PatternFill
+        header_font = Font(bold=True, color="FFFFFF")
+        header_fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
+        
+        for cell in worksheet[1]:
+            cell.font = header_font
+            cell.fill = header_fill
+    
+    output.seek(0)
+    
+    # Create HTTP response
+    filename = f"fee_compliance_{class_name}_{session.name if session else ''}_{term.name if term else ''}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+    filename = filename.replace(" ", "_")
+    response = HttpResponse(
+        output.read(),
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    
+    return response
 
 
 
