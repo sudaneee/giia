@@ -7,26 +7,37 @@
         <!-- ================= HEADER ================= -->
         <div class="card-header d-flex justify-content-between align-items-center">
             <h4>Payments List</h4>
-            <a href="{% url 'payment_create' %}" class="btn btn-primary">
-                Add New Payment
-            </a>
+            <div>
+                <a href="{% url 'payment_create' %}" class="btn btn-primary">
+                    Add New Payment
+                </a>
+                {% if request.GET %}
+                <a href="?{{ request.GET.urlencode }}&export_excel=true" class="btn btn-success ml-2">
+                    <i class="fas fa-file-excel"></i> Export to Excel
+                </a>
+                {% else %}
+                <a href="?export_excel=true" class="btn btn-success ml-2">
+                    <i class="fas fa-file-excel"></i> Export to Excel
+                </a>
+                {% endif %}
+            </div>
         </div>
 
         <div class="card-body">
 
             <!-- ================= FILTER FORM ================= -->
-            <form method="GET" class="mb-4">
+            <form method="GET" class="mb-4" id="filterForm">
                 <div class="form-row">
 
                     <!-- Date Range -->
                     <div class="form-group col-md-2">
                         <label>Start Date</label>
-                        <input type="date" name="start_date" class="form-control">
+                        <input type="date" name="start_date" class="form-control" value="{{ request.GET.start_date }}">
                     </div>
 
                     <div class="form-group col-md-2">
                         <label>End Date</label>
-                        <input type="date" name="end_date" class="form-control">
+                        <input type="date" name="end_date" class="form-control" value="{{ request.GET.end_date }}">
                     </div>
 
                     <!-- Session -->
@@ -35,7 +46,7 @@
                         <select name="session" class="form-control select2">
                             <option value="">All Sessions</option>
                             {% for session in sessions %}
-                                <option value="{{ session.id }}">
+                                <option value="{{ session.id }}" {% if request.GET.session == session.id|stringformat:"s" %}selected{% endif %}>
                                     {{ session.name }}
                                 </option>
                             {% endfor %}
@@ -48,32 +59,34 @@
                         <select name="term" class="form-control select2">
                             <option value="">All Terms</option>
                             {% for t in terms %}
-                                <option value="{{ t.id }}">{{ t.name }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-
-                    <!-- Fee Structure -->
-                    <div class="form-group col-md-2">
-                        <label>Fee Structure</label>
-                        <select name="fee_structure" class="form-control select2">
-                            <option value="">All School Fees</option>
-                            {% for fee in feestructures %}
-                                <option value="{{ fee.id }}">
-                                    {{ fee }}
+                                <option value="{{ t.id }}" {% if request.GET.term == t.id|stringformat:"s" %}selected{% endif %}>
+                                    {{ t.name }}
                                 </option>
                             {% endfor %}
                         </select>
                     </div>
 
-                    <!-- Fee Component -->
+                    <!-- Class (Replaces Fee Structure) -->
+                    <div class="form-group col-md-2">
+                        <label>Class</label>
+                        <select name="class" class="form-control select2">
+                            <option value="">All Classes</option>
+                            {% for class in schoolclasses %}
+                                <option value="{{ class.id }}" {% if request.GET.class == class.id|stringformat:"s" %}selected{% endif %}>
+                                    {{ class.name }} {{ class.arm }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- Fee Component (Simplified - Unique Names Only) -->
                     <div class="form-group col-md-2">
                         <label>Fee Component</label>
                         <select name="component" class="form-control select2">
                             <option value="">-- All Components --</option>
                             {% for comp in components %}
-                                <option value="{{ comp.id }}">
-                                    {{ comp.name }} ({{ comp.fee_structure }})
+                                <option value="{{ comp.name }}" {% if request.GET.component == comp.name %}selected{% endif %}>
+                                    {{ comp.name }}
                                 </option>
                             {% endfor %}
                         </select>
@@ -85,7 +98,7 @@
                         <select name="other_fee" class="form-control select2">
                             <option value="">All Other Fees</option>
                             {% for ofee in other_fees %}
-                                <option value="{{ ofee.id }}">
+                                <option value="{{ ofee.id }}" {% if request.GET.other_fee == ofee.id|stringformat:"s" %}selected{% endif %}>
                                     {{ ofee.name }}
                                 </option>
                             {% endfor %}
@@ -97,10 +110,10 @@
                         <label>Payment Method</label>
                         <select name="payment_method" class="form-control">
                             <option value="">All</option>
-                            <option value="cash">Cash</option>
-                            <option value="credit_card">Card</option>
-                            <option value="bank_transfer">Transfer</option>
-                            <option value="waiver">Waiver</option>
+                            <option value="cash" {% if request.GET.payment_method == 'cash' %}selected{% endif %}>Cash</option>
+                            <option value="credit_card" {% if request.GET.payment_method == 'credit_card' %}selected{% endif %}>Card</option>
+                            <option value="bank_transfer" {% if request.GET.payment_method == 'bank_transfer' %}selected{% endif %}>Transfer</option>
+                            <option value="waiver" {% if request.GET.payment_method == 'waiver' %}selected{% endif %}>Waiver</option>
                         </select>
                     </div>
 
@@ -109,23 +122,29 @@
                         <label>Status</label>
                         <select name="status" class="form-control">
                             <option value="">All</option>
-                            <option value="paid">Paid</option>
-                            <option value="pending">Pending</option>
-                            <option value="overdue">Overdue</option>
+                            <option value="paid" {% if request.GET.status == 'paid' %}selected{% endif %}>Paid</option>
+                            <option value="pending" {% if request.GET.status == 'pending' %}selected{% endif %}>Pending</option>
+                            <option value="overdue" {% if request.GET.status == 'overdue' %}selected{% endif %}>Overdue</option>
                         </select>
                     </div>
 
                     <!-- Reference ID -->
                     <div class="form-group col-md-2">
                         <label>Reference ID</label>
-                        <input type="text" name="reference_id" class="form-control">
+                        <input type="text" name="reference_id" class="form-control" value="{{ request.GET.reference_id }}">
                     </div>
 
-                    <!-- Submit -->
+                    <!-- Buttons -->
                     <div class="form-group col-md-2 align-self-end">
                         <button type="submit" class="btn btn-primary btn-block">
                             Apply Filters
                         </button>
+                    </div>
+                    
+                    <div class="form-group col-md-2 align-self-end">
+                        <a href="{% url 'payment_list' %}" class="btn btn-secondary btn-block">
+                            Clear Filters
+                        </a>
                     </div>
 
                 </div>
@@ -136,29 +155,55 @@
             <div class="card mb-4">
                 <div class="card-header bg-info text-white">
                     <h5 class="mb-0">
-                        Fee Component Earnings Report:
-                        {{ component_report.component.name }}
+                        Fee Component Earnings Report: {{ component_report.component_name }}
                     </h5>
                 </div>
 
                 <div class="card-body">
-                    <table class="table table-bordered">
-                        <tr>
-                            <th>Component</th>
-                            <td>{{ component_report.component.name }}</td>
-                        </tr>
-                        <tr>
-                            <th>Gross Collected</th>
-                            <td>₦{{ component_report.gross }}</td>
-                        </tr>
-                        <tr>
-                            <th>Waived Amount</th>
-                            <td>₦{{ component_report.waived }}</td>
-                        </tr>
-                        <tr class="table-success">
-                            <th>Net Collected</th>
-                            <td><strong>₦{{ component_report.net }}</strong></td>
-                        </tr>
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="card bg-light">
+                                <div class="card-body text-center">
+                                    <h6 class="text-muted">Gross Collected</h6>
+                                    <h3 class="text-primary">₦{{ component_report.gross|floatformat:2 }}</h3>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card bg-light">
+                                <div class="card-body text-center">
+                                    <h6 class="text-muted">Waived Amount</h6>
+                                    <h3 class="text-danger">₦{{ component_report.waived|floatformat:2 }}</h3>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card bg-success text-white">
+                                <div class="card-body text-center">
+                                    <h6 class="text-white">Net Collected</h6>
+                                    <h3 class="text-white">₦{{ component_report.net|floatformat:2 }}</h3>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <table class="table table-bordered mt-3">
+                        <thead class="thead-light">
+                            <tr>
+                                <th>Component</th>
+                                <th>Gross Collected</th>
+                                <th>Waived Amount</th>
+                                <th>Net Collected</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><strong>{{ component_report.component_name }}</strong></td>
+                                <td>₦{{ component_report.gross|floatformat:2 }}</td>
+                                <td>₦{{ component_report.waived|floatformat:2 }}</td>
+                                <td class="table-success"><strong>₦{{ component_report.net|floatformat:2 }}</strong></td>
+                            </tr>
+                        </tbody>
                     </table>
                 </div>
             </div>
@@ -166,68 +211,134 @@
 
             <!-- ================= TOTAL ================= -->
             {% if not component_report %}
-            <h5 class="mb-3">
-                Total Amount Paid:
-                <strong>₦{{ total_sum }}</strong>
-            </h5>
+            <div class="alert alert-info mb-3">
+                <h5 class="mb-0">
+                    Total Amount Paid: <strong>₦{{ total_sum|floatformat:2 }}</strong>
+                    <small class="text-muted">({{ payments.count }} payment{{ payments.count|pluralize }})</small>
+                </h5>
+            </div>
             {% endif %}
 
             <!-- ================= NORMAL PAYMENTS TABLE ================= -->
             {% if not component_report %}
-            <table class="table table-striped" id="table-1">
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Student</th>
-                        <th>Amount</th>
-                        <th>Batch Reference</th>
-                        <th>Type</th>
-                        <th>Method</th>
-                        <th>Status</th>
-                        <th>Date</th>
-                        <th>Term</th>
-                        <th>Session</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for payment in payments %}
-                    <tr>
-                        <td>{{ payment.id }}</td>
-                        <td>
-                            {{ payment.student }}
-                            <br>
-                            <small class="text-muted">
-                                {{ payment.student.admission_number }}
-                            </small>
-                        </td>
-                        <td>₦{{ payment.amount_paid }}</td>
-                        <td>
-                            {{ payment.payment_batch.reference }}
-                        </td>
-                        <td>
-                            {% if payment.fee_structure %}
-                                School Fee
-                            {% elif payment.other_fee %}
-                                {{ payment.other_fee.name }}
-                            {% else %}
-                                —
-                            {% endif %}
-                        </td>
-                        <td>{{ payment.payment_method|title }}</td>
-                        <td>{{ payment.status|title }}</td>
-                        <td>{{ payment.payment_date }}</td>
-                        <td>{{ payment.term.name }}</td>
-                        <td>{{ payment.session.name }}</td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="10" class="text-center">
-                            No payments found for the selected filters.
-                        </td>
-                    </tr>
+            <div class="table-responsive">
+                <table class="table table-striped table-hover" id="table-1">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Student</th>
+                            <th>Class</th>
+                            <th>Amount</th>
+                            <th>Batch Reference</th>
+                            <th>Type</th>
+                            <th>Method</th>
+                            <th>Status</th>
+                            <th>Date</th>
+                            <th>Term</th>
+                            <th>Session</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for payment in payments %}
+                        <tr>
+                            <td>{{ payment.id }}</td>
+                            <td>
+                                {{ payment.student }}
+                                <br>
+                                <small class="text-muted">
+                                    {{ payment.student.admission_number }}
+                                </small>
+                            </td>
+                            <td>
+                                {% if payment.student.enrolled_class %}
+                                    {{ payment.student.enrolled_class.name }} {{ payment.student.enrolled_class.arm }}
+                                {% else %}
+                                    —
+                                {% endif %}
+                            </td>
+                            <td class="text-right">₦{{ payment.amount_paid|floatformat:2 }}</td>
+                            <td>
+                                {% if payment.payment_batch %}
+                                    {{ payment.payment_batch.reference }}
+                                {% else %}
+                                    —
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if payment.fee_structure %}
+                                    <span class="badge badge-primary">School Fee</span>
+                                {% elif payment.other_fee %}
+                                    <span class="badge badge-info">{{ payment.other_fee.name }}</span>
+                                {% else %}
+                                    —
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if payment.payment_method == 'cash' %}
+                                    <span class="badge badge-success">Cash</span>
+                                {% elif payment.payment_method == 'bank_transfer' %}
+                                    <span class="badge badge-info">Transfer</span>
+                                {% elif payment.payment_method == 'credit_card' %}
+                                    <span class="badge badge-warning">Card</span>
+                                {% elif payment.payment_method == 'waiver' %}
+                                    <span class="badge badge-secondary">Waiver</span>
+                                {% else %}
+                                    {{ payment.payment_method|title }}
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if payment.status == 'paid' %}
+                                    <span class="badge badge-success">Paid</span>
+                                {% elif payment.status == 'pending' %}
+                                    <span class="badge badge-warning">Pending</span>
+                                {% elif payment.status == 'overdue' %}
+                                    <span class="badge badge-danger">Overdue</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ payment.payment_date }}</td>
+                            <td>{{ payment.term.name }}</td>
+                            <td>{{ payment.session.name }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="11" class="text-center text-muted py-4">
+                                <i class="fas fa-inbox fa-2x mb-2 d-block"></i>
+                                No payments found for the selected filters.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Pagination (if you have pagination) -->
+            {% if payments.has_other_pages %}
+            <nav aria-label="Page navigation">
+                <ul class="pagination justify-content-center">
+                    {% if payments.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ payments.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">Previous</a>
+                        </li>
+                    {% endif %}
+                    
+                    {% for num in payments.paginator.page_range %}
+                        {% if payments.number == num %}
+                            <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                        {% elif num > payments.number|add:'-3' and num < payments.number|add:'3' %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ num }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">{{ num }}</a>
+                            </li>
+                        {% endif %}
                     {% endfor %}
-                </tbody>
-            </table>
+                    
+                    {% if payments.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ payments.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">Next</a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </nav>
+            {% endif %}
             {% endif %}
 
         </div>
@@ -235,3 +346,23 @@
 </div>
 
 {% endblock content %}
+
+{% block extra_js %}
+<script>
+    // Initialize select2 for better dropdowns
+    $(document).ready(function() {
+        $('.select2').select2({
+            theme: 'bootstrap4',
+            width: '100%'
+        });
+    });
+    
+    // Optional: Auto-submit form when select filters change
+    // Uncomment if you want instant filtering
+    /*
+    $('#filterForm select').on('change', function() {
+        $('#filterForm').submit();
+    });
+    */
+</script>
+{% endblock extra_js %}

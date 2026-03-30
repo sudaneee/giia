@@ -990,13 +990,13 @@ from decimal import Decimal
 from django.utils.timezone import now
 from django.db.models import Sum, Q
 
-
 @login_required(login_url='login')
 def payment_list(request):
     today = now().date()
 
     payments = Payment.objects.select_related(
         "student",
+        "student__enrolled_class",
         "fee_structure",
         "other_fee",
         "session",
@@ -1011,9 +1011,17 @@ def payment_list(request):
     # Lookups
     students = Student.objects.all()
     schoolclasses = SchoolClass.objects.all()
-    feestructures = FeeStructure.objects.all()
     other_fees = OtherFeeStructure.objects.all()
-    components = FeeComponent.objects.select_related("fee_structure")
+    
+    # Get unique fee components by name - FIXED for SQLite
+    # Instead of using distinct('name'), we'll get all components and then use Python to get unique names
+    all_components = FeeComponent.objects.select_related("fee_structure").all()
+    unique_component_names = {}
+    for comp in all_components:
+        if comp.name not in unique_component_names:
+            unique_component_names[comp.name] = comp
+    components = list(unique_component_names.values())
+    
     sessions = Session.objects.all()
     terms = Term.objects.all()
 
@@ -1022,34 +1030,45 @@ def payment_list(request):
     end_date = request.GET.get("end_date")
     session_id = request.GET.get("session")
     term_id = request.GET.get("term")
-    fee_structure_id = request.GET.get("fee_structure")
+    class_id = request.GET.get("class")  # New class filter
     other_fee_id = request.GET.get("other_fee")
-    component_id = request.GET.get("component")
+    component_name = request.GET.get("component")  # Changed from component_id to component_name
     payment_method = request.GET.get("payment_method")
     status = request.GET.get("status")
     reference_id = request.GET.get("reference_id")
+    
+    # Check if export is requested
+    export_excel = request.GET.get("export_excel") == "true"
 
+    # Apply date range filter
     if start_date and end_date:
         payments = payments.filter(payment_date__range=[start_date, end_date])
 
+    # Apply session filter
     if session_id:
         payments = payments.filter(session_id=session_id)
 
+    # Apply term filter
     if term_id:
         payments = payments.filter(term_id=term_id)
 
+    # Apply class filter (filter by student's enrolled class)
+    if class_id:
+        payments = payments.filter(student__enrolled_class_id=class_id)
+
+    # Apply payment method filter
     if payment_method:
         payments = payments.filter(payment_method=payment_method)
 
+    # Apply status filter
     if status:
         payments = payments.filter(status=status)
 
-    if fee_structure_id:
-        payments = payments.filter(fee_structure_id=fee_structure_id)
-
+    # Apply other fee filter
     if other_fee_id:
         payments = payments.filter(other_fee_id=other_fee_id)
     
+    # Apply reference ID filter
     if reference_id:
         payments = payments.filter(transaction_reference=reference_id)
 
@@ -1058,49 +1077,62 @@ def payment_list(request):
     # ======================================================
     component_report = None
 
-    if component_id:
-        component = FeeComponent.objects.get(id=component_id)
+    if component_name:
+        # Get all fee components with this name
+        components_with_name = FeeComponent.objects.filter(name=component_name)
+        
+        if components_with_name.exists():
+            component_report = {
+                "component_name": component_name,
+                "gross": Decimal("0.00"),
+                "waived": Decimal("0.00"),
+                "net": Decimal("0.00"),
+            }
 
-        component_report = {
-            "component": component,
-            "gross": Decimal("0.00"),
-            "waived": Decimal("0.00"),
-            "net": Decimal("0.00"),
-        }
+            # Get paid school-fee payments that include this component
+            # Filter by component name across all fee structures
+            component_payments = payments.filter(
+                status="paid",
+                fee_structure__components__name=component_name
+            ).distinct()
 
-        # Paid school-fee payments only
-        component_payments = payments.filter(
-            status="paid",
-            fee_structure__components=component
-        ).distinct()
+            # Apply term and session filters if they exist (already in payments queryset)
+            # The class filter is already applied to payments above
+            
+            for payment in component_payments:
+                fee = payment.fee_structure
+                if not fee or fee.total_amount <= 0:
+                    continue
 
-        for payment in component_payments:
-            fee = payment.fee_structure
-            if not fee or fee.total_amount <= 0:
-                continue
+                # Calculate the share for this specific component
+                # Get the component amount from the fee structure
+                component_amount = fee.components.filter(name=component_name).first()
+                if component_amount:
+                    ratio = payment.amount_paid / fee.total_amount
+                    component_share = (ratio * component_amount.amount).quantize(Decimal("0.01"))
+                    
+                    component_report["gross"] += component_share
 
-            ratio = payment.amount_paid / fee.total_amount
-            component_share = (ratio * component.amount).quantize(Decimal("0.01"))
+                    # 🔹 Tuition-only waiver handling
+                    if component_name.lower() == "tuition":
+                        waived = Payment.objects.filter(
+                            payment_batch=payment.payment_batch,
+                            payment_method="waiver"
+                        ).aggregate(
+                            total=Sum("amount_paid")
+                        )["total"] or Decimal("0.00")
 
-            component_report["gross"] += component_share
+                        if waived > 0:
+                            waived_ratio = (waived / fee.total_amount) * component_amount.amount
+                            waived_ratio = waived_ratio.quantize(Decimal("0.01"))
+                            component_report["waived"] += waived_ratio
 
-            # 🔹 Tuition-only waiver handling
-            if component.name.lower() == "tuition":
-                waived = Payment.objects.filter(
-                    payment_batch=payment.payment_batch,
-                    payment_method="waiver"
-                ).aggregate(
-                    total=Sum("amount_paid")
-                )["total"] or Decimal("0.00")
-
-                if waived > 0:
-                    waived_ratio = (waived / fee.total_amount) * component.amount
-                    waived_ratio = waived_ratio.quantize(Decimal("0.01"))
-                    component_report["waived"] += waived_ratio
-
-        component_report["net"] = (
-            component_report["gross"] - component_report["waived"]
-        )
+            component_report["net"] = (
+                component_report["gross"] - component_report["waived"]
+            )
+        else:
+            # Component name not found
+            component_report = None
 
     # ======================================================
     # 🔹 NORMAL TOTAL
@@ -1109,11 +1141,16 @@ def payment_list(request):
         total=Sum("amount_paid")
     )["total"] or Decimal("0.00")
 
+    # ======================================================
+    # 🔹 EXPORT TO EXCEL
+    # ======================================================
+    if export_excel:
+        return export_payments_to_excel(payments, request, component_report)
+
     return render(request, "src/payment_list.html", {
         "payments": payments,
         "students": students,
         "schoolclasses": schoolclasses,
-        "feestructures": feestructures,
         "other_fees": other_fees,
         "components": components,
         "sessions": sessions,
@@ -1122,6 +1159,87 @@ def payment_list(request):
         "component_report": component_report,
     })
 
+
+def export_payments_to_excel(payments, request, component_report=None):
+    """
+    Export filtered payments to Excel file
+    """
+    import pandas as pd
+    from django.http import HttpResponse
+    from io import BytesIO
+    from datetime import datetime
+    
+    # Create data list
+    data = []
+    
+    if component_report:
+        # Export component report
+        data.append({
+            'Report Type': 'Fee Component Earnings Report',
+            'Component': component_report['component_name'],
+            'Gross Collected': float(component_report['gross']),
+            'Waived Amount': float(component_report['waived']),
+            'Net Collected': float(component_report['net']),
+            'Generated On': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        })
+    else:
+        # Export payments list
+        for payment in payments:
+            # Get component names if it's a school fee payment
+            components_list = []
+            if payment.fee_structure:
+                components_list = [comp.name for comp in payment.fee_structure.components.all()]
+            
+            data.append({
+                'Payment ID': payment.id,
+                'Student Name': str(payment.student),
+                'Admission Number': payment.student.admission_number or '',
+                'Class': str(payment.student.enrolled_class) if payment.student.enrolled_class else '',
+                'Amount Paid': float(payment.amount_paid),
+                'Batch Reference': payment.payment_batch.reference if payment.payment_batch else '',
+                'Payment Type': 'School Fee' if payment.fee_structure else (payment.other_fee.name if payment.other_fee else ''),
+                'Components/Fee Name': ', '.join(components_list) if components_list else (payment.other_fee.name if payment.other_fee else ''),
+                'Payment Method': payment.payment_method.title(),
+                'Status': payment.status.title(),
+                'Payment Date': payment.payment_date.strftime('%Y-%m-%d') if payment.payment_date else '',
+                'Term': payment.term.name if payment.term else '',
+                'Session': payment.session.name if payment.session else '',
+                'Transaction Reference': payment.transaction_reference or '',
+            })
+    
+    # Create DataFrame
+    df = pd.DataFrame(data)
+    
+    # Create Excel file
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, sheet_name='Payments Report', index=False)
+        
+        # Auto-adjust column widths
+        worksheet = writer.sheets['Payments Report']
+        for column in worksheet.columns:
+            max_length = 0
+            column_letter = column[0].column_letter
+            for cell in column:
+                try:
+                    if len(str(cell.value)) > max_length:
+                        max_length = len(str(cell.value))
+                except:
+                    pass
+            adjusted_width = min(max_length + 2, 50)
+            worksheet.column_dimensions[column_letter].width = adjusted_width
+    
+    output.seek(0)
+    
+    # Create HTTP response
+    filename = f"payments_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+    response = HttpResponse(
+        output.read(),
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    
+    return response
 
 
 @login_required(login_url='login')
