@@ -2237,19 +2237,19 @@ def display_class_results(request, session_id, term_id, class_id):
             term=term,
             class_assigned=school_class,
             student=student
-        )
+        ).select_related('subject')
 
         # Compute total score and average for the student
-        total_score = sum(result.ca1_marks + result.ca2_marks + result.home_work_marks + result.activity_marks + result.exam_marks for result in results)
+        total_score = sum(r.total_marks for r in results)
         num_subjects = results.count()
         average_score = total_score / num_subjects if num_subjects > 0 else 0
         
-        
+        # Grading Logic
         if 76 <= average_score <= 100:
             overall_grade = "A+"
-        elif 70 <= average_score < 76:  # Use `< 76` to include fractional values
+        elif 70 <= average_score < 76:
             overall_grade = "A"
-        elif 65 <= average_score < 70:  # Use `< 70` and so on
+        elif 65 <= average_score < 70:
             overall_grade = "A-"
         elif 60 <= average_score < 65:
             overall_grade = "B+"
@@ -2268,8 +2268,6 @@ def display_class_results(request, session_id, term_id, class_id):
         else:
             overall_grade = "Invalid score"
 
-
-
         # Fetch behavioral assessment
         behavioral_assessment = StudentBehaviouralAssessment.objects.filter(
             session=session,
@@ -2278,70 +2276,23 @@ def display_class_results(request, session_id, term_id, class_id):
             student=student
         ).first()
 
-        # Retrieve the fee structure for the student's class, session, and term
-        fee_structure = FeeStructure.objects.filter(
-            class_assigned=school_class,
-            session=session,
-            term=term
-        ).first()
-
-        # Initialize fee details
-        total_fee = fee_structure.amount if fee_structure else 0
-
-        # Retrieve payment made by the student for the same session and term
-        payment = Payment.objects.filter(
-            student=student,
-            session=session,
-            term=term
-        ).aggregate(amount_paid=models.Sum('amount_paid'))['amount_paid'] or 0
-
-        # Calculate outstanding balance
-        outstanding_balance = total_fee - payment
-
         # Comments based on average score
-        if 76 <= average_score <= 100:
+        if average_score >= 65:
             english_comment = "AN EXCELLENT PERFORMANCE, KEEP IT UP."
             arabic_comment_male = "فاز بتقدير ممتاز ويرجى له التفوق في الفترات القادمة"
             arabic_comment_female = "فازت بتقدير ممتاز ويرجى لها التفوق في الفترات القادمة"
-        elif 70 <= average_score <= 76:
-            english_comment = "AN EXCELLENT PERFORMANCE, KEEP IT UP."
-            arabic_comment_male = "فاز بتقدير ممتاز ويرجى له التفوق في الفترات القادمة"
-            arabic_comment_female = "فازت بتقدير ممتاز ويرجى لها التفوق في الفترات القادمة"
-        elif 65 <= average_score <= 70:
-            english_comment = "AN EXCELLENT PERFORMANCE, KEEP IT UP."
-            arabic_comment_male = "فاز بتقدير ممتاز ويرجى له التفوق في الفترات القادمة"
-            arabic_comment_female = "فازت بتقدير ممتاز ويرجى لها التفوق في الفترات القادمة"
-        elif 60 <= average_score <= 65:
+        elif average_score >= 50:
             english_comment = "A VERY GOOD RESULT, PUT IN MORE EFFORT."
             arabic_comment_male = "فاز بتقدير جيد جدا ويرجى له التقدم في الفترة المقبلة"
             arabic_comment_female = "فازت بتقدير جيد جدا ويرجى لها التقدم في الفترة المقبلة"
-        elif 55 <= average_score <= 60:
-            english_comment = "A VERY GOOD RESULT, PUT IN MORE EFFORT."
-            arabic_comment_male = "فاز بتقدير جيد جدا ويرجى له التقدم في الفترة المقبلة"
-            arabic_comment_female = "فازت بتقدير جيد جدا ويرجى لها التقدم في الفترة المقبلة"
-        elif 50 <= average_score <= 55:
-            english_comment = "A VERY GOOD RESULT, PUT IN MORE EFFORT."
-            arabic_comment_male = "فاز بتقدير جيد جدا ويرجى له التقدم في الفترة المقبلة"
-            arabic_comment_female = "فازت بتقدير جيد جدا ويرجى لها التقدم في الفترة المقبلة"
-        elif 46 <= average_score <= 50:
+        elif average_score >= 39:
             english_comment = "A GOOD RESULT, TRY HARDER NEXT TERM."
             arabic_comment_male = "فاز بتقدير جيد ويرجى له الجهد الكبير في الفترة المقبلة"
             arabic_comment_female = "فازت بتقدير جيد ويرجى لها الجهد الكبير في الفترة المقبلة"
-        elif 43 <= average_score <= 46:
-            english_comment = "A GOOD RESULT, TRY HARDER NEXT TERM."
-            arabic_comment_male = "فاز بتقدير جيد ويرجى له الجهد الكبير في الفترة المقبلة"
-            arabic_comment_female = "فازت بتقدير جيد ويرجى لها الجهد الكبير في الفترة المقبلة"
-        elif 39 <= average_score <= 43:
-            english_comment = "A GOOD RESULT, TRY HARDER NEXT TERM."
-            arabic_comment_male = "فاز بتقدير جيد ويرجى له الجهد الكبير في الفترة المقبلة"
-            arabic_comment_female = "فازت بتقدير جيد ويرجى لها الجهد الكبير في الفترة المقبلة"
-        elif 0 <= average_score <= 39:
+        else:
             english_comment = "A SATISFACTORY RESULT, TRY TO IMPROVE NEXT TERM."
             arabic_comment_male = "تقدير ضعيف،يرجى منه التقدم"
             arabic_comment_female = "تقدير ضعيف، يرجى منها التقدم"
-        else:
-            english_comment = "Invalid score."
-            arabic_comment_male = arabic_comment_female = "درجة غير صالحة."
 
         # Determine gender-specific Arabic comment
         if student.gender == "Male":
@@ -2351,23 +2302,9 @@ def display_class_results(request, session_id, term_id, class_id):
         else:
             comments = f"{english_comment}\nUnknown gender for Arabic comment."
 
-
-        # Prepare results for the student and calculate positions for each subject
+        # Prepare subject results
         student_results = []
         for result in results:
-            # Fetch all results for the same subject, term, session, and class to calculate position
-            subject_results = Result.objects.filter(
-                subject=result.subject,
-                session=session,
-                term=term,
-                class_assigned=school_class
-            )
-
-      
-            # Convert position to ordinal representation
-            position_ordinal = result.subject_position
-
-            # Append each subject's result and position to the student's result data
             student_results.append({
                 'subject': result.subject,
                 'ca1_marks': result.ca1_marks,
@@ -2375,9 +2312,9 @@ def display_class_results(request, session_id, term_id, class_id):
                 'home_work_marks': result.home_work_marks,
                 'activity_marks': result.activity_marks,
                 'exam_marks': result.exam_marks,
-                'total_marks': result.ca1_marks + result.ca2_marks + result.home_work_marks + result.activity_marks + result.exam_marks,
+                'total_marks': result.total_marks,
                 'grade': result.grade,
-                'position': position_ordinal  # Use the ordinal position
+                'position': result.subject_position
             })
 
         results_data.append({
@@ -2388,9 +2325,6 @@ def display_class_results(request, session_id, term_id, class_id):
             'overall_grade': overall_grade,
             'behavioral_assessment': behavioral_assessment,
             'comments': comments,
-            'total_fee': total_fee,
-            'amount_paid': payment,
-            'outstanding_balance': outstanding_balance
         })
 
     return render(request, 'src/display_class_results.html', {
@@ -2399,8 +2333,9 @@ def display_class_results(request, session_id, term_id, class_id):
         'school_class': school_class,
         'results_data': results_data,
         'school_config': school_config,
+        # Ensure GradingSystem exists or wrap in try/except if optional
+        'grading_system': GradingSystem.objects.last() if 'GradingSystem' in locals() else None,
     })
-
 
 
 
