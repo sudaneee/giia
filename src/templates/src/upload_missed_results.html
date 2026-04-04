@@ -31,7 +31,7 @@
                     <select name="class_assigned" class="form-control select2" required>
                         <option value="">Select Class</option>
                         {% for school_class in classes %}
-                        <option value="{{ school_class.id }}">{{ school_class.name }}</option>
+                        <option value="{{ school_class.id }}">{{ school_class }}</option>
                         {% endfor %}
                     </select>
                 </div>

@@ -1960,6 +1960,156 @@ def upload_results(request):
     })
 
 
+from django.http import HttpResponse
+from openpyxl import Workbook
+from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+from openpyxl.comments import Comment  # Add this import
+import openpyxl
+
+@login_required(login_url='login')
+def download_result_template(request):
+    """Download Excel template for uploading results based on selected class"""
+    
+    if request.method == 'POST':
+        class_id = request.POST.get('class_assigned')
+        
+        if not class_id:
+            messages.error(request, "Please select a class first.")
+            return redirect('upload_results')
+        
+        school_class = get_object_or_404(SchoolClass, pk=class_id)
+        
+        # Get all students in the selected class
+        students = Student.objects.filter(enrolled_class=school_class).order_by('first_name', 'last_name')
+        
+        if not students.exists():
+            messages.warning(request, f"No students found in {school_class.name}. Please add students first.")
+            return redirect('upload_results')
+        
+        # Create workbook and worksheet
+        wb = Workbook()
+        ws = wb.active
+        ws.title = f"{school_class.name}_Results_Template"
+        
+        # Define styles
+        header_font = Font(bold=True, color="FFFFFF", size=11)
+        header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+        header_alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+        
+        thin_border = Border(
+            left=Side(style='thin'),
+            right=Side(style='thin'),
+            top=Side(style='thin'),
+            bottom=Side(style='thin')
+        )
+        
+        # Define headers
+        headers = [
+            ("Student ID", "Student ID (Required) - Do not modify"),
+            ("First Name", "Student First Name - Auto-filled, do not modify"),
+            ("Last Name", "Student Last Name - Auto-filled, do not modify"),
+            ("CA 1 Marks", "CA 1 (0-20) - Enter marks here"),
+            ("CA 2 Marks", "CA 2 (0-20) - Enter marks here"),
+            ("Homework Marks", "Homework (0-10) - Enter marks here"),
+            ("Activity Marks", "Activity (0-10) - Enter marks here"),
+            ("Exam Marks", "Exam (0-40) - Enter marks here")
+        ]
+        
+        # Write headers
+        for col_idx, (header, tooltip) in enumerate(headers, start=1):
+            cell = ws.cell(row=1, column=col_idx, value=header)
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.alignment = header_alignment
+            cell.border = thin_border
+            
+            # Add comment/tooltip - FIXED: Create Comment object properly
+            comment = Comment(tooltip, "System")
+            cell.comment = comment
+        
+        # Write student data
+        for row_idx, student in enumerate(students, start=2):
+            # Student ID (Column A)
+            cell_id = ws.cell(row=row_idx, column=1, value=student.id)
+            cell_id.border = thin_border
+            cell_id.alignment = Alignment(horizontal="center")
+            
+            # First Name (Column B)
+            cell_first = ws.cell(row=row_idx, column=2, value=student.first_name)
+            cell_first.border = thin_border
+            
+            # Last Name (Column C)
+            cell_last = ws.cell(row=row_idx, column=3, value=student.last_name)
+            cell_last.border = thin_border
+            
+            # Marks columns (D-H) - leave empty for user to fill
+            for col_idx in range(4, 9):  # Columns D through H
+                cell = ws.cell(row=row_idx, column=col_idx, value="")
+                cell.border = thin_border
+                cell.alignment = Alignment(horizontal="center")
+        
+        # Set column widths
+        column_widths = {
+            'A': 15,  # Student ID
+            'B': 20,  # First Name
+            'C': 20,  # Last Name
+            'D': 12,  # CA 1
+            'E': 12,  # CA 2
+            'F': 15,  # Homework
+            'G': 15,  # Activity
+            'H': 12,  # Exam
+        }
+        
+        for col, width in column_widths.items():
+            ws.column_dimensions[col].width = width
+        
+        # Freeze header row
+        ws.freeze_panes = 'A2'
+        
+        # Add validation notes in a separate sheet
+        instructions_sheet = wb.create_sheet("Instructions")
+        
+        instructions = [
+            ["INSTRUCTIONS FOR UPLOADING RESULTS"],
+            [""],
+            ["1. DO NOT modify the Student ID, First Name, or Last Name columns"],
+            ["2. Enter marks only in the columns D through H (CA1, CA2, Homework, Activity, Exam)"],
+            ["3. Marks ranges:"],
+            ["   - CA 1: 0 - 20"],
+            ["   - CA 2: 0 - 20"],
+            ["   - Homework: 0 - 10"],
+            ["   - Activity: 0 - 10"],
+            ["   - Exam: 0 - 40"],
+            ["4. Leave empty if student has no marks"],
+            ["5. Do not change the file structure or delete any rows"],
+            ["6. Save the file before uploading"],
+            ["7. Make sure all marks are numbers"],
+            [""],
+            ["Class:", school_class.name],
+            ["Number of Students:", len(students)],
+        ]
+        
+        for row_idx, row_data in enumerate(instructions, start=1):
+            for col_idx, value in enumerate(row_data, start=1):
+                cell = instructions_sheet.cell(row=row_idx, column=col_idx, value=value)
+                if row_idx == 1:
+                    cell.font = Font(bold=True, size=14)
+        
+        instructions_sheet.column_dimensions['A'].width = 50
+        instructions_sheet.column_dimensions['B'].width = 20
+        
+        # Create HTTP response
+        response = HttpResponse(
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = f'attachment; filename="{school_class.name}_results_template.xlsx"'
+        
+        wb.save(response)
+        return response
+    
+    # If GET request, redirect to upload page
+    messages.error(request, "Please select a class from the upload page first.")
+    return redirect('upload_results')
 
 @login_required(login_url='login')
 def upload_missed_results(request):

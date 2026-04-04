@@ -93,6 +93,7 @@ urlpatterns = [
     path('results/update/', views.result_update, name='result_update'),
     path('results/download-template/', views.download_template, name='download_template'),
     path('results/upload/', views.upload_results, name='upload_results'),
+    path('result/download-template/', views.download_result_template, name='download_result_template'),
     path('results/upload-missed/', views.upload_missed_results, name='upload_missed_results'),
     path('results/view_class/', views.select_class_for_result, name='select_class_for_result'),
     path('results/view_class/results/<int:session_id>/<int:term_id>/<int:class_id>/', views.display_class_results, name='display_class_results'),

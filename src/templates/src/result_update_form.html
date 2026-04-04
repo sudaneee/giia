@@ -31,7 +31,7 @@
                     <select name="class_assigned" class="form-control select2" >
                         <option value="">Select Class</option>
                         {% for school_class in classes %}
-                        <option value="{{ school_class.id }}" {% if selected_class and selected_class.id == school_class.id %}selected{% endif %}>{{ school_class.name }}</option>
+                        <option value="{{ school_class.id }}" {% if selected_class and selected_class.id == school_class.id %}selected{% endif %}>{{ school_class }}</option>
                         {% endfor %}
                     </select>
                 </div>

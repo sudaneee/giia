@@ -62,7 +62,7 @@
                     <select name="enrolled_class" class="form-control">
                         <option value="">Select Class</option>
                         {% for class in school_classes %}
-                        <option value="{{ class.id }}">{{ class.name }}</option>
+                        <option value="{{ class.id }}">{{ class }}</option>
                         {% endfor %}
                     </select>
                 </div>
