@@ -2468,6 +2468,14 @@ def display_class_results(request, session_id, term_id, class_id):
             'behavioral_assessment': behavioral_assessment,
             'comments': comments,
         })
+    header_image_url = None
+    signature_image_url = None
+
+    if school_config and school_config.header_image:
+        header_image_url = request.build_absolute_uri(school_config.header_image.url)
+
+    if school_config and school_config.signature_image:
+        signature_image_url = request.build_absolute_uri(school_config.signature_image.url)
 
     return render(request, 'src/display_class_results.html', {
         'session': session,
@@ -2477,6 +2485,8 @@ def display_class_results(request, session_id, term_id, class_id):
         'school_config': school_config,
         
         'total_students': total_students,
+        'header_image_url': header_image_url,
+        'signature_image_url': signature_image_url,
     })
 
 
@@ -2527,7 +2537,10 @@ def download_all_results_pdf(request, session_id, term_id, class_id):
             )
 
             # pdf = HTML(string=html_string).write_pdf()
-            pdf = HTML(string=html_string, base_url=request.build_absolute_uri()).write_pdf()
+            pdf = HTML(
+                string=html_string,
+                base_url=request.build_absolute_uri()
+            ).write_pdf()
 
             filename = f"{student.first_name}_{student.last_name}_{student.admission_number}.pdf"
             zip_file.writestr(filename, pdf)
