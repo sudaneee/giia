@@ -70,10 +70,46 @@ def is_staff(user):
 
 
 
-def home(request):
+# def home(request):
    
-    return render(request, 'website/index.html')
+#     return render(request, 'website/index.html')
 
+
+from collections import defaultdict
+from django.http import HttpResponse
+from src.models import Result
+
+def home(request):
+    run_cleanup = request.GET.get("clean_all") == "1"
+
+    message = "Home"
+
+    if run_cleanup:
+        results = Result.objects.all()
+
+        grouped = defaultdict(list)
+
+        for r in results:
+            key = (r.student_id, r.subject_id, r.session_id, r.term_id)
+            grouped[key].append(r)
+
+        to_delete = []
+
+        for key, records in grouped.items():
+            if len(records) > 1:
+                # Keep latest record
+                records.sort(key=lambda x: x.id, reverse=True)
+
+                for r in records[1:]:
+                    to_delete.append(r.id)
+
+        print("TOTAL TO DELETE:", len(to_delete))  # Debug
+
+        deleted_count, _ = Result.objects.filter(id__in=to_delete).delete()
+
+        message = f"Deleted {deleted_count} duplicates globally"
+
+    return HttpResponse(message)
 
 def about(request):
     return render(request, 'website/about.html')
