@@ -2380,6 +2380,18 @@ from weasyprint import HTML
 import zipfile
 from io import BytesIO
 
+import base64
+
+def image_to_base64(image_field):
+    if image_field and image_field.path:
+        try:
+            with open(image_field.path, "rb") as img:
+                return base64.b64encode(img.read()).decode('utf-8')
+        except:
+            return None
+    return None
+
+
 
 @login_required(login_url='login')
 def display_class_results(request, session_id, term_id, class_id):
@@ -2471,6 +2483,9 @@ def display_class_results(request, session_id, term_id, class_id):
     header_image_url = None
     signature_image_url = None
 
+    header_image_base64 = image_to_base64(school_config.header_image)
+    signature_image_base64 = image_to_base64(school_config.signature_image)
+
     if school_config and school_config.header_image:
         header_image_url = request.build_absolute_uri(school_config.header_image.url)
 
@@ -2487,6 +2502,8 @@ def display_class_results(request, session_id, term_id, class_id):
         'total_students': total_students,
         'header_image_url': header_image_url,
         'signature_image_url': signature_image_url,
+        'header_image_base64': header_image_base64,
+        'signature_image_base64': signature_image_base64,
     })
 
 
