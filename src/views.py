@@ -2750,7 +2750,7 @@ def download_single_result_pdf(request, student_id, session_id, term_id, class_i
             'session': session,
             'term': term,
             'school_class': school_class,
-            'total_students': Student.objects.filter(enrolled_class=school_class).count()
+            'total_students': Student.objects.filter(enrolled_class=school_class).count(),
             'header_image_url': header_image_url,
             'signature_image_url': signature_image_url,
         }
