@@ -137,9 +137,21 @@ class Result(models.Model):
     activity_marks = models.IntegerField(verbose_name="Activity Marks")
     exam_marks = models.IntegerField(verbose_name="Exam Marks")
 
+    class Meta:
+        unique_together = ('student', 'subject', 'session', 'term', 'class_assigned') 
+    
+    # ✅ ADDED: class-level cache
+    _position_cache = {}
+
     @property
     def total_marks(self):
-        return self.ca1_marks + self.ca2_marks + self.home_work_marks + self.activity_marks + self.exam_marks
+        return (
+            self.ca1_marks
+            + self.ca2_marks
+            + self.home_work_marks
+            + self.activity_marks
+            + self.exam_marks
+        )
 
     @property
     def grade(self):
@@ -171,6 +183,19 @@ class Result(models.Model):
         Calculate the rank of the current result (`self`) among all results for the same subject,
         session, term, and class_assigned, handling ties.
         """
+
+        # ✅ UNIQUE KEY FOR CACHE
+        key = (
+            self.subject_id,
+            self.session_id,
+            self.term_id,
+            self.class_assigned_id
+        )
+
+        # ✅ RETURN FROM CACHE IF AVAILABLE
+        if key in Result._position_cache:
+            return Result._position_cache[key].get(self.id)
+
         # Fetch all results for the same subject, session, term, and class_assigned
         results = Result.objects.filter(
             subject=self.subject,
@@ -179,33 +204,51 @@ class Result(models.Model):
             class_assigned=self.class_assigned
         )
 
-        # Compute total marks dynamically for each result
-        total_scores = [(result.id, result.total_marks) for result in results]
+        # Remove duplicates manually
+        unique_results = {}
+        for r in results:
+            unique_results[r.student_id] = r  # overwrite duplicates
 
+        results = list(unique_results.values())
+        print("TOTAL RECORDS:", len(results))
+        # Compute total marks dynamically for each result
+        unique_results = {}
+        for r in results:
+            unique_results[r.student_id] = r
+
+        results = list(unique_results.values())
+
+        total_scores = [(result.id, result.total_marks) for result in results]
         # Sort total scores in descending order
         total_scores.sort(key=lambda x: x[1], reverse=True)
 
         # Assign ranks, handling ties
         rank = 1
         positions = {}
+
         for idx, (result_id, marks) in enumerate(total_scores):
-            if idx > 0 and marks < total_scores[idx - 1][1]:  # Compare with the previous score
-                rank = idx + 1  # Update rank only when scores differ
+            if idx > 0 and marks < total_scores[idx - 1][1]:
+                rank = idx + 1
             positions[result_id] = rank
 
+        # ✅ STORE IN CACHE
+        Result._position_cache[key] = positions
+
         # Return the position of `self`
+        print("DEBUG →", self.student, self.subject, self.class_assigned, self.term, self.session)
         return positions.get(self.id)
 
     @property
     def subject_position(self):
-        """
-        Expose the rank as a property for easy access.
-        """
         return ordinal(self.calculate_position())
+
+    # ✅ OPTIONAL BUT IMPORTANT: clear cache when data changes
+    def save(self, *args, **kwargs):
+        Result._position_cache = {}
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.student} - {self.subject} ({self.term.name} {self.session.name} - {self.class_assigned.name})"
-
 
 class StudentBehaviouralAssessment(models.Model):
     student = models.ForeignKey(Student, on_delete=models.CASCADE)
