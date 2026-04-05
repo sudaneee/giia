@@ -2536,6 +2536,56 @@ def download_all_results_pdf(request, session_id, term_id, class_id):
             average_score = total_score / num_subjects if num_subjects > 0 else 0
 
             # ============================
+            # GRADE LOGIC
+            # ============================
+            if 76 <= average_score <= 100:
+                overall_grade = "A+"
+            elif 70 <= average_score < 76:
+                overall_grade = "A"
+            elif 65 <= average_score < 70:
+                overall_grade = "A-"
+            elif 60 <= average_score < 65:
+                overall_grade = "B+"
+            elif 55 <= average_score < 60:
+                overall_grade = "B"
+            elif 50 <= average_score < 55:
+                overall_grade = "B-"
+            elif 46 <= average_score < 50:
+                overall_grade = "C+"
+            elif 43 <= average_score < 46:
+                overall_grade = "C"
+            elif 39 <= average_score < 43:
+                overall_grade = "C-"
+            else:
+                overall_grade = "F"
+
+
+            # ============================
+            # COMMENTS LOGIC
+            # ============================
+            if average_score >= 65:
+                eng = "AN EXCELLENT PERFORMANCE, KEEP IT UP."
+                ar_m = "فاز بتقدير ممتاز ويرجى له التفوق في الفترات القادمة"
+                ar_f = "فازت بتقدير ممتاز ويرجى لها التفوق في الفترات القادمة"
+            elif average_score >= 50:
+                eng = "A VERY GOOD RESULT, PUT IN MORE EFFORT."
+                ar_m = "فاز بتقدير جيد جدا ويرجى له التقدم في الفترة المقبلة"
+                ar_f = "فازت بتقدير جيد جدا ويرجى لها التقدم في الفترة المقبلة"
+            elif average_score >= 39:
+                eng = "A GOOD RESULT, TRY HARDER NEXT TERM."
+                ar_m = "فاز بتقدير جيد ويرجى له الجهد الكبير في الفترة المقبلة"
+                ar_f = "فازت بتقدير جيد ويرجى لها الجهد الكبير في الفترة المقبلة"
+            else:
+                eng = "A SATISFACTORY RESULT, TRY TO IMPROVE NEXT TERM."
+                ar_m = "تقدير ضعيف،يرجى منه التقدم"
+                ar_f = "تقدير ضعيف، يرجى منها التقدم"
+
+            if student.gender == "Male":
+                comments = f"{eng}\n{ar_m}"
+            else:
+                comments = f"{eng}\n{ar_f}"
+
+            # ============================
             # IMAGE FIX (IMPORTANT)
             # ============================
             header_image_url = None
@@ -2558,9 +2608,11 @@ def download_all_results_pdf(request, session_id, term_id, class_id):
                         'results': results,
                         'total_score': total_score,
                         'average_score': average_score,
-                        'overall_grade': '',
+                       
                         'behavioral_assessment': None,
                         'comments': '',
+                        'overall_grade': overall_grade,
+                        'comments': comments,
                     }],
                     'school_config': school_config,
                     'session': session,
@@ -2616,6 +2668,56 @@ def download_single_result_pdf(request, student_id, session_id, term_id, class_i
     average_score = total_score / num_subjects if num_subjects > 0 else 0
 
     # ============================
+    # GRADE LOGIC
+    # ============================
+    if 76 <= average_score <= 100:
+        overall_grade = "A+"
+    elif 70 <= average_score < 76:
+        overall_grade = "A"
+    elif 65 <= average_score < 70:
+        overall_grade = "A-"
+    elif 60 <= average_score < 65:
+        overall_grade = "B+"
+    elif 55 <= average_score < 60:
+        overall_grade = "B"
+    elif 50 <= average_score < 55:
+        overall_grade = "B-"
+    elif 46 <= average_score < 50:
+        overall_grade = "C+"
+    elif 43 <= average_score < 46:
+        overall_grade = "C"
+    elif 39 <= average_score < 43:
+        overall_grade = "C-"
+    else:
+        overall_grade = "F"
+
+
+    # ============================
+    # COMMENTS LOGIC
+    # ============================
+    if average_score >= 65:
+        eng = "AN EXCELLENT PERFORMANCE, KEEP IT UP."
+        ar_m = "فاز بتقدير ممتاز ويرجى له التفوق في الفترات القادمة"
+        ar_f = "فازت بتقدير ممتاز ويرجى لها التفوق في الفترات القادمة"
+    elif average_score >= 50:
+        eng = "A VERY GOOD RESULT, PUT IN MORE EFFORT."
+        ar_m = "فاز بتقدير جيد جدا ويرجى له التقدم في الفترة المقبلة"
+        ar_f = "فازت بتقدير جيد جدا ويرجى لها التقدم في الفترة المقبلة"
+    elif average_score >= 39:
+        eng = "A GOOD RESULT, TRY HARDER NEXT TERM."
+        ar_m = "فاز بتقدير جيد ويرجى له الجهد الكبير في الفترة المقبلة"
+        ar_f = "فازت بتقدير جيد ويرجى لها الجهد الكبير في الفترة المقبلة"
+    else:
+        eng = "A SATISFACTORY RESULT, TRY TO IMPROVE NEXT TERM."
+        ar_m = "تقدير ضعيف،يرجى منه التقدم"
+        ar_f = "تقدير ضعيف، يرجى منها التقدم"
+
+    if student.gender == "Male":
+        comments = f"{eng}\n{ar_m}"
+    else:
+        comments = f"{eng}\n{ar_f}"
+
+    # ============================
     # IMAGE FIX (IMPORTANT)
     # ============================
     header_image_url = None
@@ -2638,15 +2740,17 @@ def download_single_result_pdf(request, student_id, session_id, term_id, class_i
                 'results': results,
                 'total_score': total_score,
                 'average_score': average_score,
-                'overall_grade': '',
+           
                 'behavioral_assessment': None,
-                'comments': '',
+             
+                'overall_grade': overall_grade,
+                'comments': comments,
             }],
             'school_config': school_config,
             'session': session,
             'term': term,
             'school_class': school_class,
-            'total_students': 1,
+            'total_students': Student.objects.filter(enrolled_class=school_class).count()
             'header_image_url': header_image_url,
             'signature_image_url': signature_image_url,
         }
