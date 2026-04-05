@@ -2507,9 +2507,9 @@ def display_class_results(request, session_id, term_id, class_id):
     })
 
 
-# ===============================
-# DOWNLOAD ALL RESULTS (ZIP)
-# ===============================
+
+
+
 @login_required(login_url='login')
 def download_all_results_pdf(request, session_id, term_id, class_id):
     session = get_object_or_404(Session, pk=session_id)
@@ -2523,6 +2523,7 @@ def download_all_results_pdf(request, session_id, term_id, class_id):
 
     with zipfile.ZipFile(zip_buffer, 'w') as zip_file:
         for student in students:
+
             results = Result.objects.filter(
                 session=session,
                 term=term,
@@ -2534,31 +2535,55 @@ def download_all_results_pdf(request, session_id, term_id, class_id):
             num_subjects = results.count()
             average_score = total_score / num_subjects if num_subjects > 0 else 0
 
-            html_string = render_to_string('src/display_class_results.html', {
-                'results_data': [{
-                    'student': student,
-                    'results': results,
-                    'total_score': total_score,
-                    'average_score': average_score,
-                    'overall_grade': '',
-                    'behavioral_assessment': None,
-                    'comments': '',
-                }],
-                'school_config': school_config,
-                'session': session,
-                'term': term,
-                'school_class': school_class,
-                'total_students': students.count(),
-            },
-            request=request
+            # ============================
+            # IMAGE FIX (IMPORTANT)
+            # ============================
+            header_image_url = None
+            signature_image_url = None
+
+            if school_config and school_config.header_image:
+                header_image_url = f"file://{school_config.header_image.path}"
+
+            if school_config and school_config.signature_image:
+                signature_image_url = f"file://{school_config.signature_image.path}"
+
+            # ============================
+            # RENDER TEMPLATE
+            # ============================
+            html_string = render_to_string(
+                'src/display_class_results.html',
+                {
+                    'results_data': [{
+                        'student': student,
+                        'results': results,
+                        'total_score': total_score,
+                        'average_score': average_score,
+                        'overall_grade': '',
+                        'behavioral_assessment': None,
+                        'comments': '',
+                    }],
+                    'school_config': school_config,
+                    'session': session,
+                    'term': term,
+                    'school_class': school_class,
+                    'total_students': students.count(),
+                    'header_image_url': header_image_url,
+                    'signature_image_url': signature_image_url,
+                },
+                request=request
             )
 
-            # pdf = HTML(string=html_string).write_pdf()
+            # ============================
+            # GENERATE PDF (IMPORTANT FIX)
+            # ============================
             pdf = HTML(
                 string=html_string,
-                base_url=request.build_absolute_uri()
+                base_url=request.build_absolute_uri('/')
             ).write_pdf()
 
+            # ============================
+            # SAVE TO ZIP
+            # ============================
             filename = f"{student.first_name}_{student.last_name}_{student.admission_number}.pdf"
             zip_file.writestr(filename, pdf)
 
@@ -2569,9 +2594,7 @@ def download_all_results_pdf(request, session_id, term_id, class_id):
     return response
 
 
-# ===============================
-# DOWNLOAD SINGLE RESULT
-# ===============================
+
 @login_required(login_url='login')
 def download_single_result_pdf(request, student_id, session_id, term_id, class_id):
     student = get_object_or_404(Student, pk=student_id)
@@ -2592,30 +2615,55 @@ def download_single_result_pdf(request, student_id, session_id, term_id, class_i
     num_subjects = results.count()
     average_score = total_score / num_subjects if num_subjects > 0 else 0
 
-    html_string = render_to_string('src/display_class_results.html', {
-        'results_data': [{
-            'student': student,
-            'results': results,
-            'total_score': total_score,
-            'average_score': average_score,
-            'overall_grade': '',
-            'behavioral_assessment': None,
-            'comments': '',
-        }],
-        'school_config': school_config,
-        'session': session,
-        'term': term,
-        'school_class': school_class,
-        'total_students': 1,
-    })
+    # ============================
+    # IMAGE FIX (IMPORTANT)
+    # ============================
+    header_image_url = None
+    signature_image_url = None
 
-    pdf = HTML(string=html_string).write_pdf()
+    if school_config and school_config.header_image:
+        header_image_url = f"file://{school_config.header_image.path}"
+
+    if school_config and school_config.signature_image:
+        signature_image_url = f"file://{school_config.signature_image.path}"
+
+    # ============================
+    # RENDER TEMPLATE
+    # ============================
+    html_string = render_to_string(
+        'src/display_class_results.html',
+        {
+            'results_data': [{
+                'student': student,
+                'results': results,
+                'total_score': total_score,
+                'average_score': average_score,
+                'overall_grade': '',
+                'behavioral_assessment': None,
+                'comments': '',
+            }],
+            'school_config': school_config,
+            'session': session,
+            'term': term,
+            'school_class': school_class,
+            'total_students': 1,
+            'header_image_url': header_image_url,
+            'signature_image_url': signature_image_url,
+        }
+    )
+
+    # ============================
+    # GENERATE PDF (IMPORTANT FIX)
+    # ============================
+    pdf = HTML(
+        string=html_string,
+        base_url=request.build_absolute_uri('/')
+    ).write_pdf()
 
     response = HttpResponse(pdf, content_type='application/pdf')
     response['Content-Disposition'] = f'attachment; filename="{student.first_name}_{student.last_name}.pdf"'
+
     return response
-
-
 
 @login_required(login_url='login')
 def student_result_search(request):

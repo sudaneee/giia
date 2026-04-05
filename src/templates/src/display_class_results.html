@@ -87,9 +87,9 @@
                         <th colspan="14" class="text-center p-0">
                             {% if school_config.header_image %}
                             
-                                {% if header_image_base64 %}
+                                {% if header_image_url %}
                                 <div class="header text-center">
-                                    <img src="data:image/png;base64,{{ header_image_base64 }}" alt="School Header">
+                                    <img src="{{ header_image_url }}" alt="School Header">
                                 </div>
                                 {% endif %}
                                                             
@@ -254,8 +254,8 @@
                     <tr>
                         <td colspan="14" class="text-center py-2">
                             {% if school_config.signature_image %}
-                                {% if signature_image_base64 %}
-                                    <img src="data:image/png;base64,{{ signature_image_base64 }}" style="height: 60px;"><br>
+                                {% if signature_image_url %}
+                                <img src="{{ signature_image_url }}" style="height: 60px;"><br>
                                 {% endif %}
                             {% endif %}
 
