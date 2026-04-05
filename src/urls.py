@@ -181,9 +181,17 @@ urlpatterns = [
     name="student_payment_status_report"
     ),
 
+    # path('results/<int:session_id>/<int:term_id>/<int:class_id>/',
+        #  views.display_class_results, name='display_class_results'),
 
+    path('results/download-all/<int:session_id>/<int:term_id>/<int:class_id>/',
+         views.download_all_results_pdf, name='download_all_results_pdf'),
 
-
+    path('results/download/<int:student_id>/<int:session_id>/<int:term_id>/<int:class_id>/',
+         views.download_single_result_pdf, name='download_single_result_pdf'),
 ]
+
+
+
 
 

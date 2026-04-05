@@ -2370,18 +2370,31 @@ def select_class_for_result(request):
 
 
 
+from django.shortcuts import render, get_object_or_404
+from django.contrib.auth.decorators import login_required
+from django.http import HttpResponse
+from django.template.loader import render_to_string
+
+from .models import *
+from weasyprint import HTML
+import zipfile
+from io import BytesIO
+
+
 @login_required(login_url='login')
 def display_class_results(request, session_id, term_id, class_id):
     session = get_object_or_404(Session, pk=session_id)
     term = get_object_or_404(Term, pk=term_id)
     school_class = get_object_or_404(SchoolClass, pk=class_id)
+
     students = Student.objects.filter(enrolled_class=school_class)
+    total_students = students.count()
+
     school_config = SchoolConfig.objects.last()
 
     results_data = []
 
     for student in students:
-        # Get all results for the student
         results = Result.objects.filter(
             session=session,
             term=term,
@@ -2389,12 +2402,11 @@ def display_class_results(request, session_id, term_id, class_id):
             student=student
         ).select_related('subject')
 
-        # Compute total score and average for the student
         total_score = sum(r.total_marks for r in results)
         num_subjects = results.count()
         average_score = total_score / num_subjects if num_subjects > 0 else 0
-        
-        # Grading Logic
+
+        # Grading
         if 76 <= average_score <= 100:
             overall_grade = "A+"
         elif 70 <= average_score < 76:
@@ -2413,12 +2425,10 @@ def display_class_results(request, session_id, term_id, class_id):
             overall_grade = "C"
         elif 39 <= average_score < 43:
             overall_grade = "C-"
-        elif 0 <= average_score < 39:
-            overall_grade = "F"
         else:
-            overall_grade = "Invalid score"
+            overall_grade = "F"
 
-        # Fetch behavioral assessment
+        # Behavioral
         behavioral_assessment = StudentBehaviouralAssessment.objects.filter(
             session=session,
             term=term,
@@ -2426,50 +2436,32 @@ def display_class_results(request, session_id, term_id, class_id):
             student=student
         ).first()
 
-        # Comments based on average score
+        # Comments
         if average_score >= 65:
-            english_comment = "AN EXCELLENT PERFORMANCE, KEEP IT UP."
-            arabic_comment_male = "فاز بتقدير ممتاز ويرجى له التفوق في الفترات القادمة"
-            arabic_comment_female = "فازت بتقدير ممتاز ويرجى لها التفوق في الفترات القادمة"
+            eng = "AN EXCELLENT PERFORMANCE, KEEP IT UP."
+            ar_m = "فاز بتقدير ممتاز ويرجى له التفوق في الفترات القادمة"
+            ar_f = "فازت بتقدير ممتاز ويرجى لها التفوق في الفترات القادمة"
         elif average_score >= 50:
-            english_comment = "A VERY GOOD RESULT, PUT IN MORE EFFORT."
-            arabic_comment_male = "فاز بتقدير جيد جدا ويرجى له التقدم في الفترة المقبلة"
-            arabic_comment_female = "فازت بتقدير جيد جدا ويرجى لها التقدم في الفترة المقبلة"
+            eng = "A VERY GOOD RESULT, PUT IN MORE EFFORT."
+            ar_m = "فاز بتقدير جيد جدا ويرجى له التقدم في الفترة المقبلة"
+            ar_f = "فازت بتقدير جيد جدا ويرجى لها التقدم في الفترة المقبلة"
         elif average_score >= 39:
-            english_comment = "A GOOD RESULT, TRY HARDER NEXT TERM."
-            arabic_comment_male = "فاز بتقدير جيد ويرجى له الجهد الكبير في الفترة المقبلة"
-            arabic_comment_female = "فازت بتقدير جيد ويرجى لها الجهد الكبير في الفترة المقبلة"
+            eng = "A GOOD RESULT, TRY HARDER NEXT TERM."
+            ar_m = "فاز بتقدير جيد ويرجى له الجهد الكبير في الفترة المقبلة"
+            ar_f = "فازت بتقدير جيد ويرجى لها الجهد الكبير في الفترة المقبلة"
         else:
-            english_comment = "A SATISFACTORY RESULT, TRY TO IMPROVE NEXT TERM."
-            arabic_comment_male = "تقدير ضعيف،يرجى منه التقدم"
-            arabic_comment_female = "تقدير ضعيف، يرجى منها التقدم"
+            eng = "A SATISFACTORY RESULT, TRY TO IMPROVE NEXT TERM."
+            ar_m = "تقدير ضعيف،يرجى منه التقدم"
+            ar_f = "تقدير ضعيف، يرجى منها التقدم"
 
-        # Determine gender-specific Arabic comment
         if student.gender == "Male":
-            comments = f"{english_comment}\n{arabic_comment_male}"
-        elif student.gender == "Female":
-            comments = f"{english_comment}\n{arabic_comment_female}"
+            comments = f"{eng}\n{ar_m}"
         else:
-            comments = f"{english_comment}\nUnknown gender for Arabic comment."
-
-        # Prepare subject results
-        student_results = []
-        for result in results:
-            student_results.append({
-                'subject': result.subject,
-                'ca1_marks': result.ca1_marks,
-                'ca2_marks': result.ca2_marks,
-                'home_work_marks': result.home_work_marks,
-                'activity_marks': result.activity_marks,
-                'exam_marks': result.exam_marks,
-                'total_marks': result.total_marks,
-                'grade': result.grade,
-                'position': result.subject_position
-            })
+            comments = f"{eng}\n{ar_f}"
 
         results_data.append({
             'student': student,
-            'results': student_results,
+            'results': results,
             'total_score': total_score,
             'average_score': average_score,
             'overall_grade': overall_grade,
@@ -2483,9 +2475,112 @@ def display_class_results(request, session_id, term_id, class_id):
         'school_class': school_class,
         'results_data': results_data,
         'school_config': school_config,
-        # Ensure GradingSystem exists or wrap in try/except if optional
-        'grading_system': GradingSystem.objects.last() if 'GradingSystem' in locals() else None,
+        
+        'total_students': total_students,
     })
+
+
+# ===============================
+# DOWNLOAD ALL RESULTS (ZIP)
+# ===============================
+@login_required(login_url='login')
+def download_all_results_pdf(request, session_id, term_id, class_id):
+    session = get_object_or_404(Session, pk=session_id)
+    term = get_object_or_404(Term, pk=term_id)
+    school_class = get_object_or_404(SchoolClass, pk=class_id)
+
+    students = Student.objects.filter(enrolled_class=school_class)
+    school_config = SchoolConfig.objects.last()
+
+    zip_buffer = BytesIO()
+
+    with zipfile.ZipFile(zip_buffer, 'w') as zip_file:
+        for student in students:
+            results = Result.objects.filter(
+                session=session,
+                term=term,
+                class_assigned=school_class,
+                student=student
+            ).select_related('subject')
+
+            total_score = sum(r.total_marks for r in results)
+            num_subjects = results.count()
+            average_score = total_score / num_subjects if num_subjects > 0 else 0
+
+            html_string = render_to_string('src/display_class_results.html', {
+                'results_data': [{
+                    'student': student,
+                    'results': results,
+                    'total_score': total_score,
+                    'average_score': average_score,
+                    'overall_grade': '',
+                    'behavioral_assessment': None,
+                    'comments': '',
+                }],
+                'school_config': school_config,
+                'session': session,
+                'term': term,
+                'school_class': school_class,
+                'total_students': students.count(),
+            })
+
+            pdf = HTML(string=html_string).write_pdf()
+
+            filename = f"{student.first_name}_{student.last_name}_{student.admission_number}.pdf"
+            zip_file.writestr(filename, pdf)
+
+    zip_buffer.seek(0)
+
+    response = HttpResponse(zip_buffer, content_type='application/zip')
+    response['Content-Disposition'] = 'attachment; filename="all_results.zip"'
+    return response
+
+
+# ===============================
+# DOWNLOAD SINGLE RESULT
+# ===============================
+@login_required(login_url='login')
+def download_single_result_pdf(request, student_id, session_id, term_id, class_id):
+    student = get_object_or_404(Student, pk=student_id)
+    session = get_object_or_404(Session, pk=session_id)
+    term = get_object_or_404(Term, pk=term_id)
+    school_class = get_object_or_404(SchoolClass, pk=class_id)
+
+    school_config = SchoolConfig.objects.last()
+
+    results = Result.objects.filter(
+        session=session,
+        term=term,
+        class_assigned=school_class,
+        student=student
+    ).select_related('subject')
+
+    total_score = sum(r.total_marks for r in results)
+    num_subjects = results.count()
+    average_score = total_score / num_subjects if num_subjects > 0 else 0
+
+    html_string = render_to_string('src/display_class_results.html', {
+        'results_data': [{
+            'student': student,
+            'results': results,
+            'total_score': total_score,
+            'average_score': average_score,
+            'overall_grade': '',
+            'behavioral_assessment': None,
+            'comments': '',
+        }],
+        'school_config': school_config,
+        'session': session,
+        'term': term,
+        'school_class': school_class,
+        'total_students': 1,
+    })
+
+    pdf = HTML(string=html_string).write_pdf()
+
+    response = HttpResponse(pdf, content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="{student.first_name}_{student.last_name}.pdf"'
+    return response
 
 
 
