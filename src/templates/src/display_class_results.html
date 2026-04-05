@@ -87,7 +87,7 @@
                         <th colspan="14" class="text-center p-0">
                             {% if school_config.header_image %}
                             <div class="header text-center">
-                                <img src="{{ school_config.header_image.url }}" alt="School Header">
+                                <img src="{{ request.build_absolute_uri(school_config.header_image.url) }}" alt="School Header">
                             </div>
                             {% endif %}
                         </th>
@@ -250,7 +250,7 @@
                     <tr>
                         <td colspan="14" class="text-center py-2">
                             {% if school_config.signature_image %}
-                                <img src="{{ school_config.signature_image.url }}" 
+                                <img src="{{ request.build_absolute_uri(school_config.signature_image.url) }}" style="height: 60px;"> 
                                      style="height: 60px;"><br>
                             {% endif %}
 

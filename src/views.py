@@ -2522,9 +2522,12 @@ def download_all_results_pdf(request, session_id, term_id, class_id):
                 'term': term,
                 'school_class': school_class,
                 'total_students': students.count(),
-            })
+            },
+            request=request
+            )
 
-            pdf = HTML(string=html_string).write_pdf()
+            # pdf = HTML(string=html_string).write_pdf()
+            pdf = HTML(string=html_string, base_url=request.build_absolute_uri()).write_pdf()
 
             filename = f"{student.first_name}_{student.last_name}_{student.admission_number}.pdf"
             zip_file.writestr(filename, pdf)
