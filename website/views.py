@@ -71,43 +71,9 @@ def is_staff(user):
 
 
 def home(request):
-    print('hh')
+   
     return render(request, 'website/index.html')
 
-from collections import defaultdict
-from src.models import Result
-
-def home(request):
-    run_cleanup = request.GET.get("clean") == "1"
-
-    message = ""
-
-    if run_cleanup:
-        session_id = 2
-        term_id = 5
-
-        results = Result.objects.filter(session_id=session_id, term_id=term_id)
-
-        grouped = defaultdict(list)
-
-        for r in results:
-            key = (r.student_id, r.subject_id)
-            grouped[key].append(r)
-
-        to_delete = []
-
-        for key, records in grouped.items():
-            if len(records) > 1:
-                records.sort(key=lambda x: x.id, reverse=True)
-                for r in records[1:]:
-                    to_delete.append(r.id)
-
-        deleted_count, _ = Result.objects.filter(id__in=to_delete).delete()
-
-        message = f"Deleted {deleted_count} duplicates"
-
-    print('hh')
-    return render(request, 'website/index.html')
 
 def about(request):
     return render(request, 'website/about.html')
