@@ -5422,57 +5422,66 @@ def calculate_school_fees_api(data):
         return JsonResponse({'error': str(e)}, status=500)
 
 
+
 def calculate_other_fees_api(data):
-    """Calculate other fees (flat rate per student)"""
+    """Calculate other fees with session and term"""
     
     import traceback
     from decimal import Decimal
     
     print("=" * 50)
     print("calculate_other_fees_api called")
-    print(f"Data received: {data}")
-    print("=" * 50)
     
     admission_numbers = data.get('admission_numbers', [])
     fee_ids = data.get('fee_ids', [])
+    session_id = data.get('session_id')
+    term_id = data.get('term_id')
+    email = data.get('email', '')
     
+    print(f"Session ID: {session_id}")
+    print(f"Term ID: {term_id}")
     print(f"Admission numbers: {admission_numbers}")
     print(f"Fee IDs: {fee_ids}")
     
+    # Validate
     if not admission_numbers:
         return JsonResponse({'error': 'No admission numbers provided'}, status=400)
     
     if not fee_ids:
         return JsonResponse({'error': 'No fees selected'}, status=400)
     
+    if not session_id:
+        return JsonResponse({'error': 'Session is required'}, status=400)
+    
+    if not term_id:
+        return JsonResponse({'error': 'Term is required'}, status=400)
+    
     try:
+        # Get session and term
+        session = Session.objects.get(id=session_id)
+        term = Term.objects.get(id=term_id)
+        
         # Clean admission numbers
-        admission_numbers = [num.strip() for num in admission_numbers if num.strip()]
-        print(f"Cleaned admission numbers: {admission_numbers}")
+        if isinstance(admission_numbers, str):
+            admission_numbers = [num.strip() for num in admission_numbers.split(',') if num.strip()]
+        else:
+            admission_numbers = [str(num).strip() for num in admission_numbers if str(num).strip()]
         
         # Get students
         students = Student.objects.filter(admission_number__in=admission_numbers)
-        print(f"Found {students.count()} students")
         
-        if students.count() != len(admission_numbers):
-            found_numbers = [s.admission_number for s in students]
-            not_found = [num for num in admission_numbers if num not in found_numbers]
-            print(f"Not found: {not_found}")
-            return JsonResponse({'error': f'Students not found: {", ".join(not_found)}'}, status=404)
+        if students.count() == 0:
+            return JsonResponse({'error': f'No students found with admission numbers: {admission_numbers}'}, status=404)
         
         # Get other fees
         other_fees = OtherFeeStructure.objects.filter(id__in=fee_ids, active=True)
-        print(f"Found {other_fees.count()} other fees")
         
-        if not other_fees.exists():
-            return JsonResponse({'error': 'No valid fees selected'}, status=404)
+        if other_fees.count() == 0:
+            return JsonResponse({'error': f'No active fees found with IDs: {fee_ids}'}, status=404)
         
         # Calculate totals
-        total_per_student = sum(fee.amount for fee in other_fees)
+        total_per_student = sum(float(fee.amount) for fee in other_fees)
         grand_total = total_per_student * students.count()
-        
-        print(f"Total per student: {total_per_student}")
-        print(f"Grand total: {grand_total}")
         
         # Build breakdown
         breakdown = []
@@ -5498,14 +5507,21 @@ def calculate_other_fees_api(data):
             'success': True,
             'breakdown': breakdown,
             'grand_total': float(grand_total),
+            'session_id': session.id,
+            'session_name': session.name,
+            'term_id': term.id,
+            'term_name': term.name,
             'other_fees': [{'id': fee.id, 'name': fee.name, 'amount': float(fee.amount)} for fee in other_fees],
         }
         
-        print(f"Response data: {response_data}")
         return JsonResponse(response_data, status=200)
         
+    except Session.DoesNotExist:
+        return JsonResponse({'error': 'Session not found'}, status=404)
+    except Term.DoesNotExist:
+        return JsonResponse({'error': 'Term not found'}, status=404)
     except Exception as e:
-        print(f"Exception in calculate_other_fees_api: {str(e)}")
+        print(f"Exception: {str(e)}")
         traceback.print_exc()
         return JsonResponse({'error': str(e)}, status=500)
 
@@ -5518,40 +5534,47 @@ def initialize_paystack_unified(request):
     from decimal import Decimal
     from django.http import JsonResponse
     
-    print("=" * 50)
-    print("initialize_paystack_unified called")
-    print("POST data:", request.POST)
-    print("=" * 50)
-    
     try:
-        # Get payment_data from POST
         payment_data_str = request.POST.get('payment_data', '{}')
-        print(f"Payment data string: {payment_data_str}")
         
         if not payment_data_str or payment_data_str == '{}':
             return JsonResponse({'error': 'No payment data received'}, status=400)
         
         payment_data = json.loads(payment_data_str)
-        print(f"Parsed payment_data: {payment_data}")
         
         payment_method = payment_data.get('payment_method')
         amount = Decimal(str(payment_data.get('amount', 0)))
         email = payment_data.get('email')
+        fee_type = payment_data.get('fee_type')
         
-        print(f"Payment method: {payment_method}")
-        print(f"Amount: {amount}")
-        print(f"Email: {email}")
+        # Get session and term - now required for both fee types
+        session_id = payment_data.get('session_id')
+        term_id = payment_data.get('term_id')
         
         if not all([payment_method, amount, email]):
-            return JsonResponse({'error': f'Missing required fields. Method: {payment_method}, Amount: {amount}, Email: {email}'}, status=400)
+            return JsonResponse({'error': 'Missing required fields'}, status=400)
+        
+        if not session_id:
+            return JsonResponse({'error': 'Session is required'}, status=400)
+        
+        if not term_id:
+            return JsonResponse({'error': 'Term is required'}, status=400)
         
         if amount <= 0:
             return JsonResponse({'error': 'Invalid payment amount'}, status=400)
         
+        # Get session and term objects
+        try:
+            session = Session.objects.get(id=session_id)
+            term = Term.objects.get(id=term_id)
+        except Session.DoesNotExist:
+            return JsonResponse({'error': 'Session not found'}, status=404)
+        except Term.DoesNotExist:
+            return JsonResponse({'error': 'Term not found'}, status=404)
+        
         # Create batch reference
         import uuid
         reference = f"GIIA-{uuid.uuid4().hex[:8].upper()}"
-        print(f"Created reference: {reference}")
         
         # Determine channels based on payment method
         if payment_method == "card":
@@ -5559,24 +5582,25 @@ def initialize_paystack_unified(request):
         else:
             channels = ["bank_transfer", "ussd"]
         
-        # Create payment batch with metadata
+        # Create payment batch with session and term
         batch = PaymentBatch.objects.create(
             reference=reference,
             parent_email=email,
             amount_paid=amount,
-            session_id=payment_data.get('session_id') if payment_data.get('session_id') else None,
-            term_id=payment_data.get('term_id') if payment_data.get('term_id') else None,
+            session=session,
+            term=term,
             payment_channel=payment_method,
             status="pending",
-            payment_metadata={
-                'payment_type': payment_data.get('fee_type'),
-                'breakdown': payment_data.get('breakdown', []),
-                'timestamp': timezone.now().isoformat(),
-                'version': '2.0',
-                'parent_data': payment_data,
-            }
         )
-        print(f"Created batch with ID: {batch.id}")
+        
+        # Store metadata in session
+        request.session['unified_payment_metadata'] = {
+            'payment_type': fee_type,
+            'breakdown': payment_data.get('breakdown', []),
+            'parent_data': payment_data,
+            'batch_id': batch.id,
+        }
+        request.session['unified_payment_ref'] = reference
         
         # Calculate Paystack fee
         paystack_fee = calculate_paystack_fee(amount, payment_method)
@@ -5584,8 +5608,6 @@ def initialize_paystack_unified(request):
         
         batch.paystack_fee = paystack_fee
         batch.save()
-        
-        print(f"Paystack fee: {paystack_fee}, Total charge: {total_charge}")
         
         # Initialize Paystack transaction
         import requests
@@ -5602,43 +5624,28 @@ def initialize_paystack_unified(request):
                 "channels": channels,
                 "metadata": {
                     "custom_fields": [
-                        {"display_name": "Payment Type", "variable_name": "payment_type", "value": payment_data.get('fee_type')},
+                        {"display_name": "Payment Type", "variable_name": "payment_type", "value": fee_type},
+                        {"display_name": "Session", "variable_name": "session", "value": session.name},
+                        {"display_name": "Term", "variable_name": "term", "value": term.name},
                         {"display_name": "Students", "variable_name": "students", "value": len(payment_data.get('breakdown', []))},
-                        {"display_name": "Batch Reference", "variable_name": "batch_ref", "value": reference},
                     ],
-                    "payment_data": {
-                        'fee_type': payment_data.get('fee_type'),
-                        'student_count': len(payment_data.get('breakdown', [])),
-                        'batch_reference': reference,
-                        'amount': str(amount),
-                    },
                 },
                 "callback_url": request.build_absolute_uri("/school/pay/callback/"),
             },
         )
         
-        print(f"Paystack response status: {response.status_code}")
         res = response.json()
-        print(f"Paystack response: {res}")
         
         if response.status_code == 200 and res.get("status"):
-            # Store in session for callback
-            request.session['unified_payment_ref'] = reference
             return JsonResponse({'redirect_url': res["data"]["authorization_url"]}, status=200)
         
         error_msg = res.get('message', 'Payment initialization failed')
-        print(f"Paystack error: {error_msg}")
         return JsonResponse({'error': error_msg}, status=400)
         
-    except json.JSONDecodeError as e:
-        print(f"JSON decode error: {e}")
-        return JsonResponse({'error': f'Invalid JSON data: {str(e)}'}, status=400)
     except Exception as e:
-        print(f"Exception in initialize_paystack_unified: {str(e)}")
+        print(f"Exception: {str(e)}")
         traceback.print_exc()
         return JsonResponse({'error': str(e)}, status=500)
-
-
 
 @csrf_exempt
 @require_http_methods(["POST"])

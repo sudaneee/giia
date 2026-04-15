@@ -458,6 +458,7 @@
             </div>
 
             <!-- Other Fees Form -->
+            <!-- Other Fees Form -->
             <div id="otherFeesForm" class="hidden">
                 <form id="otherFeesEntryForm">
                     {% csrf_token %}
@@ -470,9 +471,28 @@
 
                     <div class="form-group">
                         <label class="form-label">Admission Numbers <span class="required">*</span></label>
-                        <textarea id="otherAdmissionNumbers" class="form-textarea" placeholder="GIIA-2025-001, GIIA-2025-002" required></textarea>
+                        <textarea id="otherAdmissionNumbers" class="form-textarea" placeholder="GIIA-2024-103, GIIA-2024-104" required></textarea>
                         <div class="helper-text">Enter one or more admission numbers separated by commas</div>
-                        <div class="format-example">Example: GIIA-2025-001, GIIA-2025-002</div>
+                        <div class="format-example">Example: GIIA-2024-103, GIIA-2024-104</div>
+                    </div>
+
+                    <!-- NEW: Session Selection for Other Fees -->
+                    <div class="form-group">
+                        <label class="form-label">Academic Session <span class="required">*</span></label>
+                        <select id="otherSessionSelect" class="form-select" required>
+                            <option value="">Select Session</option>
+                            {% for session in sessions %}
+                            <option value="{{ session.id }}">{{ session.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- NEW: Term Selection for Other Fees -->
+                    <div class="form-group">
+                        <label class="form-label">Term <span class="required">*</span></label>
+                        <select id="otherTermSelect" class="form-select" disabled required>
+                            <option value="">Select Session First</option>
+                        </select>
                     </div>
 
                     <div class="form-group">
@@ -516,6 +536,7 @@
                     </button>
                 </form>
             </div>
+
         </div>
 
         <!-- Breakdown Section (Hidden initially) -->
@@ -694,13 +715,18 @@
         async function calculateOtherFees() {
             const email = document.getElementById('otherParentEmail').value;
             const admissionNumbersRaw = document.getElementById('otherAdmissionNumbers').value;
-            const selectedFees = Array.from(document.querySelectorAll('#otherFeesForm input[type="checkbox"]:checked')).map(cb => parseInt(cb.value));
+            const sessionId = document.getElementById('otherSessionSelect').value;
+            const termId = document.getElementById('otherTermSelect').value;
+            const selectedFees = Array.from(document.querySelectorAll('#otherFeesForm input[type="checkbox"]:checked'))
+                .map(cb => parseInt(cb.value));
             
             console.log('=== calculateOtherFees Debug ===');
             console.log('Email:', email);
-            console.log('Admission numbers raw:', admissionNumbersRaw);
+            console.log('Session ID:', sessionId);
+            console.log('Term ID:', termId);
             console.log('Selected fees:', selectedFees);
             
+            // Validation
             if (!email) {
                 showError('Please enter parent email');
                 return;
@@ -711,65 +737,64 @@
                 return;
             }
             
+            if (!sessionId) {
+                showError('Please select academic session');
+                return;
+            }
+            
+            if (!termId) {
+                showError('Please select term');
+                return;
+            }
+            
             if (selectedFees.length === 0) {
                 showError('Please select at least one fee to pay');
                 return;
             }
             
             const admissionNumbers = admissionNumbersRaw.split(',').map(s => s.trim()).filter(s => s);
-            console.log('Parsed admission numbers:', admissionNumbers);
             
             showLoading();
             
             try {
                 const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
-                console.log('CSRF token present:', !!csrfToken);
-                
-                const requestBody = {
-                    fee_type: 'other_fees',
-                    email: email,
-                    admission_numbers: admissionNumbers,
-                    fee_ids: selectedFees
-                };
-                console.log('Request body:', requestBody);
                 
                 const response = await fetch('/school/pay/api/calculate-fees/', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                         'X-CSRFToken': csrfToken,
-                        'X-Requested-With': 'XMLHttpRequest'
                     },
-                    body: JSON.stringify(requestBody)
+                    body: JSON.stringify({
+                        fee_type: 'other_fees',
+                        email: email,
+                        admission_numbers: admissionNumbers,
+                        session_id: parseInt(sessionId),
+                        term_id: parseInt(termId),
+                        fee_ids: selectedFees
+                    })
                 });
                 
-                console.log('Response status:', response.status);
-                
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    console.error('Error response:', errorText);
-                    throw new Error(`Server responded with status ${response.status}: ${errorText}`);
-                }
-                
                 const data = await response.json();
-                console.log('Response data:', data);
                 
                 if (data.success) {
                     currentBreakdown = data;
                     currentGrandTotal = data.grand_total;
+                    // Store session/term info for payment processing
+                    currentSessionId = parseInt(sessionId);
+                    currentTermId = parseInt(termId);
                     displayBreakdown(data, 'other_fees');
                 } else {
                     showError(data.error || 'Error calculating fees');
                 }
             } catch (error) {
-                console.error('Error in calculateOtherFees:', error);
-                showError('Network error: ' + error.message + '. Please check your connection and try again.');
+                console.error('Error:', error);
+                showError('Network error. Please try again.');
             } finally {
                 hideLoading();
             }
-        }
+        }    
                 
-        
         function displayBreakdown(data, type = 'school_fees') {
             const breakdownContent = document.getElementById('breakdownContent');
             let html = '';
@@ -846,11 +871,6 @@
         }
 
         async function processPayment() {
-            console.log('=== processPayment called ===');
-            console.log('currentFeeType:', currentFeeType);
-            console.log('currentBreakdown:', currentBreakdown);
-            console.log('currentGrandTotal:', currentGrandTotal);
-            
             const paymentMethod = document.querySelector('input[name="breakdown_payment_method"]:checked');
             
             if (!paymentMethod) {
@@ -859,15 +879,12 @@
             }
             
             const paymentMethodValue = paymentMethod.value;
-            console.log('Payment method:', paymentMethodValue);
             
             let email = '';
             if (currentFeeType === 'school_fees') {
                 email = document.getElementById('parentEmail').value;
-                console.log('School fees email:', email);
             } else {
                 email = document.getElementById('otherParentEmail').value;
-                console.log('Other fees email:', email);
             }
             
             if (!email) {
@@ -887,27 +904,23 @@
                 paymentData.session_id = currentBreakdown.session_id;
                 paymentData.term_id = currentBreakdown.term_id;
                 paymentData.term_group = currentBreakdown.term_group;
-                console.log('School fees payment data:', paymentData);
             } else {
-                // For other fees - make sure we have all required data
+                // For other fees - include session and term
+                paymentData.session_id = currentBreakdown.session_id;
+                paymentData.term_id = currentBreakdown.term_id;
                 paymentData.fee_ids = currentBreakdown.other_fees ? currentBreakdown.other_fees.map(f => f.id) : [];
-                console.log('Other fees payment data:', paymentData);
-                console.log('Fee IDs being sent:', paymentData.fee_ids);
-                console.log('Breakdown students:', paymentData.breakdown.length);
             }
+            
+            console.log('Payment data being sent:', paymentData);
             
             showLoading();
             
             try {
                 const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
-                console.log('CSRF token present:', !!csrfToken);
                 
                 const formData = new URLSearchParams();
                 formData.append('payment_data', JSON.stringify(paymentData));
                 formData.append('is_unified', 'true');
-                
-                console.log('Sending to /school/pay/initialize/');
-                console.log('Form data:', formData.toString());
                 
                 const response = await fetch('/school/pay/initialize/', {
                     method: 'POST',
@@ -920,28 +933,15 @@
                     credentials: 'same-origin'
                 });
                 
-                console.log('Response status:', response.status);
-                
-                // Try to get response text
                 const responseText = await response.text();
-                console.log('Response text:', responseText);
                 
                 if (!response.ok) {
                     throw new Error(`Server responded with status ${response.status}: ${responseText.substring(0, 200)}`);
                 }
                 
-                let data;
-                try {
-                    data = JSON.parse(responseText);
-                } catch (e) {
-                    console.error('JSON parse error:', e);
-                    throw new Error('Invalid JSON response from server');
-                }
-                
-                console.log('Response data:', data);
+                const data = JSON.parse(responseText);
                 
                 if (data.redirect_url) {
-                    console.log('Redirecting to:', data.redirect_url);
                     window.location.href = data.redirect_url;
                 } else if (data.error) {
                     showError(data.error);
@@ -953,11 +953,46 @@
                 
             } catch (error) {
                 console.error('Payment error:', error);
-                showError('Network error: ' + error.message);
+                showError('Error: ' + error.message);
                 hideLoading();
             }
         }
             
+    
+    </script>
+    <script>
+        // Load terms when session changes (Other Fees)
+        document.getElementById('otherSessionSelect').addEventListener('change', async function() {
+            const sessionId = this.value;
+            const termSelect = document.getElementById('otherTermSelect');
+            
+            if (!sessionId) {
+                termSelect.disabled = true;
+                termSelect.innerHTML = '<option value="">Select Session First</option>';
+                return;
+            }
+            
+            termSelect.disabled = true;
+            termSelect.innerHTML = '<option value="">Loading...</option>';
+            
+            try {
+                const response = await fetch(`/school/pay/api/session-terms/?session_id=${sessionId}`);
+                const data = await response.json();
+                
+                if (data.terms && data.terms.length > 0) {
+                    termSelect.innerHTML = '<option value="">Select Term</option>';
+                    data.terms.forEach(term => {
+                        termSelect.innerHTML += `<option value="${term.id}" data-term-group="${term.term_group}">${term.name}</option>`;
+                    });
+                    termSelect.disabled = false;
+                } else {
+                    termSelect.innerHTML = '<option value="">No terms found</option>';
+                }
+            } catch (error) {
+                console.error('Error loading terms:', error);
+                termSelect.innerHTML = '<option value="">Error loading terms</option>';
+            }
+        });
     </script>
 </body>
 </html>
