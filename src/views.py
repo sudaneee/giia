@@ -5214,7 +5214,7 @@ from django.core.paginator import Paginator
 # NEW UNIFIED PAYMENT VIEWS
 # ============================================
 
-@login_required(login_url='login')
+
 def unified_payment(request):
     """Unified payment entry point for both school and other fees"""
     from website.models import Picture
