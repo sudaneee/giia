@@ -5425,8 +5425,19 @@ def calculate_school_fees_api(data):
 def calculate_other_fees_api(data):
     """Calculate other fees (flat rate per student)"""
     
+    import traceback
+    from decimal import Decimal
+    
+    print("=" * 50)
+    print("calculate_other_fees_api called")
+    print(f"Data received: {data}")
+    print("=" * 50)
+    
     admission_numbers = data.get('admission_numbers', [])
     fee_ids = data.get('fee_ids', [])
+    
+    print(f"Admission numbers: {admission_numbers}")
+    print(f"Fee IDs: {fee_ids}")
     
     if not admission_numbers:
         return JsonResponse({'error': 'No admission numbers provided'}, status=400)
@@ -5435,42 +5446,68 @@ def calculate_other_fees_api(data):
         return JsonResponse({'error': 'No fees selected'}, status=400)
     
     try:
+        # Clean admission numbers
+        admission_numbers = [num.strip() for num in admission_numbers if num.strip()]
+        print(f"Cleaned admission numbers: {admission_numbers}")
+        
+        # Get students
         students = Student.objects.filter(admission_number__in=admission_numbers)
+        print(f"Found {students.count()} students")
         
         if students.count() != len(admission_numbers):
             found_numbers = [s.admission_number for s in students]
             not_found = [num for num in admission_numbers if num not in found_numbers]
+            print(f"Not found: {not_found}")
             return JsonResponse({'error': f'Students not found: {", ".join(not_found)}'}, status=404)
         
+        # Get other fees
         other_fees = OtherFeeStructure.objects.filter(id__in=fee_ids, active=True)
+        print(f"Found {other_fees.count()} other fees")
         
         if not other_fees.exists():
             return JsonResponse({'error': 'No valid fees selected'}, status=404)
         
+        # Calculate totals
         total_per_student = sum(fee.amount for fee in other_fees)
         grand_total = total_per_student * students.count()
         
+        print(f"Total per student: {total_per_student}")
+        print(f"Grand total: {grand_total}")
+        
+        # Build breakdown
         breakdown = []
         for student in students:
+            student_fees = []
+            for fee in other_fees:
+                student_fees.append({
+                    'id': fee.id,
+                    'name': fee.name,
+                    'amount': float(fee.amount)
+                })
+            
             breakdown.append({
                 'student_id': student.id,
                 'admission_number': student.admission_number,
                 'name': f"{student.first_name} {student.last_name}",
                 'class': str(student.enrolled_class) if student.enrolled_class else 'Not Assigned',
-                'fees': [{'id': fee.id, 'name': fee.name, 'amount': float(fee.amount)} for fee in other_fees],
+                'fees': student_fees,
                 'total': float(total_per_student),
             })
         
-        return JsonResponse({
+        response_data = {
             'success': True,
             'breakdown': breakdown,
             'grand_total': float(grand_total),
             'other_fees': [{'id': fee.id, 'name': fee.name, 'amount': float(fee.amount)} for fee in other_fees],
-        }, status=200)
+        }
+        
+        print(f"Response data: {response_data}")
+        return JsonResponse(response_data, status=200)
         
     except Exception as e:
+        print(f"Exception in calculate_other_fees_api: {str(e)}")
+        traceback.print_exc()
         return JsonResponse({'error': str(e)}, status=500)
-
 
 @require_http_methods(["POST"])
 def initialize_paystack_unified(request):

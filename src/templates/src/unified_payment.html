@@ -696,6 +696,11 @@
             const admissionNumbersRaw = document.getElementById('otherAdmissionNumbers').value;
             const selectedFees = Array.from(document.querySelectorAll('#otherFeesForm input[type="checkbox"]:checked')).map(cb => parseInt(cb.value));
             
+            console.log('=== calculateOtherFees Debug ===');
+            console.log('Email:', email);
+            console.log('Admission numbers raw:', admissionNumbersRaw);
+            console.log('Selected fees:', selectedFees);
+            
             if (!email) {
                 showError('Please enter parent email');
                 return;
@@ -712,25 +717,42 @@
             }
             
             const admissionNumbers = admissionNumbersRaw.split(',').map(s => s.trim()).filter(s => s);
+            console.log('Parsed admission numbers:', admissionNumbers);
             
             showLoading();
             
             try {
+                const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+                console.log('CSRF token present:', !!csrfToken);
+                
+                const requestBody = {
+                    fee_type: 'other_fees',
+                    email: email,
+                    admission_numbers: admissionNumbers,
+                    fee_ids: selectedFees
+                };
+                console.log('Request body:', requestBody);
+                
                 const response = await fetch('/school/pay/api/calculate-fees/', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                        'X-CSRFToken': csrfToken,
+                        'X-Requested-With': 'XMLHttpRequest'
                     },
-                    body: JSON.stringify({
-                        fee_type: 'other_fees',
-                        email: email,
-                        admission_numbers: admissionNumbers,
-                        fee_ids: selectedFees
-                    })
+                    body: JSON.stringify(requestBody)
                 });
                 
+                console.log('Response status:', response.status);
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('Error response:', errorText);
+                    throw new Error(`Server responded with status ${response.status}: ${errorText}`);
+                }
+                
                 const data = await response.json();
+                console.log('Response data:', data);
                 
                 if (data.success) {
                     currentBreakdown = data;
@@ -740,13 +762,14 @@
                     showError(data.error || 'Error calculating fees');
                 }
             } catch (error) {
-                console.error('Error:', error);
-                showError('Network error. Please try again.');
+                console.error('Error in calculateOtherFees:', error);
+                showError('Network error: ' + error.message + '. Please check your connection and try again.');
             } finally {
                 hideLoading();
             }
         }
-
+                
+        
         function displayBreakdown(data, type = 'school_fees') {
             const breakdownContent = document.getElementById('breakdownContent');
             let html = '';
