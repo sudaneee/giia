@@ -846,7 +846,11 @@
         }
 
         async function processPayment() {
-            // Get selected payment method
+            console.log('=== processPayment called ===');
+            console.log('currentFeeType:', currentFeeType);
+            console.log('currentBreakdown:', currentBreakdown);
+            console.log('currentGrandTotal:', currentGrandTotal);
+            
             const paymentMethod = document.querySelector('input[name="breakdown_payment_method"]:checked');
             
             if (!paymentMethod) {
@@ -855,13 +859,15 @@
             }
             
             const paymentMethodValue = paymentMethod.value;
+            console.log('Payment method:', paymentMethodValue);
             
-            // Get email based on fee type
             let email = '';
             if (currentFeeType === 'school_fees') {
                 email = document.getElementById('parentEmail').value;
+                console.log('School fees email:', email);
             } else {
                 email = document.getElementById('otherParentEmail').value;
+                console.log('Other fees email:', email);
             }
             
             if (!email) {
@@ -869,7 +875,6 @@
                 return;
             }
             
-            // Prepare payment data
             let paymentData = {
                 fee_type: currentFeeType,
                 email: email,
@@ -878,63 +883,65 @@
                 breakdown: currentBreakdown.breakdown,
             };
             
-            // Add fee-type specific data
             if (currentFeeType === 'school_fees') {
                 paymentData.session_id = currentBreakdown.session_id;
                 paymentData.term_id = currentBreakdown.term_id;
                 paymentData.term_group = currentBreakdown.term_group;
+                console.log('School fees payment data:', paymentData);
             } else {
+                // For other fees - make sure we have all required data
                 paymentData.fee_ids = currentBreakdown.other_fees ? currentBreakdown.other_fees.map(f => f.id) : [];
+                console.log('Other fees payment data:', paymentData);
+                console.log('Fee IDs being sent:', paymentData.fee_ids);
+                console.log('Breakdown students:', paymentData.breakdown.length);
             }
-            
-            console.log('Sending payment data:', paymentData); // Debug log
             
             showLoading();
             
             try {
-                // Get CSRF token
-                const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
-                if (!csrfToken) {
-                    throw new Error('CSRF token not found');
-                }
+                const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+                console.log('CSRF token present:', !!csrfToken);
                 
-                // Create form data
                 const formData = new URLSearchParams();
                 formData.append('payment_data', JSON.stringify(paymentData));
                 formData.append('is_unified', 'true');
+                
+                console.log('Sending to /school/pay/initialize/');
+                console.log('Form data:', formData.toString());
                 
                 const response = await fetch('/school/pay/initialize/', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/x-www-form-urlencoded',
-                        'X-CSRFToken': csrfToken.value,
+                        'X-CSRFToken': csrfToken,
                         'X-Requested-With': 'XMLHttpRequest'
                     },
                     body: formData,
                     credentials: 'same-origin'
                 });
                 
-                console.log('Response status:', response.status); // Debug log
+                console.log('Response status:', response.status);
                 
-                // Check if response is OK
+                // Try to get response text
+                const responseText = await response.text();
+                console.log('Response text:', responseText);
+                
                 if (!response.ok) {
-                    const text = await response.text();
-                    console.error('Response error:', text);
-                    throw new Error(`Server responded with status ${response.status}`);
+                    throw new Error(`Server responded with status ${response.status}: ${responseText.substring(0, 200)}`);
                 }
                 
-                // Try to parse JSON
                 let data;
                 try {
-                    data = await response.json();
+                    data = JSON.parse(responseText);
                 } catch (e) {
                     console.error('JSON parse error:', e);
-                    throw new Error('Invalid response from server');
+                    throw new Error('Invalid JSON response from server');
                 }
                 
-                console.log('Response data:', data); // Debug log
+                console.log('Response data:', data);
                 
                 if (data.redirect_url) {
+                    console.log('Redirecting to:', data.redirect_url);
                     window.location.href = data.redirect_url;
                 } else if (data.error) {
                     showError(data.error);
@@ -946,7 +953,7 @@
                 
             } catch (error) {
                 console.error('Payment error:', error);
-                showError('Network error: ' + error.message + '. Please check your connection and try again.');
+                showError('Network error: ' + error.message);
                 hideLoading();
             }
         }
