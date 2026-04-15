@@ -1,0 +1,878 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Unified Payment Portal | Great Insight Academy</title>
+    <style>
+        :root {
+            --navy: #0f2a47;
+            --royal-blue: #2c5aa0;
+            --sky-blue: #4a8cff;
+            --soft-blue: #f0f7ff;
+            --light-gray: #f8f9fa;
+            --medium-gray: #e9ecef;
+            --dark-gray: #6c757d;
+            --success: #28a745;
+            --warning: #ffc107;
+            --danger: #dc3545;
+            --white: #ffffff;
+            --border-radius: 16px;
+            --shadow-sm: 0 4px 12px rgba(0, 46, 109, 0.08);
+            --shadow-md: 0 8px 30px rgba(0, 46, 109, 0.12);
+            --shadow-lg: 0 15px 40px rgba(0, 46, 109, 0.15);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', 'Inter', sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #f8fbff 0%, var(--soft-blue) 100%);
+            min-height: 100vh;
+            padding: 40px 24px;
+            color: var(--navy);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        /* Header */
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .logo {
+            height: 80px;
+            margin-bottom: 20px;
+        }
+
+        .page-title {
+            font-size: 2.5rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--navy), var(--royal-blue));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 12px;
+        }
+
+        .subtitle {
+            color: var(--dark-gray);
+            font-size: 1.1rem;
+        }
+
+        /* Tabs */
+        .tabs {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 32px;
+            background: var(--white);
+            padding: 8px;
+            border-radius: 60px;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .tab {
+            flex: 1;
+            padding: 16px 24px;
+            background: transparent;
+            border: none;
+            border-radius: 50px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            color: var(--dark-gray);
+        }
+
+        .tab.active {
+            background: linear-gradient(135deg, var(--royal-blue), var(--navy));
+            color: white;
+            box-shadow: var(--shadow-sm);
+        }
+
+        /* Cards */
+        .payment-card {
+            background: var(--white);
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow-lg);
+            padding: 40px;
+            margin-bottom: 30px;
+        }
+
+        .form-group {
+            margin-bottom: 24px;
+        }
+
+        .form-label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: var(--navy);
+        }
+
+        .form-label .required {
+            color: var(--danger);
+        }
+
+        .form-input, .form-select, .form-textarea {
+            width: 100%;
+            padding: 14px 16px;
+            border: 2px solid var(--medium-gray);
+            border-radius: 12px;
+            font-size: 1rem;
+            transition: all 0.3s;
+        }
+
+        .form-input:focus, .form-select:focus, .form-textarea:focus {
+            outline: none;
+            border-color: var(--sky-blue);
+            box-shadow: 0 0 0 3px rgba(74, 140, 255, 0.1);
+        }
+
+        .form-textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        .helper-text {
+            font-size: 0.85rem;
+            color: var(--dark-gray);
+            margin-top: 6px;
+        }
+
+        .format-example {
+            background: var(--soft-blue);
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 0.85rem;
+            margin-top: 8px;
+            display: inline-block;
+        }
+
+        /* Radio/Checkbox groups */
+        .options-group {
+            display: flex;
+            gap: 24px;
+            flex-wrap: wrap;
+        }
+
+        .option {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .other-fees-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .fee-checkbox {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            background: var(--light-gray);
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .fee-checkbox:hover {
+            background: var(--soft-blue);
+        }
+
+        /* Loading spinner */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .loading-spinner {
+            background: white;
+            padding: 30px;
+            border-radius: 20px;
+            text-align: center;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid var(--medium-gray);
+            border-top-color: var(--royal-blue);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Breakdown table */
+        .breakdown-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+
+        .breakdown-table th {
+            background: linear-gradient(135deg, var(--royal-blue), var(--navy));
+            color: white;
+            padding: 14px;
+            text-align: left;
+        }
+
+        .breakdown-table td {
+            padding: 12px 14px;
+            border-bottom: 1px solid var(--medium-gray);
+        }
+
+        .breakdown-table tr:hover td {
+            background: var(--soft-blue);
+        }
+
+        .total-section {
+            background: linear-gradient(135deg, #f8fafd 0%, var(--light-gray) 100%);
+            padding: 24px;
+            border-radius: 12px;
+            margin: 24px 0;
+            text-align: right;
+        }
+
+        .grand-total {
+            font-size: 2rem;
+            font-weight: 800;
+            color: var(--navy);
+        }
+
+        /* Buttons */
+        .btn {
+            padding: 16px 32px;
+            border: none;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--royal-blue), var(--navy));
+            color: white;
+            width: 100%;
+            justify-content: center;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
+        }
+
+        .btn-secondary {
+            background: var(--light-gray);
+            color: var(--navy);
+        }
+
+        /* Alerts */
+        .alert {
+            padding: 16px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+        }
+
+        .alert-error {
+            background: #fdecea;
+            color: #a61b1b;
+            border: 1px solid #f5c6cb;
+        }
+
+        .alert-success {
+            background: #e6f7ee;
+            color: #1e7e34;
+            border: 1px solid #c3e6cb;
+        }
+
+        /* Security badge */
+        .security-badge {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            background: var(--soft-blue);
+            padding: 20px;
+            border-radius: 12px;
+            margin: 30px 0;
+        }
+
+        .security-icon {
+            font-size: 2rem;
+        }
+
+        /* Hidden sections */
+        .hidden {
+            display: none;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .payment-card {
+                padding: 24px;
+            }
+            
+            .page-title {
+                font-size: 1.8rem;
+            }
+            
+            .breakdown-table {
+                display: block;
+                overflow-x: auto;
+            }
+            
+            .options-group {
+                flex-direction: column;
+                gap: 12px;
+            }
+            
+            .tabs {
+                flex-direction: column;
+                border-radius: 20px;
+            }
+            
+            .tab {
+                border-radius: 40px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            {% if data and data.logo %}
+            <img src="{{ data.logo.url }}" alt="School Logo" class="logo">
+            {% endif %}
+            <h1 class="page-title">Payment Portal</h1>
+            <p class="subtitle">Secure online payment for school fees and other charges</p>
+        </div>
+
+        <!-- Loading Overlay -->
+        <div id="loadingOverlay" class="loading-overlay">
+            <div class="loading-spinner">
+                <div class="spinner"></div>
+                <p>Processing your request...</p>
+            </div>
+        </div>
+
+        <!-- Main Payment Card -->
+        <div class="payment-card">
+            <!-- Payment Type Tabs -->
+            <div class="tabs">
+                <button class="tab active" data-type="school_fees">🎓 School Fees</button>
+                <button class="tab" data-type="other_fees">📚 Other Fees</button>
+            </div>
+
+            <!-- School Fees Form -->
+            <div id="schoolFeesForm">
+                <form id="schoolFeesEntryForm">
+                    {% csrf_token %}
+                    
+                    <div class="form-group">
+                        <label class="form-label">Parent Email <span class="required">*</span></label>
+                        <input type="email" id="parentEmail" class="form-input" placeholder="you@example.com" required>
+                        <div class="helper-text">Payment receipt will be sent to this email</div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Admission Numbers <span class="required">*</span></label>
+                        <textarea id="admissionNumbers" class="form-textarea" placeholder="GIIA-2025-001, GIIA-2025-002" required></textarea>
+                        <div class="helper-text">Enter one or more admission numbers separated by commas</div>
+                        <div class="format-example">Example: GIIA-2025-001, GIIA-2025-002</div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Academic Session <span class="required">*</span></label>
+                        <select id="sessionSelect" class="form-select" required>
+                            <option value="">Select Session</option>
+                            {% for session in sessions %}
+                            <option value="{{ session.id }}">{{ session.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Term <span class="required">*</span></label>
+                        <select id="termSelect" class="form-select" disabled required>
+                            <option value="">Select Session First</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Student Type</label>
+                        <div class="options-group">
+                            {% for type in student_types %}
+                            <label class="option">
+                                <input type="radio" name="student_type" value="{{ type.value }}" {% if type.value == 'returning' %}checked{% endif %}>
+                                {{ type.label }}
+                            </label>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Transportation</label>
+                        <div class="options-group">
+                            {% for opt in transport_options %}
+                            <label class="option">
+                                <input type="radio" name="transport" value="{{ opt.value }}" {% if opt.value == 'false' %}checked{% endif %}>
+                                {{ opt.label }}
+                            </label>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <button type="button" class="btn btn-primary" onclick="calculateFees()">
+                        💰 Calculate Fees
+                    </button>
+                </form>
+            </div>
+
+            <!-- Other Fees Form -->
+            <div id="otherFeesForm" class="hidden">
+                <form id="otherFeesEntryForm">
+                    {% csrf_token %}
+                    
+                    <div class="form-group">
+                        <label class="form-label">Parent Email <span class="required">*</span></label>
+                        <input type="email" id="otherParentEmail" class="form-input" placeholder="you@example.com" required>
+                        <div class="helper-text">Payment receipt will be sent to this email</div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Admission Numbers <span class="required">*</span></label>
+                        <textarea id="otherAdmissionNumbers" class="form-textarea" placeholder="GIIA-2025-001, GIIA-2025-002" required></textarea>
+                        <div class="helper-text">Enter one or more admission numbers separated by commas</div>
+                        <div class="format-example">Example: GIIA-2025-001, GIIA-2025-002</div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Select Fees to Pay <span class="required">*</span></label>
+                        <div class="other-fees-list">
+                            {% for fee in other_fees %}
+                            <label class="fee-checkbox">
+                                <input type="checkbox" value="{{ fee.id }}" data-amount="{{ fee.amount }}">
+                                <div>
+                                    <strong>{{ fee.name }}</strong>
+                                    <span style="color: var(--dark-gray);"> (₦{{ fee.amount|floatformat:2 }})</span>
+                                    {% if fee.description %}
+                                    <div class="helper-text">{{ fee.description }}</div>
+                                    {% endif %}
+                                </div>
+                            </label>
+                            {% empty %}
+                            <p class="helper-text">No other fees available at this time.</p>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Payment Method <span class="required">*</span></label>
+                        <div class="options-group">
+                            <label class="option">
+                                <input type="radio" name="other_payment_method" value="card" checked>
+                                Pay with Card
+                                <span class="helper-text">(0.7% capped at ₦1,500)</span>
+                            </label>
+                            <label class="option">
+                                <input type="radio" name="other_payment_method" value="transfer">
+                                Bank Transfer / USSD
+                                <span class="helper-text">(₦300 flat)</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <button type="button" class="btn btn-primary" onclick="calculateOtherFees()">
+                        💰 Calculate Total
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Breakdown Section (Hidden initially) -->
+        <div id="breakdownSection" class="payment-card hidden">
+            <h2>Payment Breakdown</h2>
+            <div id="breakdownContent"></div>
+            
+            <div class="form-group">
+                <label class="form-label">Payment Method</label>
+                <div class="options-group">
+                    <label class="option">
+                        <input type="radio" name="breakdown_payment_method" value="card" checked>
+                        Pay with Card
+                        <span class="helper-text">(0.7% capped at ₦1,500)</span>
+                    </label>
+                    <label class="option">
+                        <input type="radio" name="breakdown_payment_method" value="transfer">
+                        Bank Transfer / USSD
+                        <span class="helper-text">(₦300 flat)</span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="security-badge">
+                <div class="security-icon">🔒</div>
+                <div class="security-text">
+                    Your payment details are secured with 256-bit SSL encryption. We do not store your card information.
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 16px;">
+                <button class="btn btn-secondary" onclick="goBack()">← Go Back</button>
+                <button class="btn btn-primary" onclick="processPayment()">Proceed to Payment →</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentFeeType = 'school_fees';
+        let currentBreakdown = null;
+        let currentGrandTotal = 0;
+
+        // Tab switching
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', function() {
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                this.classList.add('active');
+                
+                currentFeeType = this.dataset.type;
+                
+                if (currentFeeType === 'school_fees') {
+                    document.getElementById('schoolFeesForm').classList.remove('hidden');
+                    document.getElementById('otherFeesForm').classList.add('hidden');
+                } else {
+                    document.getElementById('schoolFeesForm').classList.add('hidden');
+                    document.getElementById('otherFeesForm').classList.remove('hidden');
+                }
+                
+                // Hide breakdown when switching tabs
+                document.getElementById('breakdownSection').classList.add('hidden');
+            });
+        });
+
+        // Load terms when session changes (School Fees)
+        document.getElementById('sessionSelect').addEventListener('change', async function() {
+            const sessionId = this.value;
+            const termSelect = document.getElementById('termSelect');
+            
+            if (!sessionId) {
+                termSelect.disabled = true;
+                termSelect.innerHTML = '<option value="">Select Session First</option>';
+                return;
+            }
+            
+            termSelect.disabled = true;
+            termSelect.innerHTML = '<option value="">Loading...</option>';
+            
+            try {
+                const response = await fetch(`/school/pay/api/session-terms/?session_id=${sessionId}`);
+                const data = await response.json();
+                
+                if (data.terms) {
+                    termSelect.innerHTML = '<option value="">Select Term</option>';
+                    data.terms.forEach(term => {
+                        termSelect.innerHTML += `<option value="${term.term_group}" data-term-id="${term.id}">${term.name}</option>`;
+                    });
+                    termSelect.disabled = false;
+                } else {
+                    termSelect.innerHTML = '<option value="">No terms found</option>';
+                }
+            } catch (error) {
+                console.error('Error loading terms:', error);
+                termSelect.innerHTML = '<option value="">Error loading terms</option>';
+            }
+        });
+
+        function showLoading() {
+            document.getElementById('loadingOverlay').style.display = 'flex';
+        }
+
+        function hideLoading() {
+            document.getElementById('loadingOverlay').style.display = 'none';
+        }
+
+        function showError(message) {
+            alert(message); // You can replace with a nicer toast notification
+        }
+
+        async function calculateFees() {
+            const email = document.getElementById('parentEmail').value;
+            const admissionNumbersRaw = document.getElementById('admissionNumbers').value;
+            const sessionId = document.getElementById('sessionSelect').value;
+            const termGroup = document.getElementById('termSelect').value;
+            const studentType = document.querySelector('input[name="student_type"]:checked').value;
+            const transport = document.querySelector('input[name="transport"]:checked').value === 'true';
+            
+            if (!email) {
+                showError('Please enter parent email');
+                return;
+            }
+            
+            if (!admissionNumbersRaw) {
+                showError('Please enter admission numbers');
+                return;
+            }
+            
+            if (!sessionId) {
+                showError('Please select academic session');
+                return;
+            }
+            
+            if (!termGroup) {
+                showError('Please select term');
+                return;
+            }
+            
+            const admissionNumbers = admissionNumbersRaw.split(',').map(s => s.trim()).filter(s => s);
+            
+            showLoading();
+            
+            try {
+                const response = await fetch('/school/pay/api/calculate-fees/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                    },
+                    body: JSON.stringify({
+                        fee_type: 'school_fees',
+                        email: email,
+                        admission_numbers: admissionNumbers,
+                        session_id: parseInt(sessionId),
+                        term_group: termGroup,
+                        student_type: studentType,
+                        transport: transport
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    currentBreakdown = data;
+                    currentGrandTotal = data.grand_total;
+                    displayBreakdown(data);
+                } else {
+                    showError(data.error || 'Error calculating fees');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showError('Network error. Please try again.');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        async function calculateOtherFees() {
+            const email = document.getElementById('otherParentEmail').value;
+            const admissionNumbersRaw = document.getElementById('otherAdmissionNumbers').value;
+            const selectedFees = Array.from(document.querySelectorAll('#otherFeesForm input[type="checkbox"]:checked')).map(cb => parseInt(cb.value));
+            
+            if (!email) {
+                showError('Please enter parent email');
+                return;
+            }
+            
+            if (!admissionNumbersRaw) {
+                showError('Please enter admission numbers');
+                return;
+            }
+            
+            if (selectedFees.length === 0) {
+                showError('Please select at least one fee to pay');
+                return;
+            }
+            
+            const admissionNumbers = admissionNumbersRaw.split(',').map(s => s.trim()).filter(s => s);
+            
+            showLoading();
+            
+            try {
+                const response = await fetch('/school/pay/api/calculate-fees/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                    },
+                    body: JSON.stringify({
+                        fee_type: 'other_fees',
+                        email: email,
+                        admission_numbers: admissionNumbers,
+                        fee_ids: selectedFees
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    currentBreakdown = data;
+                    currentGrandTotal = data.grand_total;
+                    displayBreakdown(data, 'other_fees');
+                } else {
+                    showError(data.error || 'Error calculating fees');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showError('Network error. Please try again.');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        function displayBreakdown(data, type = 'school_fees') {
+            const breakdownContent = document.getElementById('breakdownContent');
+            let html = '';
+            
+            if (type === 'school_fees') {
+                html = `
+                    <p><strong>Session:</strong> ${data.session_name}</p>
+                    <p><strong>Term:</strong> ${data.term_name}</p>
+                    <table class="breakdown-table">
+                        <thead>
+                            <tr><th>Student</th><th>Class</th><th>Total Fee</th><th>Paid</th><th>Waiver</th><th>Balance</th></tr>
+                        </thead>
+                        <tbody>
+                `;
+                
+                data.breakdown.forEach(item => {
+                    html += `
+                        <tr>
+                            <td>${item.name}<br><small>${item.admission_number}</small></td>
+                            <td>${item.class}</td>
+                            <td>₦${item.total_fee.toLocaleString()}</td>
+                            <td>₦${item.paid.toLocaleString()}</td>
+                            <td>${item.waiver_percentage}% (₦${item.waived_amount.toLocaleString()})</td>
+                            <td><strong>₦${item.balance.toLocaleString()}</strong></td>
+                        </tr>
+                    `;
+                });
+                
+                html += `
+                        </tbody>
+                    </table>
+                `;
+            } else {
+                html = `
+                    <table class="breakdown-table">
+                        <thead><tr><th>Student</th><th>Class</th><th>Fees</th><th>Total</th></tr></thead>
+                        <tbody>
+                `;
+                
+                data.breakdown.forEach(item => {
+                    const feeList = item.fees.map(f => `${f.name} (₦${f.amount.toLocaleString()})`).join(', ');
+                    html += `
+                        <tr>
+                            <td>${item.name}<br><small>${item.admission_number}</small></td>
+                            <td>${item.class}</td>
+                            <td>${feeList}</td>
+                            <td><strong>₦${item.total.toLocaleString()}</strong></td>
+                        </tr>
+                    `;
+                });
+                
+                html += `
+                        </tbody>
+                    </table>
+                `;
+            }
+            
+            html += `
+                <div class="total-section">
+                    <div class="grand-total">Total: ₦${data.grand_total.toLocaleString()}</div>
+                </div>
+            `;
+            
+            breakdownContent.innerHTML = html;
+            document.getElementById('breakdownSection').classList.remove('hidden');
+            
+            // Scroll to breakdown
+            document.getElementById('breakdownSection').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function goBack() {
+            document.getElementById('breakdownSection').classList.add('hidden');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        async function processPayment() {
+            const paymentMethod = document.querySelector('input[name="breakdown_payment_method"]:checked').value;
+            const email = currentFeeType === 'school_fees' 
+                ? document.getElementById('parentEmail').value 
+                : document.getElementById('otherParentEmail').value;
+            
+            let paymentData = {
+                fee_type: currentFeeType,
+                email: email,
+                payment_method: paymentMethod,
+                amount: currentGrandTotal,
+                breakdown: currentBreakdown.breakdown,
+            };
+            
+            if (currentFeeType === 'school_fees') {
+                paymentData.session_id = currentBreakdown.session_id;
+                paymentData.term_id = currentBreakdown.term_id;
+                paymentData.term_group = currentBreakdown.term_group;
+            } else {
+                paymentData.fee_ids = currentBreakdown.other_fees.map(f => f.id);
+            }
+            
+            showLoading();
+            
+            try {
+                const response = await fetch('/school/pay/initialize/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                    },
+                    body: new URLSearchParams({
+                        'payment_data': JSON.stringify(paymentData),
+                        'is_unified': 'true'
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.redirect_url) {
+                    window.location.href = data.redirect_url;
+                } else {
+                    showError(data.error || 'Payment initialization failed');
+                    hideLoading();
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showError('Network error. Please try again.');
+                hideLoading();
+            }
+        }
+    </script>
+</body>
+</html>

@@ -139,6 +139,16 @@ urlpatterns = [
     path('mid-term-results/view_class/results/<int:session_id>/<int:term_id>/<int:class_id>/', views.display_midterm_results, name='display_midterm_results'),
 
 
+    # ============================================
+    # NEW UNIFIED PAYMENT SYSTEM (KEEP EXISTING URLs)
+    # ============================================
+    path('pay/', views.unified_payment, name='unified_payment'),
+    path('pay/api/session-terms/', views.get_session_terms, name='session_terms_api'),
+    path('pay/api/student-details/', views.get_student_details, name='student_details_api'),
+    path('pay/api/calculate-fees/', views.calculate_fees_api, name='calculate_fees_api'),
+    path('pay/webhook/paystack/', views.paystack_webhook, name='paystack_webhook'),
+
+
 
     path('pay/', views.payment_entry, name='payment_entry'),
     path('pay/other-fees/', views.other_fee_payment, name='other_fee_payment'),
@@ -148,7 +158,7 @@ urlpatterns = [
     path("parent/dashboard/", views.parent_dashboard, name="parent_dashboard"),
     path("pay/receipt/<str:reference>/", views.payment_receipt, name="payment_receipt"),
 
-
+    path('pay/initialize/', views.initialize_paystack_unified, name='initialize_paystack_unified'),
 
     # Fee Components
     path("fee-components/", views.feecomponent_list, name="feecomponent_list"),

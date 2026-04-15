@@ -3135,6 +3135,8 @@ def display_single_result(request, session_id, term_id, student_id, token_code):
         })
 
 
+
+
 @login_required(login_url='login')
 def select_class_for_result_summary(request):
     classes = SchoolClass.objects.all()
@@ -4252,137 +4254,66 @@ from django.db.models import Sum
 from django.shortcuts import render
 from django.contrib import messages
 
+
 def paystack_callback(request):
+    """Enhanced callback with better error handling"""
     reference = request.GET.get("reference")
-
+    
     if not reference:
-        return render(request, "src/failed.html")
-
-    batch = PaymentBatch.objects.filter(reference=reference).first()
-
-    if not batch:
-        return render(request, "src/failed.html")
-
+        return render(request, "src/failed.html", {'error': 'No reference provided'})
+    
+    # Check if it's from unified payment
+    unified_ref = request.session.get('unified_payment_ref')
+    
     try:
-        # =====================================================
-        # 🔹 CASE 1: OTHER FEES (NO payment_data in session)
-        # =====================================================
-        if not request.session.get("payment_data"):
-            with transaction.atomic():
-                batch.status = "success"
-                batch.save()
-
-                Payment.objects.filter(
-                    payment_batch=batch,
-                    status="pending"
-                ).update(status="paid", transaction_reference=reference)
-
-            return redirect("payment_receipt", reference=batch.reference)
-
-        # =====================================================
-        # 🔹 CASE 2: SCHOOL FEES (EXISTING LOGIC)
-        # =====================================================
-        data = request.session.get("payment_data")
-
-        session_obj = Session.objects.get(id=data["session"])
-        term = Term.objects.get(id=data["term"])
-
-        batch.status = "success"
-        batch.save()
-
-        students = Student.objects.filter(
-            admission_number__in=data["students"]
+        # Verify with Paystack
+        response = requests.get(
+            f"https://api.paystack.co/transaction/verify/{reference}",
+            headers={"Authorization": f"Bearer {settings.PAYSTACK_SECRET_KEY}"}
         )
-
-        amount_left = batch.amount_paid
-
+        
+        if response.status_code != 200:
+            return render(request, "src/failed.html", {'error': 'Verification failed'})
+        
+        data = response.json()['data']
+        
+        if data['status'] != 'success':
+            return render(request, "src/failed.html", {'error': 'Payment not successful'})
+        
+        batch = PaymentBatch.objects.filter(reference=reference).first()
+        
+        if not batch:
+            return render(request, "src/failed.html", {'error': 'Batch not found'})
+        
+        # Check if already processed
+        if batch.webhook_processed:
+            return redirect('payment_receipt', reference=batch.reference)
+        
+        # Process based on payment type
+        payment_type = batch.payment_metadata.get('payment_type') if batch.payment_metadata else None
+        
         with transaction.atomic():
-            for student in students:
-
-                fee = FeeStructure.objects.filter(
-                    section=student.enrolled_class.section,
-                    session=session_obj,
-                    term_group=data["term_group"],
-                    student_type=data["student_type"],
-                    transport=data["transport"],
-                ).first()
-
-                if not fee:
-                    continue
-
-                already_paid = Payment.objects.filter(
-                    student=student,
-                    fee_structure=fee,
-                    session=session_obj,
-                ).aggregate(
-                    total=Sum("amount_paid")
-                )["total"] or Decimal("0.00")
-
-                remaining = fee.total_amount - already_paid
-                if remaining <= 0:
-                    continue
-
-                # 🔹 HANDLE WAIVER
-                waiver = FeeWaiverApproval.objects.filter(
-                    student=student,
-                    session=session_obj,
-                    term=term,
-                    status="active",
-                ).first()
-
-                waived_amount = Decimal("0.00")
-
-                if waiver:
-                    waived_amount = (
-                        remaining * Decimal(waiver.waiver_percentage) / Decimal("100")
-                    ).quantize(Decimal("0.01"))
-
-                    if waived_amount > 0:
-                        Payment.objects.create(
-                            student=student,
-                            transaction_reference=generate_txn_ref(batch.reference, "W"),
-                            fee_structure=fee,
-                            amount_paid=waived_amount,
-                            payment_method="waiver",
-                            status="paid",
-                            session=session_obj,
-                            term=term,
-                            payment_batch=batch,
-                        )
-
-                        waiver.status = "used"
-                        waiver.save()
-
-                        remaining -= waived_amount
-
-                # 🔹 HANDLE CARD PAYMENT
-                if amount_left > 0 and remaining > 0:
-                    pay_amount = min(amount_left, remaining)
-
-                    Payment.objects.create(
-                        student=student,
-                        transaction_reference=generate_txn_ref(batch.reference, "C"),
-                        fee_structure=fee,
-                        amount_paid=pay_amount,
-                        payment_method="credit_card",
-                        status="paid",
-                        session=session_obj,
-                        term=term,
-                        payment_batch=batch,
-                    )
-
-                    amount_left -= pay_amount
-
-        # 🔹 CLEAN UP SESSION
-        request.session.pop("payment_data", None)
-        request.session.pop("payment_reference", None)
-
-        return redirect("payment_receipt", reference=batch.reference)
-
+            if payment_type == 'school_fees':
+                process_school_fees_webhook(batch, data)
+            elif payment_type == 'other_fees':
+                process_other_fees_webhook(batch, data)
+            else:
+                # Legacy payment - mark as success
+                batch.status = 'success'
+                batch.save()
+            
+            batch.webhook_processed = True
+            batch.status = 'success'
+            batch.save()
+        
+        # Clear session
+        request.session.pop('unified_payment_ref', None)
+        
+        return redirect('payment_receipt', reference=batch.reference)
+        
     except Exception as e:
-        print("Paystack callback error:", e)
-        return render(request, "src/failed.html")
-
+        logger.error(f"Callback error: {str(e)}")
+        return render(request, "src/failed.html", {'error': str(e)})
 
 
 def parent_dashboard(request):
@@ -5265,3 +5196,569 @@ def export_compliance_to_excel(results, session, term, class_name, request):
 #         "payments": payments,
 #         "data2": school
 #     })
+
+
+# Add these imports if not already present
+import json
+import hmac
+import hashlib
+from decimal import Decimal
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_http_methods
+from django.db import transaction
+from django.http import JsonResponse
+from django.utils import timezone
+from django.core.paginator import Paginator
+
+# ============================================
+# NEW UNIFIED PAYMENT VIEWS
+# ============================================
+
+@login_required(login_url='login')
+def unified_payment(request):
+    """Unified payment entry point for both school and other fees"""
+    from website.models import Picture
+    
+    context = {
+        'sessions': Session.objects.filter(current=True),
+        'other_fees': OtherFeeStructure.objects.filter(active=True),
+        'payment_types': [
+            {'value': 'school_fees', 'label': 'School Fees (Tuition & Mandatory Fees)'},
+            {'value': 'other_fees', 'label': 'Other Fees (Uniform, Transport, etc.)'}
+        ],
+        'student_types': [
+            {'value': 'returning', 'label': 'Returning Student'},
+            {'value': 'new', 'label': 'New Intake'}
+        ],
+        'transport_options': [
+            {'value': 'false', 'label': 'No Transport'},
+            {'value': 'true', 'label': 'With Transport'}
+        ],
+        'data': Picture.objects.first(),
+    }
+    
+    return render(request, 'src/unified_payment.html', context)
+
+
+@require_http_methods(["GET"])
+def get_session_terms(request):
+    """API endpoint to get terms for a specific session"""
+    session_id = request.GET.get('session_id')
+    
+    if not session_id:
+        return JsonResponse({'error': 'Session ID required'}, status=400)
+    
+    try:
+        session = Session.objects.get(id=session_id)
+        terms = Term.objects.filter(session=session).values('id', 'name')
+        
+        term_mapping = []
+        for term in terms:
+            term_group = term['name'].split()[0].lower()
+            term_mapping.append({
+                'id': term['id'],
+                'name': term['name'],
+                'term_group': term_group
+            })
+        
+        return JsonResponse({'terms': term_mapping}, status=200)
+    
+    except Session.DoesNotExist:
+        return JsonResponse({'error': 'Session not found'}, status=404)
+
+
+@require_http_methods(["POST"])
+def get_student_details(request):
+    """API to validate student admission numbers"""
+    data = json.loads(request.body)
+    admission_numbers = data.get('admission_numbers', [])
+    
+    students = Student.objects.filter(admission_number__in=admission_numbers)
+    
+    results = []
+    for student in students:
+        results.append({
+            'id': student.id,
+            'admission_number': student.admission_number,
+            'name': f"{student.first_name} {student.last_name}",
+            'class': str(student.enrolled_class) if student.enrolled_class else 'Not Assigned',
+            'status': student.admission_status,
+        })
+    
+    return JsonResponse({
+        'found': len(results),
+        'total_requested': len(admission_numbers),
+        'students': results,
+        'not_found': [num for num in admission_numbers if num not in [s['admission_number'] for s in results]]
+    }, status=200)
+
+
+@require_http_methods(["POST"])
+def calculate_fees_api(request):
+    """API to calculate fees based on selection"""
+    data = json.loads(request.body)
+    
+    fee_type = data.get('fee_type', 'school_fees')
+    
+    if fee_type == 'school_fees':
+        return calculate_school_fees_api(data)
+    else:
+        return calculate_other_fees_api(data)
+
+
+def calculate_school_fees_api(data):
+    """Calculate school fees with waivers and previous payments"""
+    
+    session_id = data.get('session_id')
+    term_group = data.get('term_group')
+    student_type = data.get('student_type', 'returning')
+    transport = data.get('transport', False)
+    admission_numbers = data.get('admission_numbers', [])
+    
+    if not admission_numbers:
+        return JsonResponse({'error': 'No admission numbers provided'}, status=400)
+    
+    try:
+        session = Session.objects.get(id=session_id)
+        
+        # Find term by term_group
+        term = None
+        for t in Term.objects.filter(session=session):
+            if t.name.lower().startswith(term_group):
+                term = t
+                break
+        
+        if not term:
+            return JsonResponse({'error': 'Term not found for this session'}, status=404)
+        
+        students = Student.objects.filter(admission_number__in=admission_numbers)
+        
+        if students.count() != len(admission_numbers):
+            found_numbers = [s.admission_number for s in students]
+            not_found = [num for num in admission_numbers if num not in found_numbers]
+            return JsonResponse({'error': f'Students not found: {", ".join(not_found)}'}, status=404)
+        
+        breakdown = []
+        grand_total = Decimal('0.00')
+        
+        for student in students:
+            if not student.enrolled_class or not student.enrolled_class.section:
+                return JsonResponse({'error': f'Student {student.admission_number} has no class/section assigned'}, status=400)
+            
+            # Get fee structure
+            fee = FeeStructure.objects.filter(
+                section=student.enrolled_class.section,
+                session=session,
+                term_group=term_group,
+                student_type=student_type,
+                transport=transport,
+            ).first()
+            
+            if not fee:
+                return JsonResponse({
+                    'error': f'No fee structure found for {student.first_name} {student.last_name} (Section: {student.enrolled_class.section}, Term: {term_group})'
+                }, status=404)
+            
+            # Calculate payments
+            total_paid = Payment.objects.filter(
+                student=student, 
+                fee_structure=fee, 
+                session=session, 
+                term=term
+            ).exclude(payment_method='waiver').aggregate(
+                total=Sum('amount_paid')
+            )['total'] or Decimal('0.00')
+            
+            # Get active waiver
+            waiver = FeeWaiverApproval.objects.filter(
+                student=student, 
+                session=session, 
+                term=term, 
+                status='active'
+            ).first()
+            
+            waiver_percentage = waiver.waiver_percentage if waiver else 0
+            
+            # Calculate waiver amount (only on tuition component)
+            tuition_component = fee.components.filter(name__iexact='tuition').first()
+            tuition_amount = tuition_component.amount if tuition_component else Decimal('0.00')
+            waived_amount = (tuition_amount * Decimal(waiver_percentage) / Decimal('100')).quantize(Decimal('0.01'))
+            
+            raw_balance = fee.total_amount - total_paid
+            net_balance = max(raw_balance - waived_amount, Decimal('0.00'))
+            
+            grand_total += net_balance
+            
+            breakdown.append({
+                'student_id': student.id,
+                'admission_number': student.admission_number,
+                'name': f"{student.first_name} {student.last_name}",
+                'class': str(student.enrolled_class),
+                'total_fee': float(fee.total_amount),
+                'paid': float(total_paid),
+                'waiver_percentage': waiver_percentage,
+                'waived_amount': float(waived_amount),
+                'balance': float(net_balance),
+                'fee_structure_id': fee.id,
+                'fee_structure_total': float(fee.total_amount),
+            })
+        
+        return JsonResponse({
+            'success': True,
+            'breakdown': breakdown,
+            'grand_total': float(grand_total),
+            'session_name': session.name,
+            'session_id': session.id,
+            'term_name': term.name,
+            'term_id': term.id,
+            'term_group': term_group,
+        }, status=200)
+        
+    except Session.DoesNotExist:
+        return JsonResponse({'error': 'Session not found'}, status=404)
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+def calculate_other_fees_api(data):
+    """Calculate other fees (flat rate per student)"""
+    
+    admission_numbers = data.get('admission_numbers', [])
+    fee_ids = data.get('fee_ids', [])
+    
+    if not admission_numbers:
+        return JsonResponse({'error': 'No admission numbers provided'}, status=400)
+    
+    if not fee_ids:
+        return JsonResponse({'error': 'No fees selected'}, status=400)
+    
+    try:
+        students = Student.objects.filter(admission_number__in=admission_numbers)
+        
+        if students.count() != len(admission_numbers):
+            found_numbers = [s.admission_number for s in students]
+            not_found = [num for num in admission_numbers if num not in found_numbers]
+            return JsonResponse({'error': f'Students not found: {", ".join(not_found)}'}, status=404)
+        
+        other_fees = OtherFeeStructure.objects.filter(id__in=fee_ids, active=True)
+        
+        if not other_fees.exists():
+            return JsonResponse({'error': 'No valid fees selected'}, status=404)
+        
+        total_per_student = sum(fee.amount for fee in other_fees)
+        grand_total = total_per_student * students.count()
+        
+        breakdown = []
+        for student in students:
+            breakdown.append({
+                'student_id': student.id,
+                'admission_number': student.admission_number,
+                'name': f"{student.first_name} {student.last_name}",
+                'class': str(student.enrolled_class) if student.enrolled_class else 'Not Assigned',
+                'fees': [{'id': fee.id, 'name': fee.name, 'amount': float(fee.amount)} for fee in other_fees],
+                'total': float(total_per_student),
+            })
+        
+        return JsonResponse({
+            'success': True,
+            'breakdown': breakdown,
+            'grand_total': float(grand_total),
+            'other_fees': [{'id': fee.id, 'name': fee.name, 'amount': float(fee.amount)} for fee in other_fees],
+        }, status=200)
+        
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@require_http_methods(["POST"])
+def initialize_paystack_unified(request):
+    """Initialize Paystack transaction with rich metadata for unified payment"""
+    
+    try:
+        payment_data = json.loads(request.POST.get('payment_data', '{}'))
+        
+        payment_method = payment_data.get('payment_method')
+        amount = Decimal(str(payment_data.get('amount', 0)))
+        email = payment_data.get('email')
+        
+        if not all([payment_method, amount, email]):
+            return JsonResponse({'error': 'Missing required fields'}, status=400)
+        
+        # Create batch reference
+        reference = f"GIIA-{uuid.uuid4().hex[:8].upper()}"
+        
+        # Determine channels based on payment method
+        if payment_method == "card":
+            channels = ["card"]
+        else:
+            channels = ["bank_transfer", "ussd"]
+        
+        # Create payment batch with metadata
+        batch = PaymentBatch.objects.create(
+            reference=reference,
+            parent_email=email,
+            amount_paid=amount,
+            session_id=payment_data.get('session_id') if payment_data.get('session_id') else None,
+            term_id=payment_data.get('term_id') if payment_data.get('term_id') else None,
+            payment_channel=payment_method,
+            status="pending",
+            payment_metadata={
+                'payment_type': payment_data.get('fee_type'),
+                'breakdown': payment_data.get('breakdown', []),
+                'timestamp': timezone.now().isoformat(),
+                'version': '2.0',
+                'parent_data': payment_data,
+            }
+        )
+        
+        # Calculate Paystack fee
+        paystack_fee = calculate_paystack_fee(amount, payment_method)
+        total_charge = amount + paystack_fee
+        
+        batch.paystack_fee = paystack_fee
+        batch.save()
+        
+        # Initialize Paystack transaction
+        response = requests.post(
+            "https://api.paystack.co/transaction/initialize",
+            headers={
+                "Authorization": f"Bearer {settings.PAYSTACK_SECRET_KEY}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "email": email,
+                "amount": int(total_charge * 100),
+                "reference": reference,
+                "channels": channels,
+                "metadata": {
+                    "custom_fields": [
+                        {"display_name": "Payment Type", "variable_name": "payment_type", "value": payment_data.get('fee_type')},
+                        {"display_name": "Students", "variable_name": "students", "value": len(payment_data.get('breakdown', []))},
+                        {"display_name": "Batch Reference", "variable_name": "batch_ref", "value": reference},
+                    ],
+                    "payment_data": {
+                        'fee_type': payment_data.get('fee_type'),
+                        'student_count': len(payment_data.get('breakdown', [])),
+                        'batch_reference': reference,
+                        'amount': str(amount),
+                    },
+                },
+                "callback_url": request.build_absolute_uri("/school/pay/callback/"),
+            },
+        )
+        
+        res = response.json()
+        
+        if response.status_code == 200 and res.get("status"):
+            # Store in session for callback
+            request.session['unified_payment_ref'] = reference
+            return JsonResponse({'redirect_url': res["data"]["authorization_url"]}, status=200)
+        
+        return JsonResponse({'error': 'Payment initialization failed'}, status=400)
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def paystack_webhook(request):
+    """Handle Paystack webhook events with idempotency"""
+    
+    # Verify signature
+    signature = request.headers.get('x-paystack-signature')
+    if not signature:
+        return JsonResponse({'error': 'No signature'}, status=400)
+    
+    # Compute hash
+    computed_hash = hmac.new(
+        settings.PAYSTACK_SECRET_KEY.encode('utf-8'),
+        request.body,
+        hashlib.sha512
+    ).hexdigest()
+    
+    if not hmac.compare_digest(computed_hash, signature):
+        return JsonResponse({'error': 'Invalid signature'}, status=401)
+    
+    # Parse webhook data
+    try:
+        data = json.loads(request.body)
+    except:
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+    
+    event = data.get('event')
+    
+    if event == 'charge.success':
+        transaction_ref = data['data']['reference']
+        
+        # Idempotency check
+        with transaction.atomic():
+            batch = PaymentBatch.objects.select_for_update().filter(
+                reference=transaction_ref
+            ).first()
+            
+            if not batch:
+                return JsonResponse({'error': 'Batch not found'}, status=404)
+            
+            # Already processed?
+            if batch.webhook_processed:
+                return JsonResponse({'status': 'already_processed'}, status=200)
+            
+            # Mark as processing
+            batch.webhook_attempts += 1
+            batch.last_webhook_attempt = timezone.now()
+            batch.save()
+            
+            try:
+                # Process based on payment type
+                payment_type = batch.payment_metadata.get('payment_type') if batch.payment_metadata else None
+                
+                if payment_type == 'school_fees':
+                    process_school_fees_webhook(batch, data['data'])
+                elif payment_type == 'other_fees':
+                    process_other_fees_webhook(batch, data['data'])
+                else:
+                    # Try to determine from payment data
+                    if batch.payment_metadata and batch.payment_metadata.get('parent_data', {}).get('fee_type'):
+                        if batch.payment_metadata['parent_data']['fee_type'] == 'school_fees':
+                            process_school_fees_webhook(batch, data['data'])
+                        else:
+                            process_other_fees_webhook(batch, data['data'])
+                    else:
+                        # Legacy payment - mark as success without detailed processing
+                        batch.status = 'success'
+                        batch.webhook_processed = True
+                        batch.save()
+                
+                batch.webhook_processed = True
+                batch.status = 'success'
+                batch.save()
+                
+                return JsonResponse({'status': 'success'}, status=200)
+                
+            except Exception as e:
+                import traceback
+                traceback.print_exc()
+                return JsonResponse({'error': str(e)}, status=500)
+    
+    return JsonResponse({'status': 'ignored'}, status=200)
+
+
+def process_school_fees_webhook(batch, paystack_data):
+    """Process school fees payment from webhook"""
+    
+    payment_data = batch.payment_metadata.get('parent_data', {})
+    breakdown = payment_data.get('breakdown', [])
+    amount_paid = Decimal(str(paystack_data['amount'])) / 100
+    
+    amount_left = amount_paid
+    
+    for item in breakdown:
+        if amount_left <= 0:
+            break
+        
+        student = Student.objects.get(id=item['student_id'])
+        fee_structure = FeeStructure.objects.get(id=item['fee_structure_id'])
+        
+        # Check for waiver
+        waiver = FeeWaiverApproval.objects.filter(
+            student=student,
+            session_id=payment_data.get('session_id'),
+            term_id=payment_data.get('term_id'),
+            status='active'
+        ).first()
+        
+        if waiver and not Payment.objects.filter(
+            student=student,
+            payment_method='waiver',
+            payment_batch=batch
+        ).exists():
+            # Apply waiver
+            tuition_component = fee_structure.components.filter(name__iexact='tuition').first()
+            if tuition_component:
+                waived_amount = (tuition_component.amount * Decimal(waiver.waiver_percentage) / Decimal('100')).quantize(Decimal('0.01'))
+                
+                if waived_amount > 0:
+                    Payment.objects.create(
+                        student=student,
+                        transaction_reference=f"{batch.reference}-W-{student.id}",
+                        fee_structure=fee_structure,
+                        amount_paid=waived_amount,
+                        payment_method='waiver',
+                        status='paid',
+                        session_id=payment_data.get('session_id'),
+                        term_id=payment_data.get('term_id'),
+                        payment_batch=batch,
+                        payment_metadata={
+                            'waiver_percentage': waiver.waiver_percentage,
+                            'waiver_id': waiver.id,
+                            'applied_at': timezone.now().isoformat(),
+                        }
+                    )
+                    
+                    waiver.status = 'used'
+                    waiver.save()
+        
+        # Apply actual payment
+        pay_amount = min(amount_left, Decimal(str(item.get('balance', 0))))
+        
+        if pay_amount > 0:
+            Payment.objects.create(
+                student=student,
+                transaction_reference=f"{batch.reference}-P-{student.id}",
+                fee_structure=fee_structure,
+                amount_paid=pay_amount,
+                payment_method=batch.payment_channel if batch.payment_channel else 'credit_card',
+                status='paid',
+                session_id=payment_data.get('session_id'),
+                term_id=payment_data.get('term_id'),
+                payment_batch=batch,
+                payment_metadata={
+                    'paystack_reference': paystack_data['reference'],
+                    'payment_intent': paystack_data.get('id'),
+                    'channel': paystack_data.get('channel'),
+                    'webhook_processed_at': timezone.now().isoformat(),
+                }
+            )
+            
+            amount_left -= pay_amount
+
+
+def process_other_fees_webhook(batch, paystack_data):
+    """Process other fees payment from webhook"""
+    
+    payment_data = batch.payment_metadata.get('parent_data', {})
+    breakdown = payment_data.get('breakdown', [])
+    amount_paid = Decimal(str(paystack_data['amount'])) / 100
+    
+    # Calculate per-student amount
+    students_count = len(breakdown)
+    if students_count == 0:
+        return
+    
+    for item in breakdown:
+        student = Student.objects.get(id=item['student_id'])
+        
+        for fee_item in item.get('fees', []):
+            other_fee = OtherFeeStructure.objects.get(id=fee_item['id'])
+            
+            Payment.objects.create(
+                student=student,
+                transaction_reference=f"{batch.reference}-{student.id}-{other_fee.id}",
+                other_fee=other_fee,
+                amount_paid=Decimal(str(fee_item['amount'])),
+                payment_method=batch.payment_channel if batch.payment_channel else 'credit_card',
+                status='paid',
+                session=batch.session,
+                term=batch.term,
+                payment_batch=batch,
+                payment_metadata={
+                    'paystack_reference': paystack_data['reference'],
+                    'fee_name': fee_item['name'],
+                    'webhook_processed_at': timezone.now().isoformat(),
+                }
+            )

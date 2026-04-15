@@ -664,6 +664,13 @@ class PaymentBatch(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True)
 
+
+    # NEW FIELDS - Add these
+    payment_metadata = models.JSONField(blank=True, null=True, help_text='Stores full payment details for audit/webhook')
+    webhook_processed = models.BooleanField(default=False, help_text='Tracks if webhook has been fully processed')
+    webhook_attempts = models.IntegerField(default=0, help_text='Number of webhook processing attempts')
+    last_webhook_attempt = models.DateTimeField(blank=True, null=True)
+
     def __str__(self):
         return f"{self.reference} - {self.parent_email}"
 
@@ -726,7 +733,10 @@ class Payment(models.Model):
         blank=True
     )
 
-
+    # NEW FIELDS - Add these
+    payment_metadata = models.JSONField(blank=True, null=True, help_text='Per-payment metadata for reconciliation')
+    external_reference = models.CharField(blank=True, null=True, max_length=100, help_text='External system reference (e.g., ERP ID)')
+   
     def update_status(self):
         if self.amount_paid >= self.fee_structure.amount:
             self.status = 'paid'
