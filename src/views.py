@@ -5476,18 +5476,45 @@ def calculate_other_fees_api(data):
 def initialize_paystack_unified(request):
     """Initialize Paystack transaction with rich metadata for unified payment"""
     
+    import json
+    import traceback
+    from decimal import Decimal
+    from django.http import JsonResponse
+    
+    print("=" * 50)
+    print("initialize_paystack_unified called")
+    print("POST data:", request.POST)
+    print("=" * 50)
+    
     try:
-        payment_data = json.loads(request.POST.get('payment_data', '{}'))
+        # Get payment_data from POST
+        payment_data_str = request.POST.get('payment_data', '{}')
+        print(f"Payment data string: {payment_data_str}")
+        
+        if not payment_data_str or payment_data_str == '{}':
+            return JsonResponse({'error': 'No payment data received'}, status=400)
+        
+        payment_data = json.loads(payment_data_str)
+        print(f"Parsed payment_data: {payment_data}")
         
         payment_method = payment_data.get('payment_method')
         amount = Decimal(str(payment_data.get('amount', 0)))
         email = payment_data.get('email')
         
+        print(f"Payment method: {payment_method}")
+        print(f"Amount: {amount}")
+        print(f"Email: {email}")
+        
         if not all([payment_method, amount, email]):
-            return JsonResponse({'error': 'Missing required fields'}, status=400)
+            return JsonResponse({'error': f'Missing required fields. Method: {payment_method}, Amount: {amount}, Email: {email}'}, status=400)
+        
+        if amount <= 0:
+            return JsonResponse({'error': 'Invalid payment amount'}, status=400)
         
         # Create batch reference
+        import uuid
         reference = f"GIIA-{uuid.uuid4().hex[:8].upper()}"
+        print(f"Created reference: {reference}")
         
         # Determine channels based on payment method
         if payment_method == "card":
@@ -5512,6 +5539,7 @@ def initialize_paystack_unified(request):
                 'parent_data': payment_data,
             }
         )
+        print(f"Created batch with ID: {batch.id}")
         
         # Calculate Paystack fee
         paystack_fee = calculate_paystack_fee(amount, payment_method)
@@ -5520,7 +5548,10 @@ def initialize_paystack_unified(request):
         batch.paystack_fee = paystack_fee
         batch.save()
         
+        print(f"Paystack fee: {paystack_fee}, Total charge: {total_charge}")
+        
         # Initialize Paystack transaction
+        import requests
         response = requests.post(
             "https://api.paystack.co/transaction/initialize",
             headers={
@@ -5549,19 +5580,27 @@ def initialize_paystack_unified(request):
             },
         )
         
+        print(f"Paystack response status: {response.status_code}")
         res = response.json()
+        print(f"Paystack response: {res}")
         
         if response.status_code == 200 and res.get("status"):
             # Store in session for callback
             request.session['unified_payment_ref'] = reference
             return JsonResponse({'redirect_url': res["data"]["authorization_url"]}, status=200)
         
-        return JsonResponse({'error': 'Payment initialization failed'}, status=400)
+        error_msg = res.get('message', 'Payment initialization failed')
+        print(f"Paystack error: {error_msg}")
+        return JsonResponse({'error': error_msg}, status=400)
         
+    except json.JSONDecodeError as e:
+        print(f"JSON decode error: {e}")
+        return JsonResponse({'error': f'Invalid JSON data: {str(e)}'}, status=400)
     except Exception as e:
-        import traceback
+        print(f"Exception in initialize_paystack_unified: {str(e)}")
         traceback.print_exc()
         return JsonResponse({'error': str(e)}, status=500)
+
 
 
 @csrf_exempt

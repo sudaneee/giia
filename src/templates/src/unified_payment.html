@@ -823,56 +823,111 @@
         }
 
         async function processPayment() {
-            const paymentMethod = document.querySelector('input[name="breakdown_payment_method"]:checked').value;
-            const email = currentFeeType === 'school_fees' 
-                ? document.getElementById('parentEmail').value 
-                : document.getElementById('otherParentEmail').value;
+            // Get selected payment method
+            const paymentMethod = document.querySelector('input[name="breakdown_payment_method"]:checked');
             
+            if (!paymentMethod) {
+                showError('Please select a payment method');
+                return;
+            }
+            
+            const paymentMethodValue = paymentMethod.value;
+            
+            // Get email based on fee type
+            let email = '';
+            if (currentFeeType === 'school_fees') {
+                email = document.getElementById('parentEmail').value;
+            } else {
+                email = document.getElementById('otherParentEmail').value;
+            }
+            
+            if (!email) {
+                showError('Parent email is required');
+                return;
+            }
+            
+            // Prepare payment data
             let paymentData = {
                 fee_type: currentFeeType,
                 email: email,
-                payment_method: paymentMethod,
+                payment_method: paymentMethodValue,
                 amount: currentGrandTotal,
                 breakdown: currentBreakdown.breakdown,
             };
             
+            // Add fee-type specific data
             if (currentFeeType === 'school_fees') {
                 paymentData.session_id = currentBreakdown.session_id;
                 paymentData.term_id = currentBreakdown.term_id;
                 paymentData.term_group = currentBreakdown.term_group;
             } else {
-                paymentData.fee_ids = currentBreakdown.other_fees.map(f => f.id);
+                paymentData.fee_ids = currentBreakdown.other_fees ? currentBreakdown.other_fees.map(f => f.id) : [];
             }
+            
+            console.log('Sending payment data:', paymentData); // Debug log
             
             showLoading();
             
             try {
+                // Get CSRF token
+                const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+                if (!csrfToken) {
+                    throw new Error('CSRF token not found');
+                }
+                
+                // Create form data
+                const formData = new URLSearchParams();
+                formData.append('payment_data', JSON.stringify(paymentData));
+                formData.append('is_unified', 'true');
+                
                 const response = await fetch('/school/pay/initialize/', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/x-www-form-urlencoded',
-                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                        'X-CSRFToken': csrfToken.value,
+                        'X-Requested-With': 'XMLHttpRequest'
                     },
-                    body: new URLSearchParams({
-                        'payment_data': JSON.stringify(paymentData),
-                        'is_unified': 'true'
-                    })
+                    body: formData,
+                    credentials: 'same-origin'
                 });
                 
-                const data = await response.json();
+                console.log('Response status:', response.status); // Debug log
+                
+                // Check if response is OK
+                if (!response.ok) {
+                    const text = await response.text();
+                    console.error('Response error:', text);
+                    throw new Error(`Server responded with status ${response.status}`);
+                }
+                
+                // Try to parse JSON
+                let data;
+                try {
+                    data = await response.json();
+                } catch (e) {
+                    console.error('JSON parse error:', e);
+                    throw new Error('Invalid response from server');
+                }
+                
+                console.log('Response data:', data); // Debug log
                 
                 if (data.redirect_url) {
                     window.location.href = data.redirect_url;
+                } else if (data.error) {
+                    showError(data.error);
+                    hideLoading();
                 } else {
-                    showError(data.error || 'Payment initialization failed');
+                    showError('Payment initialization failed. Please try again.');
                     hideLoading();
                 }
+                
             } catch (error) {
-                console.error('Error:', error);
-                showError('Network error. Please try again.');
+                console.error('Payment error:', error);
+                showError('Network error: ' + error.message + '. Please check your connection and try again.');
                 hideLoading();
             }
         }
+            
     </script>
 </body>
 </html>

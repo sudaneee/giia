@@ -140,12 +140,13 @@ urlpatterns = [
 
 
     # ============================================
-    # NEW UNIFIED PAYMENT SYSTEM (KEEP EXISTING URLs)
+    # NEW UNIFIED PAYMENT SYSTEM
     # ============================================
     path('pay/', views.unified_payment, name='unified_payment'),
     path('pay/api/session-terms/', views.get_session_terms, name='session_terms_api'),
     path('pay/api/student-details/', views.get_student_details, name='student_details_api'),
     path('pay/api/calculate-fees/', views.calculate_fees_api, name='calculate_fees_api'),
+    path('pay/initialize/', views.initialize_paystack_unified, name='initialize_paystack_unified'),  # ← ADD THIS LINE
     path('pay/webhook/paystack/', views.paystack_webhook, name='paystack_webhook'),
 
 
