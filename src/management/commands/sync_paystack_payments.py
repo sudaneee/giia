@@ -9,8 +9,8 @@ from datetime import datetime, timedelta
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 from django.conf import settings
-from src.models import PaymentBatch, Payment, Student, Session, Term, FeeStructure, OtherFeeStructure
-from django.db import transaction
+from src.models import PaymentBatch, Payment, Student, Session, Term, FeeStructure, OtherFeeStructure, Guardian
+from django.db import transaction as db_transaction
 
 class Command(BaseCommand):
     help = 'Sync Paystack payments with local database'
@@ -109,8 +109,8 @@ class Command(BaseCommand):
             
             self.stdout.write(f"\nProcessing page {page} ({len(transactions)} transactions)")
             
-            for transaction in transactions:
-                result = self.process_transaction(transaction, fix_missing, dry_run)
+            for txn in transactions:
+                result = self.process_transaction(txn, fix_missing, dry_run)
                 if result == 'created':
                     total_created += 1
                 elif result == 'synced':
@@ -130,15 +130,15 @@ class Command(BaseCommand):
             f"Total fixed (had batch but missing payments): {total_fixed}"
         ))
     
-    def process_transaction(self, transaction, fix_missing, dry_run, force=False):
+    def process_transaction(self, paystack_txn, fix_missing, dry_run, force=False):
         """Process a single transaction and update database"""
         
-        reference = transaction['reference']
-        amount = Decimal(str(transaction['amount'])) / 100
-        status = transaction['status']
-        paystack_fee = Decimal(str(transaction.get('fees', 0))) / 100 if transaction.get('fees') else Decimal('0.00')
-        payment_date = datetime.strptime(transaction['paid_at'], '%Y-%m-%dT%H:%M:%S.%fZ') if transaction['paid_at'] else timezone.now()
-        email = transaction['customer']['email']
+        reference = paystack_txn['reference']
+        amount = Decimal(str(paystack_txn['amount'])) / 100
+        status = paystack_txn['status']
+        paystack_fee = Decimal(str(paystack_txn.get('fees', 0))) / 100 if paystack_txn.get('fees') else Decimal('0.00')
+        payment_date = datetime.strptime(paystack_txn['paid_at'], '%Y-%m-%dT%H:%M:%S.%fZ') if paystack_txn['paid_at'] else timezone.now()
+        email = paystack_txn['customer']['email']
         
         self.stdout.write(f"\n--- Processing: {reference} ---")
         self.stdout.write(f"  Amount: ₦{amount}")
@@ -170,7 +170,7 @@ class Command(BaseCommand):
                         return 'would_fix'
                     
                     # Create payments for this batch
-                    return self.create_payments_for_batch(batch, transaction, amount, email)
+                    return self.create_payments_for_batch(batch, paystack_txn, amount, email)
                 else:
                     self.stdout.write(f"  Use --fix-missing to create payments")
                     return 'needs_fix'
@@ -182,49 +182,57 @@ class Command(BaseCommand):
             self.stdout.write(f"    [DRY RUN] Would create batch and payments")
             return 'would_create'
         
-        return self.create_new_batch_and_payments(transaction, amount, paystack_fee, payment_date, email)
+        return self.create_new_batch_and_payments(paystack_txn, amount, paystack_fee, payment_date, email)
     
-    def create_payments_for_batch(self, batch, transaction, amount, email):
+    def create_payments_for_batch(self, batch, paystack_txn, amount, email):
         """Create payment records for an existing batch"""
         
         try:
-            with transaction.atomic():
+            with db_transaction.atomic():
                 # Get session and term from batch or use current
                 session = batch.session
                 term = batch.term
                 
                 if not session:
                     session = Session.objects.filter(current=True).first()
+                    self.stdout.write(f"    Using current session: {session.name if session else 'None'}")
+                
                 if not term and session:
                     term = Term.objects.filter(session=session).first()
+                    self.stdout.write(f"    Using term: {term.name if term else 'None'}")
                 
-                # Try to find student by email or create generic payment
-                # First, try to find student by email in guardians
-                from src.models import Guardian
-                
-                guardian = Guardian.objects.filter(email=email).first()
+                # Try to find student by email
                 students = []
                 
+                # Check if email belongs to a guardian
+                guardian = Guardian.objects.filter(email=email).first()
                 if guardian:
                     students = list(guardian.student_set.all())
                     self.stdout.write(f"    Found guardian with {len(students)} students")
                 
+                # If no guardian, check if email belongs to a student directly
                 if not students:
-                    # Try to find student by email directly
                     student = Student.objects.filter(email=email).first()
                     if student:
                         students = [student]
                         self.stdout.write(f"    Found student by email: {student.admission_number}")
                 
+                # If still no students, try to find by parent email in student record
+                if not students:
+                    student = Student.objects.filter(phone_number=email).first()
+                    if student:
+                        students = [student]
+                        self.stdout.write(f"    Found student by phone: {student.admission_number}")
+                
                 if students:
                     # Distribute payment among students
-                    amount_per_student = amount / len(students)
+                    amount_per_student = (amount / len(students)).quantize(Decimal('0.01'))
                     
                     for student in students:
                         payment = Payment.objects.create(
                             student=student,
                             transaction_reference=f"{batch.reference}-{student.id}",
-                            amount_paid=amount_per_student.quantize(Decimal('0.01')),
+                            amount_paid=amount_per_student,
                             payment_method=batch.payment_channel if batch.payment_channel else 'credit_card',
                             status='paid',
                             session=session,
@@ -232,12 +240,12 @@ class Command(BaseCommand):
                             payment_batch=batch,
                             payment_date=timezone.now().date(),
                             payment_metadata={
-                                'paystack_reference': transaction['reference'],
+                                'paystack_reference': paystack_txn['reference'],
                                 'recovered': True,
                                 'recovered_at': timezone.now().isoformat(),
                             }
                         )
-                        self.stdout.write(f"    Created payment for {student.first_name} {student.last_name}: ₦{payment.amount_paid}")
+                        self.stdout.write(f"    ✅ Created payment for {student.first_name} {student.last_name}: ₦{payment.amount_paid}")
                 else:
                     # Create a generic payment record that needs manual assignment
                     payment = Payment.objects.create(
@@ -251,34 +259,35 @@ class Command(BaseCommand):
                         payment_batch=batch,
                         payment_date=timezone.now().date(),
                         payment_metadata={
-                            'paystack_reference': transaction['reference'],
+                            'paystack_reference': paystack_txn['reference'],
                             'recovered': True,
                             'needs_manual_assignment': True,
                             'customer_email': email,
                             'recovered_at': timezone.now().isoformat(),
                         }
                     )
-                    self.stdout.write(self.style.WARNING(f"    Created generic payment - needs manual assignment"))
+                    self.stdout.write(self.style.WARNING(f"    ⚠ Created generic payment - needs manual assignment (ID: {payment.id})"))
                 
                 # Update batch status if needed
                 if batch.status != 'success':
                     batch.status = 'success'
                     batch.save()
+                    self.stdout.write(f"    Updated batch status to success")
                 
                 self.stdout.write(self.style.SUCCESS(f"  ✅ Successfully created {len(students) if students else 1} payment(s)"))
                 return 'fixed'
                 
         except Exception as e:
-            self.stdout.write(self.style.ERROR(f"  Error creating payments: {str(e)}"))
+            self.stdout.write(self.style.ERROR(f"  ❌ Error creating payments: {str(e)}"))
             import traceback
             traceback.print_exc()
             return 'error'
     
-    def create_new_batch_and_payments(self, transaction, amount, paystack_fee, payment_date, email):
+    def create_new_batch_and_payments(self, paystack_txn, amount, paystack_fee, payment_date, email):
         """Create a new batch and payment records"""
         
         try:
-            with transaction.atomic():
+            with db_transaction.atomic():
                 # Get current session and term
                 session = Session.objects.filter(current=True).first()
                 term = None
@@ -287,12 +296,12 @@ class Command(BaseCommand):
                 
                 # Create batch
                 batch = PaymentBatch.objects.create(
-                    reference=transaction['reference'],
+                    reference=paystack_txn['reference'],
                     parent_email=email,
                     amount_paid=amount,
                     session=session,
                     term=term,
-                    payment_channel=transaction.get('channel', 'card'),
+                    payment_channel=paystack_txn.get('channel', 'card'),
                     status='success',
                     paystack_fee=paystack_fee,
                     created_at=payment_date
@@ -301,8 +310,6 @@ class Command(BaseCommand):
                 self.stdout.write(f"    Created batch ID: {batch.id}")
                 
                 # Try to find student by email
-                from src.models import Guardian
-                
                 guardian = Guardian.objects.filter(email=email).first()
                 students = []
                 
@@ -317,46 +324,48 @@ class Command(BaseCommand):
                         self.stdout.write(f"    Found student by email: {student.admission_number}")
                 
                 if students:
-                    amount_per_student = amount / len(students)
+                    amount_per_student = (amount / len(students)).quantize(Decimal('0.01'))
                     
                     for student in students:
                         Payment.objects.create(
                             student=student,
                             transaction_reference=f"{batch.reference}-{student.id}",
-                            amount_paid=amount_per_student.quantize(Decimal('0.01')),
-                            payment_method=transaction.get('channel', 'credit_card'),
+                            amount_paid=amount_per_student,
+                            payment_method=paystack_txn.get('channel', 'credit_card'),
                             status='paid',
                             session=session,
                             term=term,
                             payment_batch=batch,
                             payment_date=payment_date.date(),
                             payment_metadata={
-                                'paystack_reference': transaction['reference'],
+                                'paystack_reference': paystack_txn['reference'],
                                 'recovered': True,
                             }
                         )
-                        self.stdout.write(f"    Created payment for {student.first_name} {student.last_name}")
+                        self.stdout.write(f"    ✅ Created payment for {student.first_name} {student.last_name}")
                 else:
                     Payment.objects.create(
                         student=None,
                         transaction_reference=batch.reference,
                         amount_paid=amount,
-                        payment_method=transaction.get('channel', 'credit_card'),
+                        payment_method=paystack_txn.get('channel', 'credit_card'),
                         status='paid',
                         session=session,
                         term=term,
                         payment_batch=batch,
                         payment_date=payment_date.date(),
                         payment_metadata={
-                            'paystack_reference': transaction['reference'],
+                            'paystack_reference': paystack_txn['reference'],
                             'needs_manual_assignment': True,
                             'customer_email': email,
                         }
                     )
-                    self.stdout.write(self.style.WARNING(f"    Created generic payment - needs manual assignment"))
+                    self.stdout.write(self.style.WARNING(f"    ⚠ Created generic payment - needs manual assignment"))
                 
                 return 'created'
                 
         except Exception as e:
-            self.stdout.write(self.style.ERROR(f"  Error: {str(e)}"))
+            self.stdout.write(self.style.ERROR(f"  ❌ Error: {str(e)}"))
+            import traceback
+            traceback.print_exc()
             return 'error'
