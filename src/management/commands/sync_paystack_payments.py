@@ -9,8 +9,9 @@ from datetime import datetime, timedelta
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 from django.conf import settings
-from src.models import PaymentBatch, Payment, Student, Session, Term, FeeStructure, OtherFeeStructure, Guardian
+from src.models import PaymentBatch, Payment, Student, Session, Term, Guardian
 from django.db import transaction as db_transaction
+import json
 
 class Command(BaseCommand):
     help = 'Sync Paystack payments with local database'
@@ -48,10 +49,8 @@ class Command(BaseCommand):
             self.stdout.write(self.style.WARNING("=== DRY RUN MODE - No changes will be made ===\n"))
         
         if reference:
-            # Sync specific transaction
             self.sync_single_transaction(reference, fix_missing, dry_run)
         else:
-            # Sync all transactions from the last X days
             self.sync_recent_transactions(days, fix_missing, dry_run)
     
     def sync_single_transaction(self, reference, fix_missing, dry_run):
@@ -130,6 +129,41 @@ class Command(BaseCommand):
             f"Total fixed (had batch but missing payments): {total_fixed}"
         ))
     
+    def extract_admission_numbers_from_metadata(self, batch):
+        """Extract admission numbers from batch metadata"""
+        admission_numbers = []
+        
+        # Check payment_metadata field
+        if batch.payment_metadata:
+            metadata = batch.payment_metadata
+            if isinstance(metadata, str):
+                try:
+                    metadata = json.loads(metadata)
+                except:
+                    pass
+            
+            # Look for admission numbers in various places
+            if 'breakdown' in metadata:
+                for item in metadata['breakdown']:
+                    if 'admission_number' in item:
+                        admission_numbers.append(item['admission_number'])
+                    elif 'student' in item and 'admission_number' in item['student']:
+                        admission_numbers.append(item['student']['admission_number'])
+            
+            if 'parent_data' in metadata and 'breakdown' in metadata['parent_data']:
+                for item in metadata['parent_data']['breakdown']:
+                    if 'admission_number' in item:
+                        admission_numbers.append(item['admission_number'])
+        
+        # Also check if there are any pending payments with metadata
+        from src.models import Payment
+        pending_payments = Payment.objects.filter(payment_batch=batch)
+        for payment in pending_payments:
+            if payment.payment_metadata and 'admission_number' in payment.payment_metadata:
+                admission_numbers.append(payment.payment_metadata['admission_number'])
+        
+        return list(set(admission_numbers))  # Remove duplicates
+    
     def process_transaction(self, paystack_txn, fix_missing, dry_run, force=False):
         """Process a single transaction and update database"""
         
@@ -153,7 +187,6 @@ class Command(BaseCommand):
         batch = PaymentBatch.objects.filter(reference=reference).first()
         
         if batch:
-            # Check if batch has payments
             has_payments = Payment.objects.filter(payment_batch=batch).exists()
             
             if has_payments:
@@ -169,7 +202,6 @@ class Command(BaseCommand):
                         self.stdout.write(f"    [DRY RUN] Would create payments for batch")
                         return 'would_fix'
                     
-                    # Create payments for this batch
                     return self.create_payments_for_batch(batch, paystack_txn, amount, email)
                 else:
                     self.stdout.write(f"  Use --fix-missing to create payments")
@@ -189,40 +221,42 @@ class Command(BaseCommand):
         
         try:
             with db_transaction.atomic():
-                # Get session and term from batch or use current
+                # Get session and term
                 session = batch.session
                 term = batch.term
                 
                 if not session:
                     session = Session.objects.filter(current=True).first()
-                    self.stdout.write(f"    Using current session: {session.name if session else 'None'}")
-                
                 if not term and session:
                     term = Term.objects.filter(session=session).first()
-                    self.stdout.write(f"    Using term: {term.name if term else 'None'}")
                 
-                # Try to find student by email
+                # Try to extract admission numbers from metadata
+                admission_numbers = self.extract_admission_numbers_from_metadata(batch)
+                
                 students = []
                 
-                # Check if email belongs to a guardian
-                guardian = Guardian.objects.filter(email=email).first()
-                if guardian:
-                    students = list(guardian.student_set.all())
-                    self.stdout.write(f"    Found guardian with {len(students)} students")
+                if admission_numbers:
+                    self.stdout.write(f"    Found admission numbers in metadata: {admission_numbers}")
+                    for adm_no in admission_numbers:
+                        student = Student.objects.filter(admission_number=adm_no).first()
+                        if student:
+                            students.append(student)
+                            self.stdout.write(f"    Found student: {student.first_name} {student.last_name} ({adm_no})")
+                        else:
+                            self.stdout.write(self.style.WARNING(f"    Student not found for admission number: {adm_no}"))
                 
-                # If no guardian, check if email belongs to a student directly
+                # If no students from metadata, try by email
+                if not students:
+                    guardian = Guardian.objects.filter(email=email).first()
+                    if guardian:
+                        students = list(guardian.student_set.all())
+                        self.stdout.write(f"    Found guardian with {len(students)} students")
+                
                 if not students:
                     student = Student.objects.filter(email=email).first()
                     if student:
                         students = [student]
                         self.stdout.write(f"    Found student by email: {student.admission_number}")
-                
-                # If still no students, try to find by parent email in student record
-                if not students:
-                    student = Student.objects.filter(phone_number=email).first()
-                    if student:
-                        students = [student]
-                        self.stdout.write(f"    Found student by phone: {student.admission_number}")
                 
                 if students:
                     # Distribute payment among students
@@ -241,40 +275,24 @@ class Command(BaseCommand):
                             payment_date=timezone.now().date(),
                             payment_metadata={
                                 'paystack_reference': paystack_txn['reference'],
+                                'admission_number': student.admission_number,
                                 'recovered': True,
                                 'recovered_at': timezone.now().isoformat(),
                             }
                         )
                         self.stdout.write(f"    ✅ Created payment for {student.first_name} {student.last_name}: ₦{payment.amount_paid}")
                 else:
-                    # Create a generic payment record that needs manual assignment
-                    payment = Payment.objects.create(
-                        student=None,
-                        transaction_reference=batch.reference,
-                        amount_paid=amount,
-                        payment_method=batch.payment_channel if batch.payment_channel else 'credit_card',
-                        status='paid',
-                        session=session,
-                        term=term,
-                        payment_batch=batch,
-                        payment_date=timezone.now().date(),
-                        payment_metadata={
-                            'paystack_reference': paystack_txn['reference'],
-                            'recovered': True,
-                            'needs_manual_assignment': True,
-                            'customer_email': email,
-                            'recovered_at': timezone.now().isoformat(),
-                        }
-                    )
-                    self.stdout.write(self.style.WARNING(f"    ⚠ Created generic payment - needs manual assignment (ID: {payment.id})"))
+                    self.stdout.write(self.style.ERROR(f"    ❌ No students found! Cannot create payment without student."))
+                    self.stdout.write(f"    Email: {email}")
+                    self.stdout.write(f"    Admission numbers from metadata: {admission_numbers}")
+                    return 'error'
                 
-                # Update batch status if needed
+                # Update batch status
                 if batch.status != 'success':
                     batch.status = 'success'
                     batch.save()
-                    self.stdout.write(f"    Updated batch status to success")
                 
-                self.stdout.write(self.style.SUCCESS(f"  ✅ Successfully created {len(students) if students else 1} payment(s)"))
+                self.stdout.write(self.style.SUCCESS(f"  ✅ Successfully created {len(students)} payment(s)"))
                 return 'fixed'
                 
         except Exception as e:
@@ -288,13 +306,9 @@ class Command(BaseCommand):
         
         try:
             with db_transaction.atomic():
-                # Get current session and term
                 session = Session.objects.filter(current=True).first()
-                term = None
-                if session:
-                    term = Term.objects.filter(session=session).first()
+                term = Term.objects.filter(session=session).first() if session else None
                 
-                # Create batch
                 batch = PaymentBatch.objects.create(
                     reference=paystack_txn['reference'],
                     parent_email=email,
@@ -310,42 +324,11 @@ class Command(BaseCommand):
                 self.stdout.write(f"    Created batch ID: {batch.id}")
                 
                 # Try to find student by email
-                guardian = Guardian.objects.filter(email=email).first()
-                students = []
+                student = Student.objects.filter(email=email).first()
                 
-                if guardian:
-                    students = list(guardian.student_set.all())
-                    self.stdout.write(f"    Found guardian with {len(students)} students")
-                
-                if not students:
-                    student = Student.objects.filter(email=email).first()
-                    if student:
-                        students = [student]
-                        self.stdout.write(f"    Found student by email: {student.admission_number}")
-                
-                if students:
-                    amount_per_student = (amount / len(students)).quantize(Decimal('0.01'))
-                    
-                    for student in students:
-                        Payment.objects.create(
-                            student=student,
-                            transaction_reference=f"{batch.reference}-{student.id}",
-                            amount_paid=amount_per_student,
-                            payment_method=paystack_txn.get('channel', 'credit_card'),
-                            status='paid',
-                            session=session,
-                            term=term,
-                            payment_batch=batch,
-                            payment_date=payment_date.date(),
-                            payment_metadata={
-                                'paystack_reference': paystack_txn['reference'],
-                                'recovered': True,
-                            }
-                        )
-                        self.stdout.write(f"    ✅ Created payment for {student.first_name} {student.last_name}")
-                else:
+                if student:
                     Payment.objects.create(
-                        student=None,
+                        student=student,
                         transaction_reference=batch.reference,
                         amount_paid=amount,
                         payment_method=paystack_txn.get('channel', 'credit_card'),
@@ -356,16 +339,16 @@ class Command(BaseCommand):
                         payment_date=payment_date.date(),
                         payment_metadata={
                             'paystack_reference': paystack_txn['reference'],
-                            'needs_manual_assignment': True,
-                            'customer_email': email,
+                            'recovered': True,
                         }
                     )
-                    self.stdout.write(self.style.WARNING(f"    ⚠ Created generic payment - needs manual assignment"))
+                    self.stdout.write(f"    ✅ Created payment for {student.first_name} {student.last_name}")
+                else:
+                    self.stdout.write(self.style.ERROR(f"    ❌ No student found for email: {email}"))
+                    return 'error'
                 
                 return 'created'
                 
         except Exception as e:
             self.stdout.write(self.style.ERROR(f"  ❌ Error: {str(e)}"))
-            import traceback
-            traceback.print_exc()
             return 'error'
