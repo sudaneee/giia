@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Payment Receipt</title>
+    <title>Payment Receipt | Great Insight Academy</title>
     <style>
         :root {
             --navy: #0f2a47;
@@ -25,7 +25,7 @@
         }
 
         .receipt-container {
-            max-width: 800px;
+            max-width: 900px;
             margin: 0 auto;
         }
 
@@ -59,6 +59,17 @@
             color: #666;
             font-size: 1.2rem;
             margin-bottom: 30px;
+        }
+
+        .payment-badge {
+            display: inline-block;
+            background: #28a745;
+            color: white;
+            padding: 8px 20px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            margin-bottom: 15px;
         }
 
         .reference-number {
@@ -116,11 +127,23 @@
             border-bottom: 1px solid #eee;
         }
 
+        .payments-table tr:last-child td {
+            border-bottom: none;
+        }
+
         .total-section {
-            text-align: right;
             margin-top: 30px;
             padding-top: 20px;
             border-top: 2px solid #eee;
+        }
+
+        .total-table {
+            width: 100%;
+            margin-top: 20px;
+        }
+
+        .total-table td {
+            padding: 8px 0;
         }
 
         .total-amount {
@@ -183,6 +206,15 @@
             color: white;
         }
 
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #1e7e34;
+        }
+
         @media print {
             body {
                 background: white;
@@ -216,6 +248,11 @@
                 width: 100%;
                 text-align: center;
             }
+            
+            .payments-table {
+                display: block;
+                overflow-x: auto;
+            }
         }
     </style>
 </head>
@@ -223,13 +260,16 @@
     <div class="receipt-container">
         <div class="receipt">
             <div class="header-section">
-                {% if school.header_image %}
+                {% if school and school.header_image %}
                 <img src="{{ school.header_image.url }}" alt="School Logo" class="school-logo">
                 {% endif %}
                 <h1 class="school-name">Great Insight Int'l Academy Zaria</h1>
                 <h2 class="receipt-title">OFFICIAL PAYMENT RECEIPT</h2>
+                <div class="payment-badge">
+                    ✓ Payment Successful
+                </div>
                 <div class="reference-number">
-                    Reference: {{ batch.reference }}
+                    Transaction Ref: {{ batch.reference }}
                 </div>
             </div>
 
@@ -244,17 +284,31 @@
                         <p>{{ batch.created_at|date:"F d, Y" }}</p>
                     </div>
                     <div class="detail-item">
-                        <h3>Academic Session</h3>
-                        <p>{{ batch.session.name }}</p>
-                    </div>
-                    <div class="detail-item">
-                        <h3>Term</h3>
-                        <p>{{ batch.term.name }}</p>
+                        <h3>Payment Time</h3>
+                        <p>{{ batch.created_at|date:"h:i A" }}</p>
                     </div>
                     <div class="detail-item">
                         <h3>Payment Method</h3>
                         <p>{{ payment_method }}</p>
                     </div>
+                    {% if batch.session %}
+                    <div class="detail-item">
+                        <h3>Academic Session</h3>
+                        <p>{{ batch.session.name }}</p>
+                    </div>
+                    {% endif %}
+                    {% if batch.term %}
+                    <div class="detail-item">
+                        <h3>Term</h3>
+                        <p>{{ batch.term.name }}</p>
+                    </div>
+                    {% endif %}
+                    {% if payment_type %}
+                    <div class="detail-item">
+                        <h3>Payment Type</h3>
+                        <p>{{ payment_type|title|replace:"_"," " }}</p>
+                    </div>
+                    {% endif %}
                 </div>
 
                 <h3 style="color: var(--navy); margin-bottom: 20px;">Student Payment Details</h3>
@@ -263,109 +317,124 @@
                         <tr>
                             <th>Student Name</th>
                             <th>Admission Number</th>
-                            <th>Amount</th>
-                            <th>Type</th>
-                            <th>Payment for</th>
+                            <th>Class</th>
+                            <th>Payment For</th>
+                            <th>Amount (₦)</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for payment in payments %}
                         <tr>
-                            <td>{{ payment.student.first_name }} {{ payment.student.last_name }}</td>
-                            <td>{{ payment.student.admission_number }}</td>
-                            <td>₦{{ payment.amount_paid|floatformat:2 }}</td>
-                            <td>{{ payment.payment_method|title }}</td>
                             <td>
-                            {% if payment.fee_structure %}
-                                School Fees
-                            {% elif payment.other_fee %}
-                                {{ payment.other_fee.name }}
-                            {% endif %}
+                                <strong>{{ payment.student.first_name }} {{ payment.student.last_name }}</strong>
                             </td>
-
-
+                            <td>{{ payment.student.admission_number }}</td>
+                            <td>
+                                {% if payment.student.enrolled_class %}
+                                    {{ payment.student.enrolled_class }}
+                                {% else %}
+                                    N/A
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if payment.fee_structure %}
+                                    <strong>School Fees</strong>
+                                    <br>
+                                    <small>
+                                        {{ payment.fee_structure.get_term_group_display }} | 
+                                        {{ payment.fee_structure.get_student_type_display }}
+                                        {% if payment.fee_structure.transport %} + Transport{% endif %}
+                                    </small>
+                                {% elif payment.other_fee %}
+                                    <strong>{{ payment.other_fee.name }}</strong>
+                                    <br>
+                                    <small>Other Fee</small>
+                                {% elif payment.payment_method == 'waiver' %}
+                                    <strong>Fee Waiver</strong>
+                                    <br>
+                                    <small>
+                                        {% if payment.payment_metadata %}
+                                            {{ payment.payment_metadata.waiver_percentage }}% Discount
+                                        {% else %}
+                                            Scholarship/Discount
+                                        {% endif %}
+                                    </small>
+                                {% else %}
+                                    Payment
+                                {% endif %}
+                            </td>
+                            <td style="font-weight: 600; color: var(--navy);">
+                                ₦{{ payment.amount_paid|floatformat:2 }}
+                            </td>
                         </tr>
                         {% endfor %}
                     </tbody>
                 </table>
 
                 <!-- 🔹 FINANCIAL SUMMARY -->
-                <!-- 🔹 FINANCIAL SUMMARY -->
                 <div class="total-section">
-                    <table style="width:100%; margin-top:20px;">
-
+                    <table class="total-table" style="width:100%;">
                         {% if school_total > 0 %}
                         <tr>
-                            <td><strong>Total School Fees Paid:</strong></td>
-                            <td style="text-align:right;">
-                                ₦{{ school_total|floatformat:2 }}
-                            </td>
+                            <td style="text-align: left;"><strong>Total School Fees Paid:</strong></td>
+                            <td style="text-align: right;">₦{{ school_total|floatformat:2 }}</td>
                         </tr>
                         {% endif %}
 
                         {% if other_fees_total > 0 %}
                         <tr>
-                            <td><strong>Total Other Fees Paid:</strong></td>
-                            <td style="text-align:right;">
-                                ₦{{ other_fees_total|floatformat:2 }}
-                            </td>
+                            <td style="text-align: left;"><strong>Total Other Fees Paid:</strong></td>
+                            <td style="text-align: right;">₦{{ other_fees_total|floatformat:2 }}</td>
                         </tr>
                         {% endif %}
 
                         {% if total_waiver and total_waiver > 0 %}
-                        <tr>
-                            <td><strong>Total Waiver Applied:</strong></td>
-                            <td style="text-align:right;">
-                                − ₦{{ total_waiver|floatformat:2 }}
-                            </td>
+                        <tr style="color: #28a745;">
+                            <td style="text-align: left;"><strong>Total Waiver Applied:</strong></td>
+                            <td style="text-align: right;">− ₦{{ total_waiver|floatformat:2 }}</td>
                         </tr>
                         {% endif %}
 
                         {% if paystack_fee > 0 %}
                         <tr>
-                            <td><strong>Paystack Transaction Fee:</strong></td>
-                            <td style="text-align:right;">
-                                ₦{{ paystack_fee|floatformat:2 }}
-                            </td>
+                            <td style="text-align: left;"><strong>Paystack Transaction Fee:</strong></td>
+                            <td style="text-align: right;">₦{{ paystack_fee|floatformat:2 }}</td>
                         </tr>
                         {% endif %}
 
-                        <tr style="border-top:2px solid #ccc;">
-                            <td><strong>Total Amount Charged:</strong></td>
-                            <td style="text-align:right; font-size:18px;">
+                        <tr style="border-top: 2px solid #ccc; margin-top: 10px;">
+                            <td style="text-align: left; padding-top: 15px;"><strong>Total Amount Charged:</strong></td>
+                            <td style="text-align: right; padding-top: 15px; font-size: 1.3rem; font-weight: 700; color: var(--navy);">
                                 ₦{{ grand_total|floatformat:2 }}
                             </td>
                         </tr>
-
                     </table>
                 </div>
-
             </div>
 
             <div class="signature-section">
-                {% if school.signature_image %}
+                {% if school and school.signature_image %}
                 <img src="{{ school.signature_image.url }}" alt="Authorized Signature" class="signature-image">
                 {% endif %}
                 <p style="color: #666;">Authorized Signature</p>
-                <p>School Bursary Department</p>
+                <p><strong>Ustz. Aliyu Ibrahim Yerima</strong><br>Head of School</p>
             </div>
 
             <div class="footer-section">
-                <p>Great Insight Int'l Academy Zaria | +234-706-5811-343 | info@giia.com.ng</p>
-                <p style="margin-top: 10px;">
-                    This receipt reflects all payments, waivers, and transaction charges.
+                <p><strong>Great Insight Int'l Academy Zaria</strong></p>
+                <p>+234-706-5811-343 | info@giia.com.ng | www.giia.com.ng</p>
+                <p style="margin-top: 15px; font-size: 0.8rem;">
+                    This receipt is computer-generated and requires no physical signature.<br>
+                    It reflects all payments, waivers, and transaction charges for this transaction.
                 </p>
             </div>
         </div>
 
         <div class="actions">
-            <button onclick="window.print()" class="btn btn-primary">Print Receipt</button>
-            <a href="{% url 'parent_dashboard' %}" class="btn btn-secondary">Back to Dashboard</a>
-            <a href="{% url 'public_payment' %}" class="btn" style="background: #e9ecef; color: var(--navy);">
-                Make Another Payment
-            </a>
+            <button onclick="window.print()" class="btn btn-primary">🖨️ Print Receipt</button>
+            <a href="{% url 'parent_dashboard' %}" class="btn btn-secondary">📊 Parent Dashboard</a>
+            <a href="{% url 'unified_payment' %}" class="btn btn-success">💰 Make Another Payment</a>
         </div>
     </div>
 </body>
-
 </html>

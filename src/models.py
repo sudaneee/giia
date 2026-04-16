@@ -675,6 +675,17 @@ class PaymentBatch(models.Model):
         return f"{self.reference} - {self.parent_email}"
 
 
+# Add to models.py
+class PaymentMetadata(models.Model):
+    """Store payment metadata for webhook processing"""
+    batch = models.OneToOneField(PaymentBatch, on_delete=models.CASCADE, related_name='metadata')
+    payment_type = models.CharField(max_length=20)  # school_fees or other_fees
+    breakdown = models.JSONField()
+    parent_data = models.JSONField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    def __str__(self):
+        return f"Metadata for {self.batch.reference}"
 
 
 class OtherFeeStructure(models.Model):
