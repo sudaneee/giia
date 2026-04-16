@@ -306,7 +306,15 @@
                     {% if payment_type %}
                     <div class="detail-item">
                         <h3>Payment Type</h3>
-                        <p>{{ payment_type|title|replace:"_"," " }}</p>
+                        <p>
+                            {% if payment_type == 'school_fees' %}
+                                School Fees
+                            {% elif payment_type == 'other_fees' %}
+                                Other Fees
+                            {% else %}
+                                {{ payment_type|title }}
+                            {% endif %}
+                        </p>
                     </div>
                     {% endif %}
                 </div>
@@ -371,7 +379,7 @@
                     </tbody>
                 </table>
 
-                <!-- 🔹 FINANCIAL SUMMARY -->
+                <!-- FINANCIAL SUMMARY -->
                 <div class="total-section">
                     <table class="total-table" style="width:100%;">
                         {% if school_total > 0 %}
@@ -402,7 +410,7 @@
                         </tr>
                         {% endif %}
 
-                        <tr style="border-top: 2px solid #ccc; margin-top: 10px;">
+                        <tr style="border-top: 2px solid #ccc;">
                             <td style="text-align: left; padding-top: 15px;"><strong>Total Amount Charged:</strong></td>
                             <td style="text-align: right; padding-top: 15px; font-size: 1.3rem; font-weight: 700; color: var(--navy);">
                                 ₦{{ grand_total|floatformat:2 }}
