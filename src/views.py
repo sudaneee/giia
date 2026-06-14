@@ -3897,6 +3897,110 @@ def display_midterm_results(request, session_id, term_id, class_id):
         'water_mark_logo': Picture.objects.get(title='logo'),
     })
 
+
+def _build_midterm_result_data(session, term, school_class, student):
+    midterm_results = MidTermResult.objects.filter(
+        session=session,
+        term=term,
+        class_assigned=school_class,
+        student=student
+    )
+
+    total_score = sum(result.score for result in midterm_results)
+    num_subjects = midterm_results.count()
+    average_score = total_score / num_subjects if num_subjects > 0 else 0
+
+    student_results = []
+    for result in midterm_results:
+        student_results.append({
+            'subject': result.subject,
+            'score': result.score,
+            'achievement': result.achievement,
+        })
+
+    return {
+        'student': student,
+        'results': student_results,
+        'average_score': average_score,
+    }
+
+
+@login_required(login_url='login')
+def download_all_midterm_results_pdf(request, session_id, term_id, class_id):
+    session = get_object_or_404(Session, pk=session_id)
+    term = get_object_or_404(Term, pk=term_id)
+    school_class = get_object_or_404(SchoolClass, pk=class_id)
+    students = Student.objects.filter(enrolled_class=school_class)
+    school_config = SchoolConfig.objects.last()
+    water_mark_logo = Picture.objects.get(title='logo')
+
+    zip_buffer = BytesIO()
+
+    with zipfile.ZipFile(zip_buffer, 'w') as zip_file:
+        for student in students:
+            data = _build_midterm_result_data(session, term, school_class, student)
+
+            html_string = render_to_string(
+                'src/display_midterm_results.html',
+                {
+                    'session': session,
+                    'term': term,
+                    'school_class': school_class,
+                    'results_data': [data],
+                    'school_config': school_config,
+                    'water_mark_logo': water_mark_logo,
+                },
+                request=request
+            )
+
+            pdf = HTML(
+                string=html_string,
+                base_url=request.build_absolute_uri('/')
+            ).write_pdf()
+
+            filename = f"{student.first_name}_{student.last_name}_{student.admission_number}.pdf"
+            zip_file.writestr(filename, pdf)
+
+    zip_buffer.seek(0)
+
+    response = HttpResponse(zip_buffer, content_type='application/zip')
+    response['Content-Disposition'] = 'attachment; filename="all_midterm_results.zip"'
+    return response
+
+
+@login_required(login_url='login')
+def download_single_midterm_result_pdf(request, student_id, session_id, term_id, class_id):
+    student = get_object_or_404(Student, pk=student_id)
+    session = get_object_or_404(Session, pk=session_id)
+    term = get_object_or_404(Term, pk=term_id)
+    school_class = get_object_or_404(SchoolClass, pk=class_id)
+    school_config = SchoolConfig.objects.last()
+    water_mark_logo = Picture.objects.get(title='logo')
+
+    data = _build_midterm_result_data(session, term, school_class, student)
+
+    html_string = render_to_string(
+        'src/display_midterm_results.html',
+        {
+            'session': session,
+            'term': term,
+            'school_class': school_class,
+            'results_data': [data],
+            'school_config': school_config,
+            'water_mark_logo': water_mark_logo,
+        },
+        request=request
+    )
+
+    pdf = HTML(
+        string=html_string,
+        base_url=request.build_absolute_uri('/')
+    ).write_pdf()
+
+    response = HttpResponse(pdf, content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="{student.first_name}_{student.last_name}_midterm.pdf"'
+    return response
+
 def payment_entry(request):
     return render(request, "src/payment_entry.html")
 

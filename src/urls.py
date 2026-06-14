@@ -200,6 +200,12 @@ urlpatterns = [
 
     path('results/download/<int:student_id>/<int:session_id>/<int:term_id>/<int:class_id>/',
          views.download_single_result_pdf, name='download_single_result_pdf'),
+
+    path('midterm-results/download-all/<int:session_id>/<int:term_id>/<int:class_id>/',
+         views.download_all_midterm_results_pdf, name='download_all_midterm_results_pdf'),
+
+    path('midterm-results/download/<int:student_id>/<int:session_id>/<int:term_id>/<int:class_id>/',
+         views.download_single_midterm_result_pdf, name='download_single_midterm_result_pdf'),
 ]
 
 
