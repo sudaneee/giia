@@ -14,12 +14,12 @@
             margin: 5mm;
         }
         body {
-            font-size: 8px;
+            font-size: 10px;
             margin: 0;
             padding: 0;
         }
         h1 {
-            font-size: 16px;
+            font-size: 1.8em;
             margin: 4px 0;
         }
         .table th, .table td {
@@ -125,7 +125,7 @@
                         Download PDF
                     </a>
                 </div>
-                <div class="table-responsive mb-4">
+                <div class="table-responsive mb-4" style="font-size: {{ data.font_size|default:10 }}px;">
                     <div style="overflow-x: auto;">
                         <table class="table table-bordered table-striped">
                             <thead>

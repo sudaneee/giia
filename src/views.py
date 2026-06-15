@@ -3856,37 +3856,10 @@ def display_midterm_results(request, session_id, term_id, class_id):
     students = Student.objects.filter(enrolled_class=school_class)
     school_config = SchoolConfig.objects.last()
 
-    results_data = []
-
-    for student in students:
-        # Get all midterm results for the student
-        midterm_results = MidTermResult.objects.filter(
-            session=session,
-            term=term,
-            class_assigned=school_class,
-            student=student
-        )
-
-        # Calculate total score and average score
-        total_score = sum(result.score for result in midterm_results)
-        num_subjects = midterm_results.count()
-        average_score = total_score / num_subjects if num_subjects > 0 else 0
-
-        # Prepare results for the student
-        student_results = []
-        for result in midterm_results:
-            student_results.append({
-                'subject': result.subject,
-                'score': result.score,
-                'achievement': result.achievement,
-            })
-
-        # Add student data to results_data
-        results_data.append({
-            'student': student,
-            'results': student_results,
-            'average_score': average_score,  # Include average score in the data
-        })
+    results_data = [
+        _build_midterm_result_data(session, term, school_class, student)
+        for student in students
+    ]
 
     return render(request, 'src/display_midterm_results.html', {
         'session': session,
@@ -3911,17 +3884,33 @@ def _build_midterm_result_data(session, term, school_class, student):
     average_score = total_score / num_subjects if num_subjects > 0 else 0
 
     student_results = []
+    total_chars = 0
     for result in midterm_results:
         student_results.append({
             'subject': result.subject,
             'score': result.score,
             'achievement': result.achievement,
         })
+        total_chars += len(result.achievement or '')
+
+    # Scale the font size down as the amount of comment text grows,
+    # so a single student's report still fits on one A4 page.
+    if total_chars > 2600:
+        font_size = 7
+    elif total_chars > 2000:
+        font_size = 8
+    elif total_chars > 1400:
+        font_size = 9
+    elif total_chars > 800:
+        font_size = 10
+    else:
+        font_size = 11
 
     return {
         'student': student,
         'results': student_results,
         'average_score': average_score,
+        'font_size': font_size,
     }
 
 
