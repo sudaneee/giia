@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dir /s /b c:\\\\Users\\\\ismai\\\\OneDrive\\\\Documents\\\\GitHub\\\\giia)",
+      "Bash(grep -E \"\\\\.py$\")",
+      "Bash(python -c \"import ast; ast.parse\\(open\\('views.py', encoding='utf-8'\\).read\\(\\)\\); ast.parse\\(open\\('urls.py', encoding='utf-8'\\).read\\(\\)\\); print\\('OK'\\)\")"
+    ]
+  }
+}

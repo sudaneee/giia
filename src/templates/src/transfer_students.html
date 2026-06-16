@@ -1,0 +1,136 @@
+{% extends "src/partials/base.html" %}
+{% block content %}
+<div class="main-content mt-1">
+
+    {% if messages %}
+    {% for message in messages %}
+    <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+    {% endfor %}
+    {% endif %}
+
+    <!-- Step 1: Select source class -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h4>Transfer Students — Select Class</h4>
+        </div>
+        <div class="card-body">
+            <form method="GET">
+                <div class="form-group">
+                    <label>Select Source Class</label>
+                    <select name="class_id" class="form-control select2" required>
+                        <option value="">-- Select Class --</option>
+                        {% for class in classes %}
+                        <option value="{{ class.id }}" {% if source_class.id == class.id %}selected{% endif %}>
+                            {{ class }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary">Load Students</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Step 2: Show students and pick target class -->
+    {% if students is not None %}
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h4>Students in {{ source_class }} ({{ students.count }})</h4>
+            <div>
+                <button type="button" id="selectAll" class="btn btn-sm btn-secondary">Select All</button>
+                <button type="button" id="deselectAll" class="btn btn-sm btn-outline-secondary">Deselect All</button>
+            </div>
+        </div>
+        <div class="card-body">
+            {% if students %}
+            <form method="POST">
+                {% csrf_token %}
+                <input type="hidden" name="source_class_id" value="{{ source_class.id }}">
+
+                <table class="table table-bordered table-hover table-striped">
+                    <thead class="thead-dark">
+                        <tr>
+                            <th style="width:40px;"><input type="checkbox" id="masterCheck"></th>
+                            <th>#</th>
+                            <th>Reg No</th>
+                            <th>Full Name</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for student in students %}
+                        <tr>
+                            <td><input type="checkbox" name="selected_students" value="{{ student.id }}" class="student-check"></td>
+                            <td>{{ forloop.counter }}</td>
+                            <td>{{ student.admission_number }}</td>
+                            <td>{{ student.first_name }} {{ student.last_name }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+
+                <div class="form-group mt-3">
+                    <label><strong>Transfer Selected Students To:</strong></label>
+                    <select name="target_class" class="form-control select2" required>
+                        <option value="">-- Select Target Class --</option>
+                        {% for class in classes %}
+                        {% if class.id != source_class.id %}
+                        <option value="{{ class.id }}">{{ class }}</option>
+                        {% endif %}
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <button type="button" class="btn btn-success" data-toggle="modal" data-target="#confirmTransferModal">
+                    Transfer Selected
+                </button>
+
+                <!-- Confirmation Modal -->
+                <div class="modal fade" id="confirmTransferModal" tabindex="-1" role="dialog">
+                    <div class="modal-dialog" role="document">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">Confirm Transfer</h5>
+                                <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
+                            </div>
+                            <div class="modal-body">
+                                <p>Are you sure you want to transfer the selected students to the new class?</p>
+                                <p class="text-danger">This will update their enrolled class immediately.</p>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                                <button type="submit" class="btn btn-success">Yes, Transfer</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </form>
+            {% else %}
+            <p class="text-muted">No students found in this class.</p>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+
+<script>
+    const masterCheck = document.getElementById('masterCheck');
+    const studentChecks = document.querySelectorAll('.student-check');
+
+    if (masterCheck) {
+        masterCheck.addEventListener('change', function () {
+            studentChecks.forEach(c => c.checked = this.checked);
+        });
+    }
+
+    document.getElementById('selectAll')?.addEventListener('click', function () {
+        studentChecks.forEach(c => c.checked = true);
+        if (masterCheck) masterCheck.checked = true;
+    });
+
+    document.getElementById('deselectAll')?.addEventListener('click', function () {
+        studentChecks.forEach(c => c.checked = false);
+        if (masterCheck) masterCheck.checked = false;
+    });
+</script>
+{% endblock content %}

@@ -15,6 +15,7 @@ urlpatterns = [
     path('students/not-admitted/', views.not_admitted_students, name='not_admitted_students'),
     
     path("students/promote-students/", views.promote_students, name="promote_students"),
+    path("students/transfer/", views.transfer_students, name="transfer_students"),
     
     path('students/download-not-admitted-template/', views.download_not_admitted_template, name='download_not_admitted_template'),
     path('students/admit-via-excel/', views.not_admitted_students, name='admit_students_via_excel'),  # Bulk admission via Excel now integrated in not_admitted_students view
@@ -200,6 +201,8 @@ urlpatterns = [
 
     path('results/download/<int:student_id>/<int:session_id>/<int:term_id>/<int:class_id>/',
          views.download_single_result_pdf, name='download_single_result_pdf'),
+
+    path('midterm-results/delete/', views.delete_midterm_result, name='delete_midterm_result'),
 
     path('midterm-results/download-all/<int:session_id>/<int:term_id>/<int:class_id>/',
          views.download_all_midterm_results_pdf, name='download_all_midterm_results_pdf'),

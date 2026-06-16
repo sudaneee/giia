@@ -282,6 +282,44 @@ def promote_students(request):
 
     return render(request, "src/promote_students.html", {"classes": classes})
 
+
+@login_required(login_url='login')
+def transfer_students(request):
+    classes = SchoolClass.objects.all()
+    students = None
+    source_class = None
+
+    if request.method == 'POST':
+        student_ids = request.POST.getlist('selected_students')
+        target_class_id = request.POST.get('target_class')
+        source_class_id = request.POST.get('source_class_id')
+
+        if not student_ids:
+            messages.error(request, "No students selected.")
+        elif not target_class_id:
+            messages.error(request, "Please select a target class.")
+        else:
+            target_class = get_object_or_404(SchoolClass, pk=target_class_id)
+            updated = Student.objects.filter(id__in=student_ids).update(enrolled_class=target_class)
+            messages.success(request, f"{updated} student(s) transferred to {target_class}.")
+            return redirect(f"{request.path}?class_id={source_class_id}")
+
+        source_class_id = request.POST.get('source_class_id')
+        if source_class_id:
+            return redirect(f"{request.path}?class_id={source_class_id}")
+
+    class_id = request.GET.get('class_id')
+    if class_id:
+        source_class = get_object_or_404(SchoolClass, pk=class_id)
+        students = Student.objects.filter(enrolled_class=source_class).order_by('last_name', 'first_name')
+
+    return render(request, 'src/transfer_students.html', {
+        'classes': classes,
+        'students': students,
+        'source_class': source_class,
+    })
+
+
 # src/views.py
 
 
@@ -3868,6 +3906,48 @@ def display_midterm_results(request, session_id, term_id, class_id):
         'results_data': results_data,
         'school_config': school_config,
         'water_mark_logo': Picture.objects.get(title='logo'),
+    })
+
+
+@login_required(login_url='login')
+def delete_midterm_result(request):
+    classes = SchoolClass.objects.all()
+    sessions = Session.objects.all()
+    terms = Term.objects.all()
+    students = Student.objects.all()
+
+    if request.method == 'POST':
+        session_id = request.POST.get('session')
+        term_id = request.POST.get('term')
+        class_id = request.POST.get('class_assigned')
+        student_id = request.POST.get('student')
+
+        query = Q()
+        if session_id:
+            query &= Q(session_id=session_id)
+        if term_id:
+            query &= Q(term_id=term_id)
+        if class_id:
+            query &= Q(class_assigned_id=class_id)
+        if student_id:
+            query &= Q(student_id=student_id)
+
+        if query:
+            deleted_count, _ = MidTermResult.objects.filter(query).delete()
+            if deleted_count > 0:
+                messages.success(request, f"{deleted_count} mid-term result(s) successfully deleted.")
+            else:
+                messages.info(request, "No mid-term results found for the given criteria.")
+        else:
+            messages.error(request, "Please select at least one filter.")
+
+        return redirect('delete_midterm_result')
+
+    return render(request, 'src/delete_midterm_result.html', {
+        'classes': classes,
+        'sessions': sessions,
+        'terms': terms,
+        'students': students,
     })
 
 
