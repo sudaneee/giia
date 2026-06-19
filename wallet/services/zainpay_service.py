@@ -11,8 +11,11 @@ from .exceptions import VirtualAccountCreationError, ZainpayTransferError
 
 
 def _headers():
+    # Zainpay's REST API authenticates with the public key as the Bearer
+    # token (it's issued as a JWT) - the secret key is used separately, only
+    # for verifying incoming webhook signatures (see verify_webhook_signature).
     return {
-        "Authorization": f"Bearer {settings.ZAINPAY_SECRET_KEY}",
+        "Authorization": f"Bearer {settings.ZAINPAY_PUBLIC_KEY}",
         "Content-Type": "application/json",
     }
 
