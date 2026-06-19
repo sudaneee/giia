@@ -1,0 +1,91 @@
+{% extends 'wallet/base.html' %}
+{% block title %}Outstanding Fees{% endblock %}
+{% block content %}
+<h4 class="mb-3">Outstanding Fees</h4>
+
+<form method="GET" class="form-row align-items-end mb-4">
+  <div class="form-group col-auto">
+    <label class="small mb-1">Session</label>
+    <select name="session_id" class="form-control" onchange="this.form.submit()">
+      <option value="">Select session</option>
+      {% for session in sessions %}
+        <option value="{{ session.id }}" {% if selected_session and selected_session.id == session.id %}selected{% endif %}>{{ session.name }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  {% if selected_session %}
+  <div class="form-group col-auto">
+    <label class="small mb-1">Term</label>
+    <select name="term_id" class="form-control" onchange="this.form.submit()">
+      <option value="">Select term</option>
+      {% for term in terms %}
+        <option value="{{ term.id }}" {% if selected_term and selected_term.id == term.id %}selected{% endif %}>{{ term.name }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  {% endif %}
+  <div class="form-group col-auto">
+    <button type="submit" class="btn btn-primary">View</button>
+  </div>
+</form>
+
+{% if selected_session and selected_term %}
+  {% if summaries %}
+    <form method="GET" action="{% url 'wallet:pay_fees' %}">
+      <input type="hidden" name="session_id" value="{{ selected_session.id }}">
+      <input type="hidden" name="term_id" value="{{ selected_term.id }}">
+      <div class="card">
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table mb-0">
+              <thead>
+                <tr>
+                  <th></th>
+                  <th>Child</th>
+                  <th>Class</th>
+                  <th>Fee Due</th>
+                  <th>Paid</th>
+                  <th>Waiver</th>
+                  <th>Outstanding</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for item in summaries %}
+                  <tr>
+                    <td>
+                      {% if item.result and item.result.balance > 0 %}
+                        <input type="checkbox" name="student_id" value="{{ item.student.id }}">
+                      {% endif %}
+                    </td>
+                    <td>{{ item.student.first_name }} {{ item.student.last_name }}</td>
+                    <td>{{ item.student.enrolled_class|default:"Not assigned" }}</td>
+                    {% if item.result %}
+                      <td>₦{{ item.result.total_fee|floatformat:2 }}</td>
+                      <td>₦{{ item.result.paid|floatformat:2 }}</td>
+                      <td>₦{{ item.result.waived_amount|floatformat:2 }}</td>
+                      <td>
+                        {% if item.result.balance > 0 %}
+                          <strong class="text-danger">₦{{ item.result.balance|floatformat:2 }}</strong>
+                        {% else %}
+                          <span class="badge badge-success">Paid</span>
+                        {% endif %}
+                      </td>
+                    {% else %}
+                      <td colspan="4" class="text-muted">No fee structure found for this term.</td>
+                    {% endif %}
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <button type="submit" class="btn btn-primary mt-3">Pay Selected Fees</button>
+    </form>
+  {% else %}
+    <p class="text-muted">No children linked to your account yet. <a href="{% url 'wallet:add_child' %}">Add one now</a>.</p>
+  {% endif %}
+{% else %}
+  <p class="text-muted">Select a session and term to view outstanding fees.</p>
+{% endif %}
+{% endblock %}

@@ -4435,7 +4435,8 @@ def paystack_callback(request):
     from django.db import transaction
     from django.shortcuts import render, redirect
     from django.contrib import messages
-    
+    from wallet.services.payment_service import create_payment_record
+
     reference = request.GET.get("reference")
     
     if not reference:
@@ -4529,24 +4530,22 @@ def paystack_callback(request):
                         fee_structure = FeeStructure.objects.filter(id=fee_structure_id).first()
                 
                 # Create payment
-                Payment.objects.create(
+                create_payment_record(
                     student=student,
-                    transaction_reference=f"{batch.reference}-{student.id}",
-                    fee_structure=fee_structure,
-                    amount_paid=amount,
+                    amount=amount,
                     payment_method=batch.payment_channel if batch.payment_channel else 'credit_card',
-                    status='paid',
                     session=batch.session,
                     term=batch.term,
-                    payment_batch=batch,
-                    payment_date=timezone.now().date(),
+                    transaction_reference=f"{batch.reference}-{student.id}",
+                    fee_structure=fee_structure,
+                    batch=batch,
                     payment_metadata={
                         'paystack_reference': reference,
                         'admission_number': admission_number,
                         'from_metadata': True,
                     }
                 )
-                
+
                 print(f"Created payment for {student.first_name} {student.last_name}: ₦{amount}")
             
             # Update batch status
@@ -5578,7 +5577,8 @@ def calculate_fees_api(request):
 
 def calculate_school_fees_api(data):
     """Calculate school fees with waivers and previous payments"""
-    
+    from wallet.services.fee_service import calculate_school_fee_outstanding
+
     session_id = data.get('session_id')
     term_group = data.get('term_group')
     student_type = data.get('student_type', 'returning')
@@ -5614,63 +5614,30 @@ def calculate_school_fees_api(data):
         for student in students:
             if not student.enrolled_class or not student.enrolled_class.section:
                 return JsonResponse({'error': f'Student {student.admission_number} has no class/section assigned'}, status=400)
-            
-            # Get fee structure
-            fee = FeeStructure.objects.filter(
-                section=student.enrolled_class.section,
-                session=session,
-                term_group=term_group,
-                student_type=student_type,
-                transport=transport,
-            ).first()
-            
-            if not fee:
+
+            result = calculate_school_fee_outstanding(
+                student, session, term, term_group, student_type, transport
+            )
+
+            if not result:
                 return JsonResponse({
                     'error': f'No fee structure found for {student.first_name} {student.last_name} (Section: {student.enrolled_class.section}, Term: {term_group})'
                 }, status=404)
-            
-            # Calculate payments
-            total_paid = Payment.objects.filter(
-                student=student, 
-                fee_structure=fee, 
-                session=session, 
-                term=term
-            ).exclude(payment_method='waiver').aggregate(
-                total=Sum('amount_paid')
-            )['total'] or Decimal('0.00')
-            
-            # Get active waiver
-            waiver = FeeWaiverApproval.objects.filter(
-                student=student, 
-                session=session, 
-                term=term, 
-                status='active'
-            ).first()
-            
-            waiver_percentage = waiver.waiver_percentage if waiver else 0
-            
-            # Calculate waiver amount (only on tuition component)
-            tuition_component = fee.components.filter(name__iexact='tuition').first()
-            tuition_amount = tuition_component.amount if tuition_component else Decimal('0.00')
-            waived_amount = (tuition_amount * Decimal(waiver_percentage) / Decimal('100')).quantize(Decimal('0.01'))
-            
-            raw_balance = fee.total_amount - total_paid
-            net_balance = max(raw_balance - waived_amount, Decimal('0.00'))
-            
-            grand_total += net_balance
-            
+
+            grand_total += result['balance']
+
             breakdown.append({
                 'student_id': student.id,
                 'admission_number': student.admission_number,
                 'name': f"{student.first_name} {student.last_name}",
                 'class': str(student.enrolled_class),
-                'total_fee': float(fee.total_amount),
-                'paid': float(total_paid),
-                'waiver_percentage': waiver_percentage,
-                'waived_amount': float(waived_amount),
-                'balance': float(net_balance),
-                'fee_structure_id': fee.id,
-                'fee_structure_total': float(fee.total_amount),
+                'total_fee': float(result['total_fee']),
+                'paid': float(result['paid']),
+                'waiver_percentage': result['waiver_percentage'],
+                'waived_amount': float(result['waived_amount']),
+                'balance': float(result['balance']),
+                'fee_structure_id': result['fee_structure'].id,
+                'fee_structure_total': float(result['total_fee']),
             })
         
         return JsonResponse({
@@ -5695,7 +5662,8 @@ def calculate_school_fees_api(data):
 
 def calculate_other_fees_api(data):
     """Calculate other fees with session and term"""
-    
+    from wallet.services.fee_service import calculate_other_fee_outstanding
+
     import traceback
     from decimal import Decimal
     
@@ -5758,10 +5726,11 @@ def calculate_other_fees_api(data):
         for student in students:
             student_fees = []
             for fee in other_fees:
+                result = calculate_other_fee_outstanding(student, fee, session, term)
                 student_fees.append({
-                    'id': fee.id,
-                    'name': fee.name,
-                    'amount': float(fee.amount)
+                    'id': result['fee_id'],
+                    'name': result['name'],
+                    'amount': float(result['amount'])
                 })
             
             breakdown.append({
@@ -5995,7 +5964,8 @@ def paystack_webhook(request):
     import hashlib
     from decimal import Decimal
     from django.db import transaction
-    
+    from wallet.services.payment_service import create_payment_record
+
     signature = request.headers.get('x-paystack-signature')
     if not signature:
         return JsonResponse({'error': 'No signature'}, status=400)
@@ -6057,16 +6027,14 @@ def paystack_webhook(request):
                     student = Student.objects.filter(admission_number=admission_number).first()
                     
                     if student and not Payment.objects.filter(payment_batch=batch, student=student).exists():
-                        Payment.objects.create(
+                        create_payment_record(
                             student=student,
-                            transaction_reference=f"{reference}-{student.id}",
-                            amount_paid=amount,
+                            amount=amount,
                             payment_method=batch.payment_channel or 'card',
-                            status='paid',
                             session=batch.session,
                             term=batch.term,
-                            payment_batch=batch,
-                            payment_date=timezone.now().date(),
+                            transaction_reference=f"{reference}-{student.id}",
+                            batch=batch,
                         )
                         print(f"Webhook: Created payment for {student.admission_number}")
                 

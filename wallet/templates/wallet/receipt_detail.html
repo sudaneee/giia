@@ -1,0 +1,41 @@
+{% extends 'wallet/base.html' %}
+{% block title %}Receipt{% endblock %}
+{% block content %}
+<div class="row">
+  <div class="col-12 col-md-8 offset-md-2">
+    <div class="card">
+      <div class="card-header text-center">
+        <h4 class="mb-0">Payment Receipt</h4>
+        <p class="mb-0" style="opacity:.75;">Great Insight International Academy</p>
+      </div>
+      <div class="card-body">
+        <p><strong>Reference:</strong> {{ wallet_payment.wallet_transaction.reference }}</p>
+        <p><strong>Date:</strong> {{ wallet_payment.created_at|date:"M d, Y H:i" }}</p>
+        <p><strong>Payment Method:</strong> Wallet</p>
+        <p><strong>Session / Term:</strong> {{ wallet_payment.session.name }} - {{ wallet_payment.term.name }}</p>
+
+        <table class="table mt-3">
+          <thead><tr><th>Child</th><th>Admission No.</th><th>Class</th><th>Amount Paid</th></tr></thead>
+          <tbody>
+            {% for payment in payments %}
+              <tr>
+                <td>{{ payment.student.first_name }} {{ payment.student.last_name }}</td>
+                <td>{{ payment.student.admission_number }}</td>
+                <td>{{ payment.student.enrolled_class|default:"-" }}</td>
+                <td>₦{{ payment.amount_paid|floatformat:2 }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+
+        <p class="text-right"><strong>Total Debited from Wallet: ₦{{ wallet_payment.wallet_transaction.amount|floatformat:2 }}</strong></p>
+
+        <div class="text-center mt-4 no-print">
+          <button onclick="window.print()" class="btn btn-outline-secondary">Print</button>
+          <a href="{% url 'wallet:receipt_list' %}" class="btn btn-outline-secondary">Back to Receipts</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

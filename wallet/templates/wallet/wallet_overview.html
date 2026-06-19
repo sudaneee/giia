@@ -1,0 +1,34 @@
+{% extends 'wallet/base.html' %}
+{% block title %}My Wallet{% endblock %}
+{% block content %}
+<div class="row">
+  <div class="col-12 col-md-8 offset-md-2 col-lg-6 offset-lg-3">
+    <div class="card">
+      <div class="card-header">
+        <h4 class="text-center">My Wallet</h4>
+      </div>
+      <div class="card-body text-center">
+        <p class="text-muted mb-1">Current Balance</p>
+        <h2 class="mb-4">₦{{ wallet.balance|floatformat:2 }}</h2>
+
+        {% if virtual_account %}
+          <div class="card bg-light mb-3">
+            <div class="card-body">
+              <p class="mb-1"><strong>Account Number:</strong> {{ virtual_account.account_number }}</p>
+              <p class="mb-1"><strong>Account Name:</strong> {{ virtual_account.account_name }}</p>
+              <p class="mb-0"><strong>Bank:</strong> {{ virtual_account.bank_name }}</p>
+            </div>
+          </div>
+          <p class="text-muted small">Transfer any amount to this account from any bank. Your wallet is credited automatically.</p>
+        {% else %}
+          <p class="text-muted">Activate your wallet to get a dedicated account number you can fund by bank transfer.</p>
+          <form method="POST" action="{% url 'wallet:wallet_activate' %}">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-primary btn-lg">Fund Wallet</button>
+          </form>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

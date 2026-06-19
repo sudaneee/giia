@@ -1,0 +1,32 @@
+{% extends 'wallet/base.html' %}
+{% block title %}My Children{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap">
+  <h4 class="mb-2">My Children</h4>
+  <a href="{% url 'wallet:add_child' %}" class="btn btn-primary mb-2">+ Add Child</a>
+</div>
+
+{% if links %}
+  <div class="row">
+    {% for link in links %}
+      <div class="col-12 col-md-6 col-lg-4 mb-3">
+        <div class="card h-100">
+          <div class="card-body">
+            <h5 class="card-title">{{ link.student.first_name }} {{ link.student.last_name }}</h5>
+            <p class="card-text mb-1"><strong>Admission No:</strong> {{ link.student.admission_number }}</p>
+            <p class="card-text mb-1"><strong>Class:</strong> {{ link.student.enrolled_class|default:"Not assigned" }}</p>
+            <p class="card-text text-muted small">Added {{ link.added_at|date:"M d, Y" }}</p>
+          </div>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+{% else %}
+  <div class="card">
+    <div class="card-body text-center">
+      <p class="mb-3">You haven't added any children to your account yet.</p>
+      <a href="{% url 'wallet:add_child' %}" class="btn btn-primary">Add Your First Child</a>
+    </div>
+  </div>
+{% endif %}
+{% endblock %}

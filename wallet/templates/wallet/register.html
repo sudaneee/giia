@@ -1,0 +1,101 @@
+{% extends 'wallet/base.html' %}
+{% block title %}Register{% endblock %}
+{% block content %}
+<div class="row">
+  <div class="col-12 col-md-10 offset-md-1 col-lg-8 offset-lg-2">
+    <div class="card">
+      <div class="card-header">
+        <h4 class="text-center">Create Your Parent Account</h4>
+      </div>
+      <div class="card-body">
+        <form method="POST" novalidate>
+          {% csrf_token %}
+          <div class="form-row">
+            <div class="form-group col-md-6">
+              <label>First Name</label>
+              {{ form.first_name }}
+              {% for error in form.first_name.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+            </div>
+            <div class="form-group col-md-6">
+              <label>Last Name</label>
+              {{ form.last_name }}
+              {% for error in form.last_name.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group col-md-6">
+              <label>Email Address</label>
+              {{ form.email }}
+              {% for error in form.email.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+            </div>
+            <div class="form-group col-md-6">
+              <label>Phone Number</label>
+              {{ form.phone_number }}
+              {% for error in form.phone_number.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group col-md-4">
+              <label>Title</label>
+              {{ form.title }}
+              {% for error in form.title.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+            </div>
+            <div class="form-group col-md-4">
+              <label>Gender</label>
+              {{ form.gender }}
+              {% for error in form.gender.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+            </div>
+            <div class="form-group col-md-4">
+              <label>Date of Birth</label>
+              {{ form.date_of_birth }}
+              {% for error in form.date_of_birth.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group col-md-6">
+              <label>BVN</label>
+              {{ form.bvn }}
+              <small class="form-text text-muted">{{ form.bvn.help_text }}</small>
+              {% for error in form.bvn.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+            </div>
+            <div class="form-group col-md-6">
+              <label>State</label>
+              {{ form.state }}
+              {% for error in form.state.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Address</label>
+            {{ form.address }}
+            {% for error in form.address.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+          </div>
+
+          <div class="form-row">
+            <div class="form-group col-md-6">
+              <label>Password</label>
+              {{ form.password1 }}
+              {% for error in form.password1.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+            </div>
+            <div class="form-group col-md-6">
+              <label>Confirm Password</label>
+              {{ form.password2 }}
+              {% for error in form.password2.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+            </div>
+          </div>
+
+          {% if form.non_field_errors %}
+            <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+          {% endif %}
+
+          <button type="submit" class="btn btn-primary btn-lg btn-block">Create Account</button>
+        </form>
+        <p class="text-center mt-3">Already have an account? <a href="{% url 'wallet:login' %}">Login</a></p>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

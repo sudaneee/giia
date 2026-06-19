@@ -1,0 +1,64 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta content="width=device-width, initial-scale=1, maximum-scale=1, shrink-to-fit=no" name="viewport">
+  <title>{% block title %}Parent Portal{% endblock %} - Great Insight Int'l Academy</title>
+  <!-- The wallet app uses a clean, self-contained Bootstrap setup rather than
+       the staff-dashboard theme used elsewhere in the site, to avoid fighting
+       that theme's CSS (which isn't designed for a public-facing portal). -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css">
+  <style>
+    body { background-color: #f4f6f9; }
+    .wallet-navbar { background-color: #1d2530; }
+    .wallet-navbar .navbar-brand,
+    .wallet-navbar .nav-link { color: #ffffff; }
+    .wallet-navbar .nav-link:hover { color: #9fb4d4; }
+    .card { border: none; box-shadow: 0 0 10px rgba(0,0,0,.06); }
+    .card-header { background-color: #1d2530; color: #fff; border-radius: .25rem .25rem 0 0 !important; }
+    @media (max-width: 576px) {
+      .card-body { padding: 1.1rem; }
+    }
+  </style>
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+  <div id="app">
+    {% if request.user.is_authenticated and request.user.parent_account %}
+    <nav class="navbar navbar-expand-md navbar-dark wallet-navbar">
+      <div class="container">
+        <a class="navbar-brand" href="{% url 'wallet:dashboard' %}">GIIA Parent Portal</a>
+        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#walletNav">
+          <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="walletNav">
+          <ul class="navbar-nav ml-auto">
+            <li class="nav-item"><a class="nav-link" href="{% url 'wallet:dashboard' %}">Dashboard</a></li>
+            <li class="nav-item"><a class="nav-link" href="{% url 'wallet:wallet_overview' %}">My Wallet (₦{{ request.user.parent_account.wallet.balance|floatformat:2 }})</a></li>
+            <li class="nav-item"><a class="nav-link" href="{% url 'wallet:wallet_transactions' %}">Transactions</a></li>
+            <li class="nav-item"><a class="nav-link" href="{% url 'wallet:children_list' %}">My Children</a></li>
+            <li class="nav-item"><a class="nav-link" href="{% url 'wallet:outstanding_fees' %}">Outstanding Fees</a></li>
+            <li class="nav-item"><a class="nav-link" href="{% url 'wallet:receipt_list' %}">Receipts</a></li>
+            <li class="nav-item"><a class="nav-link" href="{% url 'wallet:logout' %}">Logout</a></li>
+          </ul>
+        </div>
+      </div>
+    </nav>
+    {% endif %}
+
+    <section class="section">
+      <div class="container mt-4 mb-5">
+        {% if messages %}
+          {% for message in messages %}
+            <div class="alert alert-{{ message.tags|default:'info' }}">{{ message }}</div>
+          {% endfor %}
+        {% endif %}
+        {% block content %}{% endblock %}
+      </div>
+    </section>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

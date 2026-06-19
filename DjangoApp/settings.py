@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.0/ref/settings/
 """
 import os
+from decimal import Decimal
 from pathlib import Path
 from dotenv import load_dotenv
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -42,6 +43,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'src',
     'website',
+    'wallet',
 ]
 
 MIDDLEWARE = [
@@ -84,8 +86,22 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': BASE_DIR / 'db.sqlite3',
+        # SQLite serializes all writes at the database-file level. Without a
+        # generous busy timeout, concurrent writers (e.g. wallet webhook
+        # traffic) get an immediate "database is locked" error instead of
+        # queueing behind the writer that currently holds the lock.
+        'OPTIONS': {
+            'timeout': 20,
+        },
+        # Use a real file for the test database instead of Django's default
+        # in-memory shared-cache SQLite. The in-memory shared-cache mode has
+        # different (stricter) table-locking semantics than a normal file-based
+        # database, which produced "table is locked" errors under concurrent
+        # writes in tests that the real db.sqlite3 file does not exhibit.
+        'TEST': {
+            'NAME': str(BASE_DIR / 'test_db.sqlite3'),
+        },
     },
-  
 }
 
 
@@ -145,4 +161,21 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 PAYSTACK_PUBLIC_KEY = os.getenv("PAYSTACK_PUBLIC_KEY")
 PAYSTACK_SECRET_KEY = os.getenv("PAYSTACK_SECRET_KEY")
+
+
+ZAINPAY_SECRET_KEY = os.getenv("ZAINPAY_SECRET_KEY")
+ZAINPAY_PUBLIC_KEY = os.getenv("ZAINPAY_PUBLIC_KEY")
+ZAINPAY_BASE_URL = os.getenv("ZAINPAY_BASE_URL", "https://sandbox.zainpay.ng")
+ZAINPAY_ZAINBOX_CODE = os.getenv("ZAINPAY_ZAINBOX_CODE")
+# Parent virtual accounts are all created with bankType "zainBank" - this is
+# that bank's numeric bank code, used as sourceBankCode on outgoing transfers.
+ZAINPAY_BANK_CODE = os.getenv("ZAINPAY_BANK_CODE", "")
+# The school's own settlement account that receives fee-payment transfers.
+ZAINPAY_SCHOOL_SETTLEMENT_ACCOUNT_NUMBER = os.getenv("ZAINPAY_SCHOOL_SETTLEMENT_ACCOUNT_NUMBER")
+ZAINPAY_SCHOOL_SETTLEMENT_BANK_CODE = os.getenv("ZAINPAY_SCHOOL_SETTLEMENT_BANK_CODE", "")
+SITE_BASE_URL = os.getenv("SITE_BASE_URL", "http://localhost:8000")
+# Used only for the upfront "can this wallet afford this payment" UI check,
+# before the real transfer happens. The actual debit always uses the real
+# totalTxnAmount Zainpay returns, never this estimate.
+ZAINPAY_TRANSFER_FEE_ESTIMATE = Decimal(os.getenv("ZAINPAY_TRANSFER_FEE_ESTIMATE", "300"))
 

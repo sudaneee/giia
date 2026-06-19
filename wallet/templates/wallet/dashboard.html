@@ -1,0 +1,70 @@
+{% extends 'wallet/base.html' %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<h4 class="mb-3">Welcome back, {{ request.user.first_name }}</h4>
+
+<div class="row">
+  <div class="col-12 col-md-6 mb-3">
+    <div class="card h-100">
+      <div class="card-body">
+        <p class="text-muted mb-1">Wallet Balance</p>
+        <h3>₦{{ wallet.balance|floatformat:2 }}</h3>
+        <a href="{% url 'wallet:wallet_overview' %}" class="btn btn-sm btn-primary mt-2">Fund / View Wallet</a>
+      </div>
+    </div>
+  </div>
+  <div class="col-12 col-md-6 mb-3">
+    <div class="card h-100">
+      <div class="card-body">
+        <p class="text-muted mb-1">Quick Actions</p>
+        <a href="{% url 'wallet:outstanding_fees' %}" class="btn btn-sm btn-outline-primary mb-2 mr-2">View Outstanding Fees</a>
+        <a href="{% url 'wallet:add_child' %}" class="btn btn-sm btn-outline-secondary mb-2">Add a Child</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card mb-3">
+  <div class="card-header"><strong>My Children</strong></div>
+  <div class="card-body">
+    {% if links %}
+      <div class="row">
+        {% for link in links %}
+          <div class="col-12 col-md-6 col-lg-4 mb-2">
+            <div class="border rounded p-2">
+              <strong>{{ link.student.first_name }} {{ link.student.last_name }}</strong><br>
+              <span class="text-muted small">{{ link.student.admission_number }} - {{ link.student.enrolled_class|default:"Not assigned" }}</span>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p class="text-muted mb-0">You haven't added any children yet. <a href="{% url 'wallet:add_child' %}">Add one now</a>.</p>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header"><strong>Recent Wallet Activity</strong></div>
+  <div class="card-body">
+    {% if recent_transactions %}
+      <table class="table table-sm">
+        <thead><tr><th>Date</th><th>Type</th><th>Amount</th><th>Narration</th></tr></thead>
+        <tbody>
+        {% for txn in recent_transactions %}
+          <tr>
+            <td>{{ txn.created_at|date:"M d, Y H:i" }}</td>
+            <td>{{ txn.get_transaction_type_display }}</td>
+            <td>₦{{ txn.amount|floatformat:2 }}</td>
+            <td>{{ txn.narration }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      <a href="{% url 'wallet:wallet_transactions' %}">View full transaction history</a>
+    {% else %}
+      <p class="text-muted mb-0">No wallet activity yet.</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

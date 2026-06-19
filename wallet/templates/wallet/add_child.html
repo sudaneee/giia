@@ -1,0 +1,26 @@
+{% extends 'wallet/base.html' %}
+{% block title %}Add Child{% endblock %}
+{% block content %}
+<div class="row">
+  <div class="col-12 col-sm-8 offset-sm-2 col-md-6 offset-md-3">
+    <div class="card">
+      <div class="card-header">
+        <h4 class="text-center">Add a Child to Your Account</h4>
+      </div>
+      <div class="card-body">
+        <p class="text-muted">Enter the student's admission number to link them to your account.</p>
+        <form method="POST" novalidate>
+          {% csrf_token %}
+          <div class="form-group">
+            <label>{{ form.admission_number.label }}</label>
+            {{ form.admission_number }}
+            {% for error in form.admission_number.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+          </div>
+          <button type="submit" class="btn btn-primary btn-block">Add Child</button>
+        </form>
+        <p class="text-center mt-3"><a href="{% url 'wallet:children_list' %}">Back to My Children</a></p>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
