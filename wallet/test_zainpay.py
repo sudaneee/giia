@@ -130,7 +130,7 @@ class CreateVirtualAccountTests(TestCase):
 class WebhookSignatureTests(TestCase):
     def test_valid_signature_passes(self):
         body = b'{"data": {"txnRef": "abc123"}}'
-        signature = hmac.new(b'test-secret-key', body, hashlib.sha512).hexdigest()
+        signature = hmac.new(b'test-secret-key', body, hashlib.sha256).hexdigest()
         self.assertTrue(zainpay_service.verify_webhook_signature(body, signature))
 
     def test_invalid_signature_fails(self):
@@ -202,12 +202,12 @@ class DepositWebhookViewTests(TestCase):
     def _post_webhook(self, body_dict, signature=None):
         body = json.dumps(body_dict).encode('utf-8')
         if signature is None:
-            signature = hmac.new(b'test-secret-key', body, hashlib.sha512).hexdigest()
+            signature = hmac.new(b'test-secret-key', body, hashlib.sha256).hexdigest()
         return self.client.post(
             '/parent/webhooks/zainpay/',
             data=body,
             content_type='application/json',
-            HTTP_X_ZAINPAY_SIGNATURE=signature,
+            HTTP_ZAINPAY_SIGNATURE=signature,
         )
 
     @patch('wallet.webhooks.zainpay_service.verify_deposit')
@@ -218,7 +218,7 @@ class DepositWebhookViewTests(TestCase):
             'txnRef': 'dep-ref-1',
         }
 
-        response = self._post_webhook({'data': {'txnRef': 'dep-ref-1'}})
+        response = self._post_webhook({'event': 'deposit.success', 'data': {'txnRef': 'dep-ref-1'}})
 
         self.assertEqual(response.status_code, 200)
         self.wallet.refresh_from_db()
@@ -226,7 +226,9 @@ class DepositWebhookViewTests(TestCase):
         self.assertTrue(WalletTransaction.objects.filter(reference='dep-ref-1').exists())
 
     def test_rejects_invalid_signature(self):
-        response = self._post_webhook({'data': {'txnRef': 'dep-ref-bad-sig'}}, signature='wrong-signature')
+        response = self._post_webhook(
+            {'event': 'deposit.success', 'data': {'txnRef': 'dep-ref-bad-sig'}}, signature='wrong-signature',
+        )
         self.assertEqual(response.status_code, 401)
         self.wallet.refresh_from_db()
         self.assertEqual(self.wallet.balance, Decimal('0.00'))
@@ -239,8 +241,8 @@ class DepositWebhookViewTests(TestCase):
             'txnRef': 'dep-ref-2',
         }
 
-        self._post_webhook({'data': {'txnRef': 'dep-ref-2'}})
-        response2 = self._post_webhook({'data': {'txnRef': 'dep-ref-2'}})
+        self._post_webhook({'event': 'deposit.success', 'data': {'txnRef': 'dep-ref-2'}})
+        response2 = self._post_webhook({'event': 'deposit.success', 'data': {'txnRef': 'dep-ref-2'}})
 
         self.assertEqual(response2.status_code, 200)
         self.wallet.refresh_from_db()
@@ -251,7 +253,7 @@ class DepositWebhookViewTests(TestCase):
     def test_unverifiable_deposit_is_ignored_not_credited(self, mock_verify):
         mock_verify.return_value = None
 
-        response = self._post_webhook({'data': {'txnRef': 'dep-ref-unverifiable'}})
+        response = self._post_webhook({'event': 'deposit.success', 'data': {'txnRef': 'dep-ref-unverifiable'}})
 
         self.assertEqual(response.status_code, 200)
         self.wallet.refresh_from_db()
@@ -265,10 +267,27 @@ class DepositWebhookViewTests(TestCase):
             'txnRef': 'dep-ref-unknown-acct',
         }
 
-        response = self._post_webhook({'data': {'txnRef': 'dep-ref-unknown-acct'}})
+        response = self._post_webhook({'event': 'deposit.success', 'data': {'txnRef': 'dep-ref-unknown-acct'}})
 
         self.assertEqual(response.status_code, 200)
         self.assertFalse(WalletTransaction.objects.filter(reference='dep-ref-unknown-acct').exists())
+
+    @patch('wallet.webhooks.zainpay_service.verify_deposit')
+    def test_transfer_events_are_ignored_not_processed_as_deposits(self, mock_verify):
+        """
+        Zainpay sends transfer.success/transfer.failed to this same callback
+        URL (e.g. when pay_school_fees_from_wallet's outgoing transfer
+        completes) - these must never be mistaken for a deposit.
+        """
+        response = self._post_webhook({
+            'event': 'transfer.success',
+            'data': {'txnRef': 'transfer-ref-1', 'accountNumber': '2917863937'},
+        })
+
+        self.assertEqual(response.status_code, 200)
+        mock_verify.assert_not_called()
+        self.wallet.refresh_from_db()
+        self.assertEqual(self.wallet.balance, Decimal('0.00'))
 
 
 class WalletActivationViewTests(TestCase):

@@ -28,10 +28,25 @@ def zainpay_deposit_webhook(request):
     body is not.
     """
     raw_body = request.body
-    signature = request.headers.get('x-zainpay-signature') or request.headers.get('X-Zainpay-Signature')
+    # Per Zainpay's webhook docs, the signature arrives in a header literally
+    # named "Zainpay-Signature" (Django's header lookup is case-insensitive,
+    # but the name itself - no "x-" prefix - was wrong before).
+    signature = request.headers.get('Zainpay-Signature')
+
+    # Logged unconditionally, before the signature check, so a rejection
+    # still leaves us full visibility into what Zainpay actually sent.
+    logger.info(
+        'Zainpay webhook inbound - headers: %s | body: %s | extracted signature: %s',
+        dict(request.headers), raw_body.decode('utf-8', errors='replace'), signature,
+    )
 
     if not zainpay_service.verify_webhook_signature(raw_body, signature):
-        logger.warning('Zainpay webhook rejected: invalid signature')
+        computed = zainpay_service.compute_webhook_signature(raw_body)
+        logger.warning(
+            'Zainpay webhook rejected: invalid signature. Computed (HMAC-SHA256 of raw '
+            'body with secret key) = %s | received = %s',
+            computed, signature,
+        )
         return JsonResponse({'error': 'Invalid signature'}, status=401)
 
     try:
@@ -39,11 +54,16 @@ def zainpay_deposit_webhook(request):
     except ValueError:
         return JsonResponse({'status': 'ignored'}, status=200)
 
-    # Logged at INFO so the very first real delivery is fully visible in
-    # production logs - this is still an unverified part of the integration
-    # (exact payload shape, and whether amounts here are naira or kobo, the
-    # way Virtual Account Transactions turned out to be).
     logger.info('Zainpay webhook received, raw payload: %s', payload)
+
+    # Zainpay sends transfer.success/transfer.failed events to this same
+    # callback URL too (e.g. when pay_school_fees_from_wallet's transfer to
+    # the school's settlement account completes) - only deposits are handled
+    # here.
+    event = payload.get('event')
+    if event != 'deposit.success':
+        logger.info('Zainpay webhook: ignoring non-deposit event "%s"', event)
+        return JsonResponse({'status': 'ignored'}, status=200)
 
     data = payload.get('data', payload)
     txn_ref = data.get('txnRef') or data.get('reference')

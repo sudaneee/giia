@@ -81,24 +81,24 @@ def create_virtual_account(parent_account):
         raise
 
 
+def compute_webhook_signature(raw_body):
+    """
+    HMAC-SHA256 of the raw body using the secret key, per Zainpay's webhook
+    documentation: events arrive with a "Zainpay-Signature" header containing
+    an HmacSHA256 hash of the payload signed with the secret key.
+    """
+    return hmac.new(
+        settings.ZAINPAY_SECRET_KEY.encode('utf-8'),
+        raw_body,
+        hashlib.sha256,
+    ).hexdigest()
+
+
 def verify_webhook_signature(raw_body, received_signature):
-    """
-    HMAC-SHA512 verification, mirroring the existing Paystack webhook pattern
-    in src/views.py. NOTE: this assumes Zainpay uses the same scheme as
-    Paystack (secret-key-signed HMAC-SHA512 of the raw body) - confirm the
-    exact header name and algorithm against Zainpay's webhook documentation
-    once available, and adjust here if it differs.
-    """
     if not received_signature:
         return False
 
-    computed = hmac.new(
-        settings.ZAINPAY_SECRET_KEY.encode('utf-8'),
-        raw_body,
-        hashlib.sha512,
-    ).hexdigest()
-
-    return hmac.compare_digest(computed, received_signature)
+    return hmac.compare_digest(compute_webhook_signature(raw_body), received_signature)
 
 
 def list_account_transactions(account_number):
