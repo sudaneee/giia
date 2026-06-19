@@ -15,13 +15,13 @@
         <p><strong>Session / Term:</strong> {{ wallet_payment.session.name }} - {{ wallet_payment.term.name }}</p>
 
         <table class="table mt-3">
-          <thead><tr><th>Child</th><th>Admission No.</th><th>Class</th><th>Amount Paid</th></tr></thead>
+          <thead><tr><th>Child</th><th>Admission No.</th><th>Fee</th><th>Amount Paid</th></tr></thead>
           <tbody>
             {% for payment in payments %}
               <tr>
                 <td>{{ payment.student.first_name }} {{ payment.student.last_name }}</td>
                 <td>{{ payment.student.admission_number }}</td>
-                <td>{{ payment.student.enrolled_class|default:"-" }}</td>
+                <td>{% if payment.other_fee %}{{ payment.other_fee.name }}{% else %}School Fees{% endif %}</td>
                 <td>₦{{ payment.amount_paid|floatformat:2 }}</td>
               </tr>
             {% endfor %}

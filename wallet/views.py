@@ -7,7 +7,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_POST
 
-from src.models import Session, Student, Term
+from src.models import OtherFeeStructure, Session, Student, Term
 
 from .decorators import parent_required
 from .forms import AddChildForm, ParentRegistrationForm
@@ -189,29 +189,53 @@ def wallet_transactions(request):
     })
 
 
+VALID_STUDENT_TYPES = ('new', 'returning')
+
+
 def _linked_student_or_none(parent_account, student_id):
     link = parent_account.student_links.filter(student_id=student_id).select_related('student').first()
     return link.student if link else None
 
 
-def _build_fee_selections(parent_account, session, term, student_ids):
-    """
-    Recomputes the outstanding balance for each requested student server-side
-    - never trusts amounts submitted by the client - and silently drops any
-    student_id that isn't actually linked to this parent.
-    """
-    fee_selections = []
-    for raw_id in student_ids:
+def _safe_int_list(raw_ids):
+    result = []
+    for raw_id in raw_ids:
         try:
-            student_id = int(raw_id)
+            result.append(int(raw_id))
         except (TypeError, ValueError):
             continue
+    return result
 
+
+def _clean_student_type(request):
+    student_type = request.GET.get('student_type') or request.POST.get('student_type', 'returning')
+    return student_type if student_type in VALID_STUDENT_TYPES else 'returning'
+
+
+def _clean_transport(request):
+    raw = request.GET.get('transport') or request.POST.get('transport', 'false')
+    return raw == 'true'
+
+
+def _build_school_fee_selections(parent_account, session, term, student_ids, student_type, transport):
+    """
+    Recomputes each student's outstanding balance server-side for the given
+    student_type/transport choice - matches the existing Paystack flow, where
+    one student_type/transport selection applies to the whole batch. Never
+    trusts amounts submitted by the client, and silently drops any
+    student_id that isn't actually linked to this parent.
+    """
+    term_group = term.name.lower().split()[0]
+    fee_selections = []
+
+    for student_id in _safe_int_list(student_ids):
         student = _linked_student_or_none(parent_account, student_id)
         if not student:
             continue
 
-        result = fee_service.get_default_school_fee_outstanding(student, session, term)
+        result = fee_service.calculate_school_fee_outstanding(
+            student, session, term, term_group, student_type, transport,
+        )
         if result and result['balance'] > 0:
             fee_selections.append({
                 'student': student,
@@ -222,10 +246,42 @@ def _build_fee_selections(parent_account, session, term, student_ids):
     return fee_selections
 
 
+def _build_other_fee_selections(parent_account, session, term, student_ids, fee_ids):
+    """
+    One fee_selections entry per (student, other_fee) pair - e.g. selecting
+    two children and two fees produces four entries. Drops any fee_id that
+    isn't active for this session/term and any student not linked to this
+    parent, same as the school-fees path.
+    """
+    other_fees = OtherFeeStructure.objects.filter(
+        id__in=_safe_int_list(fee_ids), session=session, term=term, active=True,
+    )
+
+    fee_selections = []
+    for student_id in _safe_int_list(student_ids):
+        student = _linked_student_or_none(parent_account, student_id)
+        if not student:
+            continue
+
+        for other_fee in other_fees:
+            result = fee_service.calculate_other_fee_outstanding(student, other_fee, session, term)
+            fee_selections.append({
+                'student': student,
+                'amount': result['amount'],
+                'other_fee': other_fee,
+            })
+
+    return fee_selections
+
+
 @parent_required
 def outstanding_fees(request):
     parent_account = request.user.parent_account
     sessions = Session.objects.all().order_by('-id')
+
+    fee_type = request.GET.get('fee_type', 'school_fees')
+    if fee_type not in ('school_fees', 'other_fees'):
+        fee_type = 'school_fees'
 
     session_id = request.GET.get('session_id')
     if not session_id:
@@ -238,16 +294,37 @@ def outstanding_fees(request):
     term_id = request.GET.get('term_id')
     selected_term = Term.objects.filter(id=term_id, session=selected_session).first() if term_id and selected_session else None
 
+    student_type = _clean_student_type(request)
+    transport = _clean_transport(request)
+
+    links = parent_account.student_links.select_related('student', 'student__enrolled_class').all()
     summaries = []
+    other_fee_structures = OtherFeeStructure.objects.none()
+
     if selected_session and selected_term:
-        summaries = fee_service.get_guardian_fee_summary(parent_account, selected_session, selected_term)
+        if fee_type == 'school_fees':
+            term_group = selected_term.name.lower().split()[0]
+            for link in links:
+                result = fee_service.calculate_school_fee_outstanding(
+                    link.student, selected_session, selected_term, term_group, student_type, transport,
+                )
+                summaries.append({'student': link.student, 'result': result})
+        else:
+            other_fee_structures = OtherFeeStructure.objects.filter(
+                session=selected_session, term=selected_term, active=True,
+            )
 
     return render(request, 'wallet/outstanding_fees.html', {
         'sessions': sessions,
         'terms': terms,
         'selected_session': selected_session,
         'selected_term': selected_term,
+        'fee_type': fee_type,
+        'student_type': student_type,
+        'transport': transport,
         'summaries': summaries,
+        'other_fee_structures': other_fee_structures,
+        'links': links,
     })
 
 
@@ -256,25 +333,50 @@ def pay_fees(request):
     parent_account = request.user.parent_account
     wallet = parent_account.wallet
 
+    fee_type = request.GET.get('fee_type', 'school_fees')
+    if fee_type not in ('school_fees', 'other_fees'):
+        fee_type = 'school_fees'
+
     session = get_object_or_404(Session, id=request.GET.get('session_id'))
     term = get_object_or_404(Term, id=request.GET.get('term_id'), session=session)
     student_ids = request.GET.getlist('student_id')
 
-    fee_selections = _build_fee_selections(parent_account, session, term, student_ids)
+    student_type = _clean_student_type(request)
+    transport = _clean_transport(request)
+
+    if fee_type == 'school_fees':
+        fee_selections = _build_school_fee_selections(
+            parent_account, session, term, student_ids, student_type, transport,
+        )
+    else:
+        fee_ids = request.GET.getlist('fee_id')
+        fee_selections = _build_other_fee_selections(parent_account, session, term, student_ids, fee_ids)
+
     total_amount = sum(item['amount'] for item in fee_selections)
 
     estimated_fee = settings.ZAINPAY_TRANSFER_FEE_ESTIMATE
     can_pay_from_wallet = bool(fee_selections) and wallet.balance >= (total_amount + estimated_fee)
 
+    # Deduplicated student ids for the confirm form's hidden inputs - other
+    # fees can produce several fee_selections entries for the same student
+    # (one per fee), so looping fee_selections directly would submit that
+    # student_id more than once and double-process them downstream.
+    unique_student_ids = list(dict.fromkeys(item['student'].id for item in fee_selections))
+
     return render(request, 'wallet/pay_fees.html', {
         'session': session,
         'term': term,
+        'fee_type': fee_type,
+        'student_type': student_type,
+        'transport': transport,
         'fee_selections': fee_selections,
+        'unique_student_ids': unique_student_ids,
         'total_amount': total_amount,
         'wallet': wallet,
         'estimated_fee': estimated_fee,
         'can_pay_from_wallet': can_pay_from_wallet,
         'student_ids': student_ids,
+        'fee_ids': request.GET.getlist('fee_id') if fee_type == 'other_fees' else [],
     })
 
 
@@ -283,11 +385,23 @@ def pay_fees(request):
 def confirm_wallet_payment(request):
     parent_account = request.user.parent_account
 
+    fee_type = request.POST.get('fee_type', 'school_fees')
+    if fee_type not in ('school_fees', 'other_fees'):
+        fee_type = 'school_fees'
+
     session = get_object_or_404(Session, id=request.POST.get('session_id'))
     term = get_object_or_404(Term, id=request.POST.get('term_id'), session=session)
     student_ids = request.POST.getlist('student_id')
 
-    fee_selections = _build_fee_selections(parent_account, session, term, student_ids)
+    if fee_type == 'school_fees':
+        student_type = _clean_student_type(request)
+        transport = _clean_transport(request)
+        fee_selections = _build_school_fee_selections(
+            parent_account, session, term, student_ids, student_type, transport,
+        )
+    else:
+        fee_ids = request.POST.getlist('fee_id')
+        fee_selections = _build_other_fee_selections(parent_account, session, term, student_ids, fee_ids)
 
     if not fee_selections:
         messages.error(request, 'Nothing to pay.')
@@ -323,7 +437,7 @@ def receipt_detail(request, reference):
         wallet_transaction__reference=reference,
         wallet_transaction__wallet=parent_account.wallet,
     )
-    payments = wallet_payment.payments.select_related('student', 'fee_structure').all()
+    payments = wallet_payment.payments.select_related('student', 'fee_structure', 'other_fee').all()
 
     return render(request, 'wallet/receipt_detail.html', {
         'wallet_payment': wallet_payment,

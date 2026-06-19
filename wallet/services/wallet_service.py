@@ -172,10 +172,13 @@ def debit_wallet(wallet_id, amount, reference, narration, source, metadata=None)
 
 def pay_school_fees_from_wallet(parent_account, fee_selections, session, term):
     """
-    Pays school fees for one or more linked students from the parent's
-    wallet. fee_selections is a list of {'student', 'amount', 'fee_structure'}
-    dicts (the caller must have already validated that each student belongs
-    to this parent and that each amount is a real outstanding balance).
+    Pays fees for one or more linked students from the parent's wallet.
+    fee_selections is a list of {'student', 'amount', 'fee_structure'} dicts
+    for school fees, or {'student', 'amount', 'other_fee'} dicts for other
+    fees (cardigan, tahfeez, etc) - the two kinds are never mixed in one
+    payment, matching the existing Paystack flow's separate School Fees /
+    Other Fees tabs. The caller must have already validated that each
+    student belongs to this parent and that each amount is real.
 
     This is a real money movement, not just internal bookkeeping: it calls
     Zainpay's Funds Transfer API to move money from the parent's virtual
@@ -208,7 +211,7 @@ def pay_school_fees_from_wallet(parent_account, fee_selections, session, term):
         raise InsufficientFundsError('Insufficient wallet balance for this payment.')
 
     txn_ref = str(uuid4())
-    narration = f"School fees payment - {session} {term}"
+    narration = f"Fee payment - {session} {term}"
 
     transfer_data = zainpay_service.transfer_to_school(
         virtual_account.account_number, total_fee_amount, txn_ref, narration,
@@ -222,21 +225,25 @@ def pay_school_fees_from_wallet(parent_account, fee_selections, session, term):
                 wallet.id,
                 actual_debit_amount,
                 txn_ref,
-                f"Wallet payment for school fees ({session} {term})",
+                f"Wallet payment for fees ({session} {term})",
                 source='wallet_fee_payment',
                 metadata=transfer_data,
             )
 
             payments = []
-            for item in fee_selections:
+            for index, item in enumerate(fee_selections):
+                # Indexed rather than keyed on student id alone, since other
+                # fees can include several items for the same student (e.g.
+                # cardigan + tahfeez), which would otherwise collide.
                 payment = create_payment_record(
                     student=item['student'],
                     amount=item['amount'],
                     payment_method='wallet',
                     session=session,
                     term=term,
-                    transaction_reference=f"{txn_ref}-{item['student'].id}",
+                    transaction_reference=f"{txn_ref}-{index}",
                     fee_structure=item.get('fee_structure'),
+                    other_fee=item.get('other_fee'),
                 )
                 payments.append(payment)
 

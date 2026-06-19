@@ -66,53 +66,6 @@ def calculate_school_fee_outstanding(student, session, term, term_group, student
     return _compute_outstanding_for_fee_structure(student, fee, session, term)
 
 
-def get_default_school_fee_outstanding(student, session, term):
-    """
-    Same calculation as calculate_school_fee_outstanding(), but for contexts
-    with no payment form to ask the parent for student_type/transport (the
-    wallet's Outstanding Fees page). term_group and student_type are derived
-    automatically, matching the existing pattern already used by
-    class_fee_compliance() and student_payment_status_report() in
-    src/views.py. Does not filter by transport, matching that same precedent.
-    """
-    if not student.enrolled_class or not student.enrolled_class.section:
-        return None
-
-    term_group = term.name.lower().split()[0]
-    student_type = 'new' if student.admission_status == 'admitted' else 'returning'
-
-    fee = FeeStructure.objects.filter(
-        section=student.enrolled_class.section,
-        session=session,
-        term_group=term_group,
-        student_type=student_type,
-    ).first()
-
-    if not fee:
-        return None
-
-    return _compute_outstanding_for_fee_structure(student, fee, session, term)
-
-
-def get_guardian_fee_summary(parent_account, session, term):
-    """
-    Per-child outstanding summary for every student linked to this parent,
-    for the given session/term. Used by the wallet's Outstanding Fees page.
-    Returns a list of {'student': Student, 'result': dict|None} entries -
-    result is None when no fee structure applies to that student.
-    """
-    summaries = []
-    links = parent_account.student_links.select_related(
-        'student', 'student__enrolled_class'
-    ).all()
-
-    for link in links:
-        result = get_default_school_fee_outstanding(link.student, session, term)
-        summaries.append({'student': link.student, 'result': result})
-
-    return summaries
-
-
 def calculate_other_fee_outstanding(student, other_fee, session, term):
     """
     Computes one student's amount due for a single OtherFeeStructure. The

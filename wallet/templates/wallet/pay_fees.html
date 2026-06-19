@@ -1,7 +1,7 @@
 {% extends 'wallet/base.html' %}
 {% block title %}Pay Fees{% endblock %}
 {% block content %}
-<h4 class="mb-3">Pay School Fees</h4>
+<h4 class="mb-3">{% if fee_type == 'school_fees' %}Pay School Fees{% else %}Pay Other Fees{% endif %}</h4>
 <p class="text-muted">{{ session.name }} - {{ term.name }}</p>
 
 {% if fee_selections %}
@@ -9,17 +9,18 @@
     <div class="card-body p-0">
       <div class="table-responsive">
         <table class="table mb-0">
-          <thead><tr><th>Child</th><th>Amount</th></tr></thead>
+          <thead><tr><th>Child</th><th>Fee</th><th>Amount</th></tr></thead>
           <tbody>
             {% for item in fee_selections %}
               <tr>
                 <td>{{ item.student.first_name }} {{ item.student.last_name }}</td>
+                <td>{% if item.other_fee %}{{ item.other_fee.name }}{% else %}School Fees{% endif %}</td>
                 <td>₦{{ item.amount|floatformat:2 }}</td>
               </tr>
             {% endfor %}
           </tbody>
           <tfoot>
-            <tr><th>Total</th><th>₦{{ total_amount|floatformat:2 }}</th></tr>
+            <tr><th colspan="2">Total</th><th>₦{{ total_amount|floatformat:2 }}</th></tr>
           </tfoot>
         </table>
       </div>
@@ -45,10 +46,19 @@
           {% if can_pay_from_wallet %}
             <form method="POST" action="{% url 'wallet:confirm_wallet_payment' %}">
               {% csrf_token %}
+              <input type="hidden" name="fee_type" value="{{ fee_type }}">
               <input type="hidden" name="session_id" value="{{ session.id }}">
               <input type="hidden" name="term_id" value="{{ term.id }}">
-              {% for item in fee_selections %}
-                <input type="hidden" name="student_id" value="{{ item.student.id }}">
+              {% if fee_type == 'school_fees' %}
+                <input type="hidden" name="student_type" value="{{ student_type }}">
+                <input type="hidden" name="transport" value="{{ transport|yesno:'true,false' }}">
+              {% else %}
+                {% for fee_id in fee_ids %}
+                  <input type="hidden" name="fee_id" value="{{ fee_id }}">
+                {% endfor %}
+              {% endif %}
+              {% for student_id in unique_student_ids %}
+                <input type="hidden" name="student_id" value="{{ student_id }}">
               {% endfor %}
               <button type="submit" class="btn btn-primary">Pay ₦{{ total_amount|floatformat:2 }} from Wallet</button>
             </form>
