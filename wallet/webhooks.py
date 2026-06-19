@@ -1,5 +1,6 @@
 import json
 import logging
+from decimal import Decimal
 
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
@@ -75,6 +76,13 @@ def zainpay_deposit_webhook(request):
     if WalletTransaction.objects.filter(reference=txn_ref).exists():
         return JsonResponse({'status': 'already_processed'}, status=200)
 
+    # verify_deposit() confirms the transaction is genuine on Zainpay's side
+    # (defense in depth on top of signature verification) and gives us
+    # beneficiaryAccountNumber reliably - but its response doesn't expose a
+    # gross/pre-charge amount field, only amountAfterCharges. Since Zainpay
+    # has committed to zero settlement charges on deposits, the wallet should
+    # be credited the exact amount sent, so the amount itself comes from the
+    # webhook payload's own "depositedAmount" field instead.
     verified = zainpay_service.verify_deposit(txn_ref)
     if not verified:
         logger.info('Zainpay webhook: could not verify deposit %s, ignoring', txn_ref)
@@ -82,18 +90,29 @@ def zainpay_deposit_webhook(request):
 
     logger.info('Zainpay webhook: verify_deposit response for %s: %s', txn_ref, verified)
 
-    account_number = verified.get('beneficiaryAccountNumber')
+    account_number = verified.get('beneficiaryAccountNumber') or data.get('beneficiaryAccountNumber')
     virtual_account = VirtualAccount.objects.filter(account_number=account_number).select_related('wallet').first()
 
     if not virtual_account:
         logger.warning('Zainpay webhook: no VirtualAccount found for %s (ref %s)', account_number, txn_ref)
         return JsonResponse({'status': 'ignored'}, status=200)
 
-    amount = verified.get('amountAfterCharges') or verified.get('amount')
+    raw_amount = data.get('depositedAmount')
+    if not raw_amount:
+        logger.warning(
+            'Zainpay webhook: no depositedAmount in payload for %s, falling back to '
+            'verify_deposit amountAfterCharges (this will include any charges)',
+            txn_ref,
+        )
+        raw_amount = verified.get('amountAfterCharges') or verified.get('amount')
+
+    # Confirmed in production: a real ₦100 deposit arrived as raw amount
+    # 10000 (kobo) - convert to naira before crediting.
+    amount = Decimal(str(raw_amount)) / 100
+
     logger.info(
-        'Zainpay webhook: about to credit wallet #%s with raw amount %s (ref %s) - '
-        'confirm against the real transfer amount before trusting this.',
-        virtual_account.wallet_id, amount, txn_ref,
+        'Zainpay webhook: crediting wallet #%s with ₦%s (raw value %s, ref %s)',
+        virtual_account.wallet_id, amount, raw_amount, txn_ref,
     )
 
     credit_wallet(

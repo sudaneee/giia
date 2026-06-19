@@ -211,19 +211,48 @@ class DepositWebhookViewTests(TestCase):
         )
 
     @patch('wallet.webhooks.zainpay_service.verify_deposit')
-    def test_credits_wallet_on_valid_verified_deposit(self, mock_verify):
+    def test_credits_wallet_with_full_deposited_amount_in_naira(self, mock_verify):
+        """
+        Zainpay promised zero settlement charges on deposits, so the wallet
+        must be credited the full depositedAmount from the webhook payload -
+        not verify_deposit's amountAfterCharges, which would include any
+        charge. Amounts are in kobo (confirmed in production: a real ₦100
+        deposit arrived as raw 10000) and must be converted to naira.
+        """
         mock_verify.return_value = {
-            'amountAfterCharges': 5000,
+            'amountAfterCharges': 4950,  # would be wrong to use - implies a charge was deducted
             'beneficiaryAccountNumber': '2917863937',
             'txnRef': 'dep-ref-1',
         }
 
-        response = self._post_webhook({'event': 'deposit.success', 'data': {'txnRef': 'dep-ref-1'}})
+        response = self._post_webhook({
+            'event': 'deposit.success',
+            'data': {
+                'txnRef': 'dep-ref-1',
+                'depositedAmount': '5000',  # kobo - a real ₦50 deposit
+                'txnChargesAmount': '50',
+                'amountAfterCharges': '4950',
+            },
+        })
 
         self.assertEqual(response.status_code, 200)
         self.wallet.refresh_from_db()
-        self.assertEqual(self.wallet.balance, Decimal('5000'))
+        self.assertEqual(self.wallet.balance, Decimal('50.00'))
         self.assertTrue(WalletTransaction.objects.filter(reference='dep-ref-1').exists())
+
+    @patch('wallet.webhooks.zainpay_service.verify_deposit')
+    def test_falls_back_to_amount_after_charges_when_deposited_amount_missing(self, mock_verify):
+        mock_verify.return_value = {
+            'amountAfterCharges': 2000,  # kobo
+            'beneficiaryAccountNumber': '2917863937',
+            'txnRef': 'dep-ref-fallback',
+        }
+
+        response = self._post_webhook({'event': 'deposit.success', 'data': {'txnRef': 'dep-ref-fallback'}})
+
+        self.assertEqual(response.status_code, 200)
+        self.wallet.refresh_from_db()
+        self.assertEqual(self.wallet.balance, Decimal('20.00'))
 
     def test_rejects_invalid_signature(self):
         response = self._post_webhook(
@@ -240,13 +269,17 @@ class DepositWebhookViewTests(TestCase):
             'beneficiaryAccountNumber': '2917863937',
             'txnRef': 'dep-ref-2',
         }
+        body = {
+            'event': 'deposit.success',
+            'data': {'txnRef': 'dep-ref-2', 'depositedAmount': '3000'},
+        }
 
-        self._post_webhook({'event': 'deposit.success', 'data': {'txnRef': 'dep-ref-2'}})
-        response2 = self._post_webhook({'event': 'deposit.success', 'data': {'txnRef': 'dep-ref-2'}})
+        self._post_webhook(body)
+        response2 = self._post_webhook(body)
 
         self.assertEqual(response2.status_code, 200)
         self.wallet.refresh_from_db()
-        self.assertEqual(self.wallet.balance, Decimal('3000'))
+        self.assertEqual(self.wallet.balance, Decimal('30.00'))
         self.assertEqual(WalletTransaction.objects.filter(reference='dep-ref-2').count(), 1)
 
     @patch('wallet.webhooks.zainpay_service.verify_deposit')
