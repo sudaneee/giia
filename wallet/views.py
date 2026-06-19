@@ -275,7 +275,15 @@ def _build_other_fee_selections(parent_account, session, term, student_ids, fee_
 
 
 @parent_required
-def outstanding_fees(request):
+def make_payment(request):
+    """
+    Entry point for paying fees, mirroring the existing Paystack
+    unified_payment flow: the parent picks which children to pay for and the
+    payment parameters (student type/transport for school fees, or which
+    fees for other fees) *before* seeing any breakdown - the breakdown and
+    payment method choice happen on the next page (pay_fees), computed only
+    for what was actually selected here.
+    """
     parent_account = request.user.parent_account
     sessions = Session.objects.all().order_by('-id')
 
@@ -298,23 +306,14 @@ def outstanding_fees(request):
     transport = _clean_transport(request)
 
     links = parent_account.student_links.select_related('student', 'student__enrolled_class').all()
-    summaries = []
     other_fee_structures = OtherFeeStructure.objects.none()
 
-    if selected_session and selected_term:
-        if fee_type == 'school_fees':
-            term_group = selected_term.name.lower().split()[0]
-            for link in links:
-                result = fee_service.calculate_school_fee_outstanding(
-                    link.student, selected_session, selected_term, term_group, student_type, transport,
-                )
-                summaries.append({'student': link.student, 'result': result})
-        else:
-            other_fee_structures = OtherFeeStructure.objects.filter(
-                session=selected_session, term=selected_term, active=True,
-            )
+    if selected_session and selected_term and fee_type == 'other_fees':
+        other_fee_structures = OtherFeeStructure.objects.filter(
+            session=selected_session, term=selected_term, active=True,
+        )
 
-    return render(request, 'wallet/outstanding_fees.html', {
+    return render(request, 'wallet/make_payment.html', {
         'sessions': sessions,
         'terms': terms,
         'selected_session': selected_session,
@@ -322,7 +321,6 @@ def outstanding_fees(request):
         'fee_type': fee_type,
         'student_type': student_type,
         'transport': transport,
-        'summaries': summaries,
         'other_fee_structures': other_fee_structures,
         'links': links,
     })
@@ -405,7 +403,7 @@ def confirm_wallet_payment(request):
 
     if not fee_selections:
         messages.error(request, 'Nothing to pay.')
-        return redirect('wallet:outstanding_fees')
+        return redirect('wallet:make_payment')
 
     try:
         wallet_payment = wallet_service.pay_school_fees_from_wallet(parent_account, fee_selections, session, term)
@@ -416,7 +414,7 @@ def confirm_wallet_payment(request):
     except (ZainpayTransferError, WalletInactiveError, ValueError) as e:
         messages.error(request, f'Payment could not be completed: {e}')
 
-    return redirect('wallet:outstanding_fees')
+    return redirect('wallet:make_payment')
 
 
 @parent_required

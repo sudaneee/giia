@@ -213,23 +213,21 @@ class PayFeesViewTests(TestCase):
         self.client = Client()
         self.client.login(username='view-parent@example.com', password='TestPass123!')
 
-    def test_outstanding_fees_shows_balance_for_matching_student_type(self):
-        response = self.client.get('/parent/fees/', {
-            'session_id': self.fixture['session'].id, 'term_id': self.fixture['term'].id,
-            'student_type': 'new', 'transport': 'false',
-        })
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, '50000.00')
-
-    def test_outstanding_fees_finds_nothing_for_wrong_student_type(self):
-        # Fixture's FeeStructure is student_type='new'; default selection is
-        # 'returning' (matching the Paystack form's default), which has no
-        # matching FeeStructure.
+    def test_make_payment_shows_selection_form_not_a_balance_breakdown(self):
+        """
+        Make Payment is a selection step (pick children + parameters), not a
+        balance overview - no fee amounts are computed/shown here at all,
+        only on the next page (pay_fees) for whatever was actually selected.
+        """
         response = self.client.get('/parent/fees/', {
             'session_id': self.fixture['session'].id, 'term_id': self.fixture['term'].id,
         })
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'No fee structure found')
+        self.assertContains(response, 'Chioma')
+        self.assertContains(response, 'New Intake')
+        self.assertContains(response, 'Returning')
+        self.assertContains(response, 'With Transport')
+        self.assertNotContains(response, '50000.00')
 
     def test_pay_fees_disables_wallet_option_when_balance_insufficient(self):
         response = self.client.get('/parent/fees/pay/', {
@@ -250,7 +248,7 @@ class PayFeesViewTests(TestCase):
             'student_type': 'new', 'transport': 'false',
         })
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'No outstanding fees selected')
+        self.assertContains(response, 'Nothing selected to pay')
 
     @patch('wallet.services.wallet_service.zainpay_service.transfer_to_school')
     def test_confirm_wallet_payment_end_to_end(self, mock_transfer):
@@ -325,7 +323,7 @@ class OtherFeesPaymentTests(TestCase):
         self.client = Client()
         self.client.login(username='other-fees-parent@example.com', password='TestPass123!')
 
-    def test_outstanding_fees_lists_active_other_fees_and_children(self):
+    def test_make_payment_lists_active_other_fees_and_children(self):
         response = self.client.get('/parent/fees/', {
             'fee_type': 'other_fees',
             'session_id': self.fixture['session'].id, 'term_id': self.fixture['term'].id,

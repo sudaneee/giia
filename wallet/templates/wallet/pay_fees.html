@@ -71,6 +71,6 @@
     </div>
   </div>
 {% else %}
-  <p class="text-muted">No outstanding fees selected. <a href="{% url 'wallet:outstanding_fees' %}">Go back</a>.</p>
+  <p class="text-muted">Nothing selected to pay. <a href="{% url 'wallet:make_payment' %}">Go back</a>.</p>
 {% endif %}
 {% endblock %}

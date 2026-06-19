@@ -38,7 +38,7 @@
             <li class="nav-item"><a class="nav-link" href="{% url 'wallet:wallet_overview' %}">My Wallet (₦{{ request.user.parent_account.wallet.balance|floatformat:2 }})</a></li>
             <li class="nav-item"><a class="nav-link" href="{% url 'wallet:wallet_transactions' %}">Transactions</a></li>
             <li class="nav-item"><a class="nav-link" href="{% url 'wallet:children_list' %}">My Children</a></li>
-            <li class="nav-item"><a class="nav-link" href="{% url 'wallet:outstanding_fees' %}">Outstanding Fees</a></li>
+            <li class="nav-item"><a class="nav-link" href="{% url 'wallet:make_payment' %}">Make Payment</a></li>
             <li class="nav-item"><a class="nav-link" href="{% url 'wallet:receipt_list' %}">Receipts</a></li>
             <li class="nav-item"><a class="nav-link" href="{% url 'wallet:logout' %}">Logout</a></li>
           </ul>
