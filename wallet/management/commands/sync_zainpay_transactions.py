@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from django.core.management.base import BaseCommand
 
 from wallet.models import VirtualAccount, WalletTransaction
@@ -33,9 +35,14 @@ class Command(BaseCommand):
                 if WalletTransaction.objects.filter(reference=reference).exists():
                     continue
 
-                amount = txn.get('amount')
-                if not amount:
+                raw_amount = txn.get('amount')
+                if not raw_amount:
                     continue
+
+                # The Virtual Account Transactions endpoint returns amounts in
+                # kobo (confirmed in production: a real ₦500 deposit showed up
+                # here as 50000) - convert to naira before crediting.
+                amount = Decimal(str(raw_amount)) / 100
 
                 credit_wallet(
                     wallet_id=virtual_account.wallet_id,
@@ -48,7 +55,7 @@ class Command(BaseCommand):
                 credited += 1
                 self.stdout.write(self.style.WARNING(
                     f"Credited missed deposit: wallet #{virtual_account.wallet_id}, "
-                    f"reference={reference}, amount=₦{amount}"
+                    f"reference={reference}, amount=₦{amount} (raw kobo value: {raw_amount})"
                 ))
 
         self.stdout.write(self.style.SUCCESS(

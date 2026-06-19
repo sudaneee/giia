@@ -346,7 +346,7 @@ class SyncZainpayTransactionsCommandTests(TestCase):
             {
                 'transactionType': 'deposit',
                 'transactionRef': 'missed-deposit-1',
-                'amount': 2500,
+                'amount': 50000,  # kobo - a real ₦500 deposit
             }
         ]
 
@@ -354,7 +354,9 @@ class SyncZainpayTransactionsCommandTests(TestCase):
         call_command('sync_zainpay_transactions', stdout=out)
 
         parent_account.wallet.refresh_from_db()
-        self.assertEqual(parent_account.wallet.balance, Decimal('2500'))
+        # Regression test: a real production deposit of ₦500 showed up here as
+        # raw amount 50000 (kobo) and was credited as ₦50,000 before this fix.
+        self.assertEqual(parent_account.wallet.balance, Decimal('500.00'))
         self.assertTrue(WalletTransaction.objects.filter(reference='missed-deposit-1').exists())
         self.assertIn('Credited missed deposit', out.getvalue())
 

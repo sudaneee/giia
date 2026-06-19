@@ -39,10 +39,17 @@ def zainpay_deposit_webhook(request):
     except ValueError:
         return JsonResponse({'status': 'ignored'}, status=200)
 
+    # Logged at INFO so the very first real delivery is fully visible in
+    # production logs - this is still an unverified part of the integration
+    # (exact payload shape, and whether amounts here are naira or kobo, the
+    # way Virtual Account Transactions turned out to be).
+    logger.info('Zainpay webhook received, raw payload: %s', payload)
+
     data = payload.get('data', payload)
     txn_ref = data.get('txnRef') or data.get('reference')
 
     if not txn_ref:
+        logger.warning('Zainpay webhook: no txnRef/reference found in payload, ignoring')
         return JsonResponse({'status': 'ignored'}, status=200)
 
     if WalletTransaction.objects.filter(reference=txn_ref).exists():
@@ -53,6 +60,8 @@ def zainpay_deposit_webhook(request):
         logger.info('Zainpay webhook: could not verify deposit %s, ignoring', txn_ref)
         return JsonResponse({'status': 'ignored'}, status=200)
 
+    logger.info('Zainpay webhook: verify_deposit response for %s: %s', txn_ref, verified)
+
     account_number = verified.get('beneficiaryAccountNumber')
     virtual_account = VirtualAccount.objects.filter(account_number=account_number).select_related('wallet').first()
 
@@ -61,6 +70,11 @@ def zainpay_deposit_webhook(request):
         return JsonResponse({'status': 'ignored'}, status=200)
 
     amount = verified.get('amountAfterCharges') or verified.get('amount')
+    logger.info(
+        'Zainpay webhook: about to credit wallet #%s with raw amount %s (ref %s) - '
+        'confirm against the real transfer amount before trusting this.',
+        virtual_account.wallet_id, amount, txn_ref,
+    )
 
     credit_wallet(
         wallet_id=virtual_account.wallet_id,
