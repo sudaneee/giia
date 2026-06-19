@@ -179,3 +179,29 @@ SITE_BASE_URL = os.getenv("SITE_BASE_URL", "http://localhost:8000")
 # totalTxnAmount Zainpay returns, never this estimate.
 ZAINPAY_TRANSFER_FEE_ESTIMATE = Decimal(os.getenv("ZAINPAY_TRANSFER_FEE_ESTIMATE", "300"))
 
+# Without this, Python's default logging level (WARNING) silently drops every
+# logger.info() call in the wallet app - including the webhook diagnostics -
+# regardless of where stdout/stderr ends up. Writing to a dedicated file here
+# means `tail -f wallet.log` always works, independent of how the app server
+# is supervised (gunicorn/systemd/manual).
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+        },
+        'wallet_file': {
+            'class': 'logging.FileHandler',
+            'filename': BASE_DIR / 'wallet.log',
+        },
+    },
+    'loggers': {
+        'wallet': {
+            'handlers': ['console', 'wallet_file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+    },
+}
+
