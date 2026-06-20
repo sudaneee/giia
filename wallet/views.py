@@ -250,11 +250,13 @@ def _build_other_fee_selections(parent_account, session, term, student_ids, fee_
     """
     One fee_selections entry per (student, other_fee) pair - e.g. selecting
     two children and two fees produces four entries. Drops any fee_id that
-    isn't active for this session/term and any student not linked to this
-    parent, same as the school-fees path.
+    isn't active and any student not linked to this parent. Matches the
+    existing Paystack flow exactly: OtherFeeStructure eligibility is based
+    only on active=True, never filtered by session/term (see
+    calculate_other_fees_api and unified_payment in src/views.py).
     """
     other_fees = OtherFeeStructure.objects.filter(
-        id__in=_safe_int_list(fee_ids), session=session, term=term, active=True,
+        id__in=_safe_int_list(fee_ids), active=True,
     )
 
     fee_selections = []
@@ -306,12 +308,10 @@ def make_payment(request):
     transport = _clean_transport(request)
 
     links = parent_account.student_links.select_related('student', 'student__enrolled_class').all()
-    other_fee_structures = OtherFeeStructure.objects.none()
-
-    if selected_session and selected_term and fee_type == 'other_fees':
-        other_fee_structures = OtherFeeStructure.objects.filter(
-            session=selected_session, term=selected_term, active=True,
-        )
+    # Matches the existing Paystack flow exactly: other fees are listed by
+    # active=True alone, never filtered by session/term (see unified_payment
+    # and calculate_other_fees_api in src/views.py).
+    other_fee_structures = OtherFeeStructure.objects.filter(active=True) if fee_type == 'other_fees' else OtherFeeStructure.objects.none()
 
     return render(request, 'wallet/make_payment.html', {
         'sessions': sessions,
