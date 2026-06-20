@@ -1,4 +1,5 @@
 {% extends 'wallet/base.html' %}
+{% load humanize %}
 {% block title %}Pay Fees{% endblock %}
 {% block content %}
 <h4 class="mb-1">{% if fee_type == 'school_fees' %}Pay School Fees{% else %}Pay Other Fees{% endif %}</h4>
@@ -15,13 +16,13 @@
               <div style="font-weight:600; font-size:.92rem;">{{ item.student.first_name }} {{ item.student.last_name }}</div>
               <div class="text-muted small">{% if item.other_fee %}{{ item.other_fee.name }}{% else %}School Fees{% endif %}</div>
             </div>
-            <div style="font-weight:700;">₦{{ item.amount|floatformat:2 }}</div>
+            <div style="font-weight:700;">₦{{ item.amount|floatformat:2|intcomma }}</div>
           </div>
         {% endfor %}
       </div>
       <div class="d-flex justify-content-between align-items-center px-3 py-3" style="background:#f4f6fb;">
         <strong>Total</strong>
-        <strong style="font-size:1.15rem;">₦{{ total_amount|floatformat:2 }}</strong>
+        <strong style="font-size:1.15rem;">₦{{ total_amount|floatformat:2|intcomma }}</strong>
       </div>
     </div>
   </div>
@@ -43,8 +44,8 @@
         <i class="bi bi-wallet2" style="font-size:1.3rem; color:#c9a227;"></i>
         <h6 class="mb-0 ml-2">Pay from Wallet</h6>
       </div>
-      <p class="mb-1 small">Wallet balance: <strong>₦{{ wallet.balance|floatformat:2 }}</strong></p>
-      <p class="text-muted small">A transfer fee of approximately ₦{{ estimated_fee|floatformat:2 }} applies, charged by Zainpay on top of the fee amount.</p>
+      <p class="mb-1 small">Wallet balance: <strong>₦{{ wallet.balance|floatformat:2|intcomma }}</strong></p>
+      <p class="text-muted small">A transfer fee of approximately ₦{{ estimated_fee|floatformat:2|intcomma }} applies, charged by Zainpay on top of the fee amount.</p>
       {% if can_pay_from_wallet %}
         <form method="POST" action="{% url 'wallet:confirm_wallet_payment' %}">
           {% csrf_token %}
@@ -62,7 +63,7 @@
           {% for student_id in unique_student_ids %}
             <input type="hidden" name="student_id" value="{{ student_id }}">
           {% endfor %}
-          <button type="submit" class="btn btn-gold btn-block btn-lg">Pay ₦{{ total_amount|floatformat:2 }} from Wallet</button>
+          <button type="submit" class="btn btn-gold btn-block btn-lg">Pay ₦{{ total_amount|floatformat:2|intcomma }} from Wallet</button>
         </form>
       {% else %}
         <button class="btn btn-secondary btn-block" disabled>Insufficient Wallet Balance</button>

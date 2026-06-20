@@ -1,4 +1,5 @@
 {% extends 'wallet/base.html' %}
+{% load humanize %}
 {% block title %}My Wallet{% endblock %}
 {% block content %}
 <h4 class="mb-3">My Wallet</h4>
@@ -6,7 +7,7 @@
 <div class="card mb-3" style="background: linear-gradient(135deg, #10182b 0%, #1c2944 60%, #2a3a63 100%); color:#fff;">
   <div class="card-body text-center" style="padding: 2rem 1.25rem;">
     <p class="mb-1" style="opacity:.7; font-size:.8rem; letter-spacing:.04em; text-transform:uppercase;">Current Balance</p>
-    <h1 class="mb-0" style="font-weight:800;">₦{{ wallet.balance|floatformat:2 }}</h1>
+    <h1 class="mb-0" style="font-weight:800;">₦{{ wallet.balance|floatformat:2|intcomma }}</h1>
   </div>
 </div>
 

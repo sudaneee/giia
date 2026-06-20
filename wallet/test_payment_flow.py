@@ -344,7 +344,7 @@ class OtherFeesPaymentTests(TestCase):
         })
         self.assertEqual(response.status_code, 200)
         # 2 children x 2 fees = 4 line items, total = 2 x (5000 + 3000) = 16000
-        self.assertContains(response, '16000.00')
+        self.assertContains(response, '16,000.00')
 
     @patch('wallet.services.wallet_service.zainpay_service.transfer_to_school')
     def test_confirm_wallet_payment_for_other_fees_creates_correct_payments(self, mock_transfer):

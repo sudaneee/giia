@@ -1,4 +1,5 @@
 {% extends 'wallet/base.html' %}
+{% load humanize %}
 {% block title %}Receipt{% endblock %}
 {% block content %}
 <div class="row">
@@ -40,13 +41,13 @@
               <div style="font-weight:600; font-size:.88rem;">{{ payment.student.first_name }} {{ payment.student.last_name }}</div>
               <div class="text-muted small">{{ payment.student.admission_number }} &middot; {% if payment.other_fee %}{{ payment.other_fee.name }}{% else %}School Fees{% endif %}</div>
             </div>
-            <strong>₦{{ payment.amount_paid|floatformat:2 }}</strong>
+            <strong>₦{{ payment.amount_paid|floatformat:2|intcomma }}</strong>
           </div>
         {% endfor %}
 
         <div class="d-flex justify-content-between align-items-center mt-3 pt-3" style="border-top:2px solid #10182b;">
           <strong>Total Debited from Wallet</strong>
-          <strong style="font-size:1.2rem;">₦{{ wallet_payment.wallet_transaction.amount|floatformat:2 }}</strong>
+          <strong style="font-size:1.2rem;">₦{{ wallet_payment.wallet_transaction.amount|floatformat:2|intcomma }}</strong>
         </div>
 
         <div class="text-center mt-4 no-print">
