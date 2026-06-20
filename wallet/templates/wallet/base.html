@@ -3,22 +3,157 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta content="width=device-width, initial-scale=1, maximum-scale=1, shrink-to-fit=no" name="viewport">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, shrink-to-fit=no, viewport-fit=cover">
+  <meta name="theme-color" content="#10182b">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>{% block title %}Parent Portal{% endblock %} - Great Insight Int'l Academy</title>
-  <!-- The wallet app uses a clean, self-contained Bootstrap setup rather than
-       the staff-dashboard theme used elsewhere in the site, to avoid fighting
-       that theme's CSS (which isn't designed for a public-facing portal). -->
+
+  <!-- Self-contained design system for the wallet app - deliberately not
+       reusing the staff-dashboard theme used elsewhere in the site, which
+       isn't built for a public-facing, mobile-first portal. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+
   <style>
-    body { background-color: #f4f6f9; }
-    .wallet-navbar { background-color: #1d2530; }
-    .wallet-navbar .navbar-brand,
-    .wallet-navbar .nav-link { color: #ffffff; }
-    .wallet-navbar .nav-link:hover { color: #9fb4d4; }
-    .card { border: none; box-shadow: 0 0 10px rgba(0,0,0,.06); }
-    .card-header { background-color: #1d2530; color: #fff; border-radius: .25rem .25rem 0 0 !important; }
-    @media (max-width: 576px) {
-      .card-body { padding: 1.1rem; }
+    :root {
+      --ink: #10182b;
+      --ink-light: #1c2944;
+      --gold: #c9a227;
+      --gold-light: #e8c861;
+      --bg: #f4f6fb;
+      --success: #1aa260;
+      --danger: #e0473e;
+      --muted: #8a93a6;
+      --radius: 18px;
+      --radius-sm: 12px;
+      --shadow: 0 6px 24px rgba(16, 24, 43, 0.08);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      background-color: var(--bg);
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      color: var(--ink);
+      padding-bottom: 0;
+    }
+
+    h1, h2, h3, h4, h5, h6 { font-weight: 700; letter-spacing: -0.01em; }
+
+    a { text-decoration: none; }
+
+    /* ---------- Top bar ---------- */
+    .wallet-topbar {
+      background: linear-gradient(135deg, var(--ink) 0%, var(--ink-light) 100%);
+      padding: 14px 0;
+    }
+    .wallet-topbar .navbar-brand {
+      color: #fff !important;
+      font-weight: 700;
+      font-size: 1.05rem;
+      display: flex;
+      align-items: center;
+    }
+    .wallet-topbar .navbar-brand img {
+      height: 30px;
+      margin-right: 10px;
+      border-radius: 6px;
+      background: #fff;
+      padding: 2px;
+    }
+    .wallet-topbar .nav-link {
+      color: rgba(255,255,255,.82) !important;
+      font-weight: 500;
+      font-size: .92rem;
+    }
+    .wallet-topbar .nav-link:hover { color: #fff !important; }
+    .topbar-balance {
+      background: rgba(255,255,255,.12);
+      color: #fff;
+      border-radius: 999px;
+      padding: 6px 16px;
+      font-weight: 600;
+      font-size: .85rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .topbar-balance i { color: var(--gold-light); }
+
+    /* ---------- Cards ---------- */
+    .card {
+      border: none;
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+    .card-header {
+      background: var(--ink);
+      color: #fff;
+      border-radius: var(--radius) var(--radius) 0 0 !important;
+      border: none;
+      font-weight: 600;
+      padding: 1rem 1.25rem;
+    }
+    .card-body { padding: 1.25rem; }
+
+    /* ---------- Buttons ---------- */
+    .btn { border-radius: var(--radius-sm); font-weight: 600; padding: .55rem 1.15rem; }
+    .btn-lg { border-radius: var(--radius-sm); padding: .75rem 1.4rem; }
+    .btn-primary { background: var(--ink); border-color: var(--ink); }
+    .btn-primary:hover, .btn-primary:focus { background: var(--ink-light); border-color: var(--ink-light); }
+    .btn-outline-primary { color: var(--ink); border-color: var(--ink); }
+    .btn-outline-primary:hover { background: var(--ink); border-color: var(--ink); }
+    .btn-gold { background: var(--gold); border-color: var(--gold); color: #fff; }
+    .btn-gold:hover { background: var(--gold-light); border-color: var(--gold-light); color: #fff; }
+
+    .badge { border-radius: 999px; padding: .4em .8em; font-weight: 600; }
+
+    .alert { border: none; border-radius: var(--radius-sm); }
+
+    .form-control {
+      border-radius: var(--radius-sm);
+      border: 1px solid #e2e6ee;
+      padding: .55rem .85rem;
+    }
+    .form-control:focus { border-color: var(--ink); box-shadow: 0 0 0 3px rgba(16,24,43,.08); }
+
+    .table { margin-bottom: 0; }
+    .table thead th { border-top: none; color: var(--muted); font-size: .78rem; text-transform: uppercase; letter-spacing: .04em; font-weight: 700; }
+
+    /* ---------- Bottom nav (mobile app feel) ---------- */
+    .bottom-nav {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      background: #fff;
+      display: flex;
+      box-shadow: 0 -4px 20px rgba(16,24,43,.10);
+      z-index: 1030;
+      padding: 6px 4px calc(6px + env(safe-area-inset-bottom));
+      border-radius: 22px 22px 0 0;
+    }
+    .bottom-nav-item {
+      flex: 1;
+      text-align: center;
+      color: var(--muted);
+      font-size: .66rem;
+      font-weight: 600;
+      padding: 6px 2px;
+      border-radius: var(--radius-sm);
+    }
+    .bottom-nav-item i { display: block; font-size: 1.35rem; margin-bottom: 2px; }
+    .bottom-nav-item.active { color: var(--ink); }
+    .bottom-nav-item.active i { color: var(--gold); }
+
+    @media (max-width: 767px) {
+      body { padding-bottom: 78px; }
+      .wallet-topbar .navbar-nav { display: none !important; }
+    }
+    @media (min-width: 768px) {
+      .bottom-nav { display: none; }
     }
   </style>
   {% block extra_head %}{% endblock %}
@@ -26,16 +161,22 @@
 <body>
   <div id="app">
     {% if request.user.is_authenticated and request.user.parent_account %}
-    <nav class="navbar navbar-expand-md navbar-dark wallet-navbar">
-      <div class="container">
-        <a class="navbar-brand" href="{% url 'wallet:dashboard' %}">GIIA Parent Portal</a>
-        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#walletNav">
+    <nav class="navbar navbar-expand-md navbar-dark wallet-topbar">
+      <div class="container d-flex justify-content-between align-items-center">
+        <a class="navbar-brand" href="{% url 'wallet:dashboard' %}">
+          {% if data.logo %}<img src="{{ data.logo.url }}" alt="GIIA">{% endif %}
+          Parent Portal
+        </a>
+        <a href="{% url 'wallet:wallet_overview' %}" class="topbar-balance d-none d-sm-inline-flex">
+          <i class="bi bi-wallet2"></i> ₦{{ request.user.parent_account.wallet.balance|floatformat:2 }}
+        </a>
+        <button class="navbar-toggler text-white" type="button" data-toggle="collapse" data-target="#walletNav">
           <span class="navbar-toggler-icon"></span>
         </button>
-        <div class="collapse navbar-collapse" id="walletNav">
+        <div class="collapse navbar-collapse d-none d-md-flex" id="walletNav">
           <ul class="navbar-nav ml-auto">
             <li class="nav-item"><a class="nav-link" href="{% url 'wallet:dashboard' %}">Dashboard</a></li>
-            <li class="nav-item"><a class="nav-link" href="{% url 'wallet:wallet_overview' %}">My Wallet (₦{{ request.user.parent_account.wallet.balance|floatformat:2 }})</a></li>
+            <li class="nav-item"><a class="nav-link" href="{% url 'wallet:wallet_overview' %}">My Wallet</a></li>
             <li class="nav-item"><a class="nav-link" href="{% url 'wallet:wallet_transactions' %}">Transactions</a></li>
             <li class="nav-item"><a class="nav-link" href="{% url 'wallet:children_list' %}">My Children</a></li>
             <li class="nav-item"><a class="nav-link" href="{% url 'wallet:make_payment' %}">Make Payment</a></li>
@@ -57,6 +198,26 @@
         {% block content %}{% endblock %}
       </div>
     </section>
+
+    {% if request.user.is_authenticated and request.user.parent_account %}
+    <nav class="bottom-nav">
+      <a href="{% url 'wallet:dashboard' %}" class="bottom-nav-item {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+        <i class="bi bi-house-door-fill"></i>Home
+      </a>
+      <a href="{% url 'wallet:wallet_overview' %}" class="bottom-nav-item {% if request.resolver_match.url_name == 'wallet_overview' %}active{% endif %}">
+        <i class="bi bi-wallet2"></i>Wallet
+      </a>
+      <a href="{% url 'wallet:make_payment' %}" class="bottom-nav-item {% if request.resolver_match.url_name == 'make_payment' or request.resolver_match.url_name == 'pay_fees' %}active{% endif %}">
+        <i class="bi bi-credit-card-fill"></i>Pay
+      </a>
+      <a href="{% url 'wallet:children_list' %}" class="bottom-nav-item {% if request.resolver_match.url_name == 'children_list' or request.resolver_match.url_name == 'add_child' %}active{% endif %}">
+        <i class="bi bi-people-fill"></i>Children
+      </a>
+      <a href="{% url 'wallet:receipt_list' %}" class="bottom-nav-item {% if request.resolver_match.url_name == 'receipt_list' or request.resolver_match.url_name == 'receipt_detail' %}active{% endif %}">
+        <i class="bi bi-receipt"></i>Receipts
+      </a>
+    </nav>
+    {% endif %}
   </div>
   <script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.bundle.min.js"></script>

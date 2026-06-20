@@ -1,34 +1,49 @@
 {% extends 'wallet/base.html' %}
 {% block title %}My Wallet{% endblock %}
 {% block content %}
-<div class="row">
-  <div class="col-12 col-md-8 offset-md-2 col-lg-6 offset-lg-3">
-    <div class="card">
-      <div class="card-header">
-        <h4 class="text-center">My Wallet</h4>
-      </div>
-      <div class="card-body text-center">
-        <p class="text-muted mb-1">Current Balance</p>
-        <h2 class="mb-4">₦{{ wallet.balance|floatformat:2 }}</h2>
+<h4 class="mb-3">My Wallet</h4>
 
-        {% if virtual_account %}
-          <div class="card bg-light mb-3">
-            <div class="card-body">
-              <p class="mb-1"><strong>Account Number:</strong> {{ virtual_account.account_number }}</p>
-              <p class="mb-1"><strong>Account Name:</strong> {{ virtual_account.account_name }}</p>
-              <p class="mb-0"><strong>Bank:</strong> {{ virtual_account.bank_name }}</p>
-            </div>
-          </div>
-          <p class="text-muted small">Transfer any amount to this account from any bank. Your wallet is credited automatically.</p>
-        {% else %}
-          <p class="text-muted">Activate your wallet to get a dedicated account number you can fund by bank transfer.</p>
-          <form method="POST" action="{% url 'wallet:wallet_activate' %}">
-            {% csrf_token %}
-            <button type="submit" class="btn btn-primary btn-lg">Fund Wallet</button>
-          </form>
-        {% endif %}
+<div class="card mb-3" style="background: linear-gradient(135deg, #10182b 0%, #1c2944 60%, #2a3a63 100%); color:#fff;">
+  <div class="card-body text-center" style="padding: 2rem 1.25rem;">
+    <p class="mb-1" style="opacity:.7; font-size:.8rem; letter-spacing:.04em; text-transform:uppercase;">Current Balance</p>
+    <h1 class="mb-0" style="font-weight:800;">₦{{ wallet.balance|floatformat:2 }}</h1>
+  </div>
+</div>
+
+{% if virtual_account %}
+  <div class="card mb-3">
+    <div class="card-header"><i class="bi bi-bank mr-2"></i>Fund Your Wallet</div>
+    <div class="card-body">
+      <p class="text-muted small mb-3">Transfer any amount to this account from any bank. Your wallet is credited automatically.</p>
+      <div class="d-flex justify-content-between align-items-center p-3 mb-2" style="background:#f4f6fb; border-radius:12px;">
+        <div>
+          <div class="text-muted small" style="text-transform:uppercase; letter-spacing:.04em; font-size:.7rem;">Account Number</div>
+          <div style="font-size:1.4rem; font-weight:800; letter-spacing:.03em;">{{ virtual_account.account_number }}</div>
+        </div>
+        <i class="bi bi-clipboard-check" style="font-size:1.3rem; color:#c9a227;"></i>
+      </div>
+      <div class="d-flex justify-content-between py-2" style="border-bottom:1px solid #f0f2f7;">
+        <span class="text-muted small">Account Name</span>
+        <strong class="small">{{ virtual_account.account_name }}</strong>
+      </div>
+      <div class="d-flex justify-content-between py-2">
+        <span class="text-muted small">Bank</span>
+        <strong class="small">{{ virtual_account.bank_name }}</strong>
       </div>
     </div>
   </div>
-</div>
+{% else %}
+  <div class="card mb-3">
+    <div class="card-body text-center py-4">
+      <i class="bi bi-wallet2" style="font-size:2.2rem; color:#c9a227;"></i>
+      <p class="text-muted mt-3 mb-3">Activate your wallet to get a dedicated account number you can fund by bank transfer, anytime.</p>
+      <form method="POST" action="{% url 'wallet:wallet_activate' %}">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-primary btn-lg"><i class="bi bi-plus-circle mr-1"></i>Activate Wallet</button>
+      </form>
+    </div>
+  </div>
+{% endif %}
+
+<a href="{% url 'wallet:wallet_transactions' %}" class="btn btn-outline-primary btn-block"><i class="bi bi-clock-history mr-1"></i>View Transaction History</a>
 {% endblock %}

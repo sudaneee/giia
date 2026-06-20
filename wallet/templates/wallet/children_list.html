@@ -3,7 +3,7 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap">
   <h4 class="mb-2">My Children</h4>
-  <a href="{% url 'wallet:add_child' %}" class="btn btn-primary mb-2">+ Add Child</a>
+  <a href="{% url 'wallet:add_child' %}" class="btn btn-primary mb-2"><i class="bi bi-person-plus mr-1"></i>Add Child</a>
 </div>
 
 {% if links %}
@@ -12,10 +12,21 @@
       <div class="col-12 col-md-6 col-lg-4 mb-3">
         <div class="card h-100">
           <div class="card-body">
-            <h5 class="card-title">{{ link.student.first_name }} {{ link.student.last_name }}</h5>
-            <p class="card-text mb-1"><strong>Admission No:</strong> {{ link.student.admission_number }}</p>
-            <p class="card-text mb-1"><strong>Class:</strong> {{ link.student.enrolled_class|default:"Not assigned" }}</p>
-            <p class="card-text text-muted small">Added {{ link.added_at|date:"M d, Y" }}</p>
+            <div class="d-flex align-items-center mb-2">
+              <div style="width:46px;height:46px;border-radius:50%;background:#10182b;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;margin-right:.8rem;flex-shrink:0;">
+                {{ link.student.first_name|first }}{{ link.student.last_name|first }}
+              </div>
+              <h5 class="card-title mb-0">{{ link.student.first_name }} {{ link.student.last_name }}</h5>
+            </div>
+            <div class="d-flex justify-content-between py-1" style="border-top:1px solid #f0f2f7;">
+              <span class="text-muted small">Admission No.</span>
+              <strong class="small">{{ link.student.admission_number }}</strong>
+            </div>
+            <div class="d-flex justify-content-between py-1">
+              <span class="text-muted small">Class</span>
+              <strong class="small">{{ link.student.enrolled_class|default:"Not assigned" }}</strong>
+            </div>
+            <p class="card-text text-muted small mt-2 mb-0">Added {{ link.added_at|date:"M d, Y" }}</p>
           </div>
         </div>
       </div>
@@ -23,9 +34,10 @@
   </div>
 {% else %}
   <div class="card">
-    <div class="card-body text-center">
-      <p class="mb-3">You haven't added any children to your account yet.</p>
-      <a href="{% url 'wallet:add_child' %}" class="btn btn-primary">Add Your First Child</a>
+    <div class="card-body text-center py-4">
+      <i class="bi bi-people" style="font-size:2.2rem; color:#c9a227;"></i>
+      <p class="mb-3 mt-3 text-muted">You haven't added any children to your account yet.</p>
+      <a href="{% url 'wallet:add_child' %}" class="btn btn-primary"><i class="bi bi-person-plus mr-1"></i>Add Your First Child</a>
     </div>
   </div>
 {% endif %}

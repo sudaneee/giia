@@ -3,35 +3,54 @@
 {% block content %}
 <div class="row">
   <div class="col-12 col-md-8 offset-md-2">
+    <div class="text-center mb-3">
+      <div class="d-inline-flex align-items-center justify-content-center mb-2" style="width:64px;height:64px;border-radius:50%;background:#e7f7ee;color:#1aa260;font-size:1.8rem;">
+        <i class="bi bi-check-lg"></i>
+      </div>
+      <h5 class="mb-0">Payment Successful</h5>
+    </div>
+
     <div class="card">
       <div class="card-header text-center">
-        <h4 class="mb-0">Payment Receipt</h4>
-        <p class="mb-0" style="opacity:.75;">Great Insight International Academy</p>
+        {% if data.logo %}<img src="{{ data.logo.url }}" alt="" style="height:34px; margin-bottom:6px; border-radius:6px; background:#fff; padding:2px;"><br>{% endif %}
+        <span style="opacity:.8; font-size:.85rem;">Great Insight Int'l Academy</span>
       </div>
       <div class="card-body">
-        <p><strong>Reference:</strong> {{ wallet_payment.wallet_transaction.reference }}</p>
-        <p><strong>Date:</strong> {{ wallet_payment.created_at|date:"M d, Y H:i" }}</p>
-        <p><strong>Payment Method:</strong> Wallet</p>
-        <p><strong>Session / Term:</strong> {{ wallet_payment.session.name }} - {{ wallet_payment.term.name }}</p>
+        <div class="d-flex justify-content-between py-2" style="border-bottom:1px solid #f0f2f7;">
+          <span class="text-muted small">Reference</span>
+          <strong class="small">{{ wallet_payment.wallet_transaction.reference }}</strong>
+        </div>
+        <div class="d-flex justify-content-between py-2" style="border-bottom:1px solid #f0f2f7;">
+          <span class="text-muted small">Date</span>
+          <strong class="small">{{ wallet_payment.created_at|date:"M d, Y H:i" }}</strong>
+        </div>
+        <div class="d-flex justify-content-between py-2" style="border-bottom:1px solid #f0f2f7;">
+          <span class="text-muted small">Payment Method</span>
+          <strong class="small"><i class="bi bi-wallet2 mr-1"></i>Wallet</strong>
+        </div>
+        <div class="d-flex justify-content-between py-2 mb-2" style="border-bottom:1px solid #f0f2f7;">
+          <span class="text-muted small">Session / Term</span>
+          <strong class="small">{{ wallet_payment.session.name }} - {{ wallet_payment.term.name }}</strong>
+        </div>
 
-        <table class="table mt-3">
-          <thead><tr><th>Child</th><th>Admission No.</th><th>Fee</th><th>Amount Paid</th></tr></thead>
-          <tbody>
-            {% for payment in payments %}
-              <tr>
-                <td>{{ payment.student.first_name }} {{ payment.student.last_name }}</td>
-                <td>{{ payment.student.admission_number }}</td>
-                <td>{% if payment.other_fee %}{{ payment.other_fee.name }}{% else %}School Fees{% endif %}</td>
-                <td>₦{{ payment.amount_paid|floatformat:2 }}</td>
-              </tr>
-            {% endfor %}
-          </tbody>
-        </table>
+        <p class="text-muted small mb-2 mt-3">Items Paid</p>
+        {% for payment in payments %}
+          <div class="d-flex justify-content-between align-items-center px-3 py-2 mb-2" style="background:#f4f6fb; border-radius:10px;">
+            <div>
+              <div style="font-weight:600; font-size:.88rem;">{{ payment.student.first_name }} {{ payment.student.last_name }}</div>
+              <div class="text-muted small">{{ payment.student.admission_number }} &middot; {% if payment.other_fee %}{{ payment.other_fee.name }}{% else %}School Fees{% endif %}</div>
+            </div>
+            <strong>₦{{ payment.amount_paid|floatformat:2 }}</strong>
+          </div>
+        {% endfor %}
 
-        <p class="text-right"><strong>Total Debited from Wallet: ₦{{ wallet_payment.wallet_transaction.amount|floatformat:2 }}</strong></p>
+        <div class="d-flex justify-content-between align-items-center mt-3 pt-3" style="border-top:2px solid #10182b;">
+          <strong>Total Debited from Wallet</strong>
+          <strong style="font-size:1.2rem;">₦{{ wallet_payment.wallet_transaction.amount|floatformat:2 }}</strong>
+        </div>
 
         <div class="text-center mt-4 no-print">
-          <button onclick="window.print()" class="btn btn-outline-secondary">Print</button>
+          <button onclick="window.print()" class="btn btn-outline-secondary"><i class="bi bi-printer mr-1"></i>Print</button>
           <a href="{% url 'wallet:receipt_list' %}" class="btn btn-outline-secondary">Back to Receipts</a>
         </div>
       </div>

@@ -263,7 +263,7 @@ class PayFeesViewTests(TestCase):
         }, follow=True)
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'Payment Receipt')
+        self.assertContains(response, 'Payment Successful')
         self.wallet.refresh_from_db()
         self.assertEqual(self.wallet.balance, Decimal('100000.00') - Decimal('50300.00'))
 
@@ -360,7 +360,7 @@ class OtherFeesPaymentTests(TestCase):
         }, follow=True)
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'Payment Receipt')
+        self.assertContains(response, 'Payment Successful')
 
         self.wallet.refresh_from_db()
         self.assertEqual(self.wallet.balance, Decimal('100000.00') - Decimal('16300.00'))

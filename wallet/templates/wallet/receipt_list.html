@@ -5,25 +5,29 @@
 
 <div class="card">
   <div class="card-body p-0">
-    <div class="table-responsive">
-      <table class="table mb-0">
-        <thead><tr><th>Date</th><th>Reference</th><th>Session</th><th>Term</th><th>Amount Debited</th><th></th></tr></thead>
-        <tbody>
+    {% if wallet_payments %}
+      <div class="list-group list-group-flush">
         {% for wp in wallet_payments %}
-          <tr>
-            <td>{{ wp.created_at|date:"M d, Y H:i" }}</td>
-            <td>{{ wp.wallet_transaction.reference }}</td>
-            <td>{{ wp.session.name }}</td>
-            <td>{{ wp.term.name }}</td>
-            <td>₦{{ wp.wallet_transaction.amount|floatformat:2 }}</td>
-            <td><a href="{% url 'wallet:receipt_detail' wp.wallet_transaction.reference %}" class="btn btn-sm btn-outline-primary">View</a></td>
-          </tr>
-        {% empty %}
-          <tr><td colspan="6" class="text-center text-muted py-4">No wallet payments yet.</td></tr>
+          <a href="{% url 'wallet:receipt_detail' wp.wallet_transaction.reference %}" class="d-flex justify-content-between align-items-center px-3 py-3" style="border-bottom:1px solid #f0f2f7; color:inherit;">
+            <div class="d-flex align-items-center">
+              <div class="d-flex align-items-center justify-content-center mr-3" style="width:38px;height:38px;border-radius:50%;background:#fdf8ec;color:#c9a227;">
+                <i class="bi bi-receipt"></i>
+              </div>
+              <div>
+                <div style="font-weight:600; font-size:.92rem;">{{ wp.session.name }} - {{ wp.term.name }}</div>
+                <div class="text-muted small">{{ wp.created_at|date:"M d, Y H:i" }} &middot; {{ wp.wallet_transaction.reference|truncatechars:18 }}</div>
+              </div>
+            </div>
+            <div class="d-flex align-items-center">
+              <strong class="mr-2">₦{{ wp.wallet_transaction.amount|floatformat:2 }}</strong>
+              <i class="bi bi-chevron-right text-muted"></i>
+            </div>
+          </a>
         {% endfor %}
-        </tbody>
-      </table>
-    </div>
+      </div>
+    {% else %}
+      <p class="text-center text-muted py-4 mb-0">No wallet payments yet.</p>
+    {% endif %}
   </div>
 </div>
 {% endblock %}

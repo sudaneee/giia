@@ -1,40 +1,57 @@
 {% extends 'wallet/base.html' %}
 {% block title %}Make Payment{% endblock %}
+{% block extra_head %}
+<style>
+  .pill-tabs { display:flex; background:#fff; border-radius:999px; padding:4px; box-shadow: var(--shadow); margin-bottom:1.25rem; }
+  .pill-tabs a { flex:1; text-align:center; padding:.55rem 0; border-radius:999px; font-weight:600; font-size:.88rem; color:var(--muted); }
+  .pill-tabs a.active { background:var(--ink); color:#fff; }
+  .choice-card { border:2px solid #e9ecf3; border-radius:14px; padding:.7rem 1rem; cursor:pointer; transition:.15s; }
+  .choice-card input { margin-right:.5rem; }
+  .choice-card.checked { border-color: var(--ink); background:#f4f6fb; }
+  .student-pick { display:flex; align-items:center; border:2px solid #e9ecf3; border-radius:14px; padding:.7rem .9rem; margin-bottom:.6rem; cursor:pointer; }
+  .student-pick.checked { border-color: var(--gold); background:#fdf8ec; }
+  .student-avatar { width:36px;height:36px;border-radius:50%;background:#10182b;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.8rem;margin-right:.7rem;flex-shrink:0; }
+</style>
+{% endblock %}
 {% block content %}
 <h4 class="mb-3">Make Payment</h4>
 
-<div class="mb-3">
+<div class="pill-tabs">
   <a href="?fee_type=school_fees{% if selected_session %}&session_id={{ selected_session.id }}{% endif %}{% if selected_term %}&term_id={{ selected_term.id }}{% endif %}"
-     class="btn {% if fee_type == 'school_fees' %}btn-primary{% else %}btn-outline-primary{% endif %} mr-2">School Fees</a>
+     class="{% if fee_type == 'school_fees' %}active{% endif %}"><i class="bi bi-mortarboard mr-1"></i>School Fees</a>
   <a href="?fee_type=other_fees{% if selected_session %}&session_id={{ selected_session.id }}{% endif %}{% if selected_term %}&term_id={{ selected_term.id }}{% endif %}"
-     class="btn {% if fee_type == 'other_fees' %}btn-primary{% else %}btn-outline-primary{% endif %}">Other Fees</a>
+     class="{% if fee_type == 'other_fees' %}active{% endif %}"><i class="bi bi-bag mr-1"></i>Other Fees</a>
 </div>
 
-<!-- Session/term selection - submits back to this page so the term list
-     (and, for other fees, the available fee list) can be refreshed. -->
-<form method="GET" class="form-row align-items-end mb-4">
-  <input type="hidden" name="fee_type" value="{{ fee_type }}">
-  <div class="form-group col-auto">
-    <label class="small mb-1">Session</label>
-    <select name="session_id" class="form-control" onchange="this.form.submit()">
-      <option value="">Select session</option>
-      {% for session in sessions %}
-        <option value="{{ session.id }}" {% if selected_session and selected_session.id == session.id %}selected{% endif %}>{{ session.name }}</option>
-      {% endfor %}
-    </select>
+<div class="card mb-3">
+  <div class="card-body">
+    <!-- Session/term selection - submits back to this page so the term list
+         (and, for other fees, the available fee list) can be refreshed. -->
+    <form method="GET" class="form-row">
+      <input type="hidden" name="fee_type" value="{{ fee_type }}">
+      <div class="form-group col-6">
+        <label class="small mb-1 text-muted">Session</label>
+        <select name="session_id" class="form-control" onchange="this.form.submit()">
+          <option value="">Select session</option>
+          {% for session in sessions %}
+            <option value="{{ session.id }}" {% if selected_session and selected_session.id == session.id %}selected{% endif %}>{{ session.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      {% if selected_session %}
+      <div class="form-group col-6">
+        <label class="small mb-1 text-muted">Term</label>
+        <select name="term_id" class="form-control" onchange="this.form.submit()">
+          <option value="">Select term</option>
+          {% for term in terms %}
+            <option value="{{ term.id }}" {% if selected_term and selected_term.id == term.id %}selected{% endif %}>{{ term.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      {% endif %}
+    </form>
   </div>
-  {% if selected_session %}
-  <div class="form-group col-auto">
-    <label class="small mb-1">Term</label>
-    <select name="term_id" class="form-control" onchange="this.form.submit()">
-      <option value="">Select term</option>
-      {% for term in terms %}
-        <option value="{{ term.id }}" {% if selected_term and selected_term.id == term.id %}selected{% endif %}>{{ term.name }}</option>
-      {% endfor %}
-    </select>
-  </div>
-  {% endif %}
-</form>
+</div>
 
 {% if selected_session and selected_term %}
   {% if links %}
@@ -45,56 +62,72 @@
 
       {% if fee_type == 'school_fees' %}
         <div class="card mb-3">
-          <div class="card-header"><strong>Student Type &amp; Transport</strong></div>
+          <div class="card-header"><i class="bi bi-sliders mr-2"></i>Student Type &amp; Transport</div>
           <div class="card-body">
-            <div class="form-row">
-              <div class="col-auto">
-                <label class="mr-3"><input type="radio" name="student_type" value="new" {% if student_type == 'new' %}checked{% endif %}> New Intake</label>
-                <label><input type="radio" name="student_type" value="returning" {% if student_type == 'returning' %}checked{% endif %}> Returning</label>
+            <p class="text-muted small mb-2">Student Type</p>
+            <div class="row mb-3">
+              <div class="col-6">
+                <label class="choice-card d-block mb-0 {% if student_type == 'new' %}checked{% endif %}">
+                  <input type="radio" name="student_type" value="new" {% if student_type == 'new' %}checked{% endif %} onchange="this.closest('form').querySelectorAll('[name=student_type]').forEach(r=>r.closest('.choice-card').classList.toggle('checked', r.checked))">New Intake
+                </label>
               </div>
-              <div class="col-auto">
-                <label class="mr-3"><input type="radio" name="transport" value="true" {% if transport %}checked{% endif %}> With Transport</label>
-                <label><input type="radio" name="transport" value="false" {% if not transport %}checked{% endif %}> No Transport</label>
+              <div class="col-6">
+                <label class="choice-card d-block mb-0 {% if student_type == 'returning' %}checked{% endif %}">
+                  <input type="radio" name="student_type" value="returning" {% if student_type == 'returning' %}checked{% endif %} onchange="this.closest('form').querySelectorAll('[name=student_type]').forEach(r=>r.closest('.choice-card').classList.toggle('checked', r.checked))">Returning
+                </label>
+              </div>
+            </div>
+            <p class="text-muted small mb-2">Transport</p>
+            <div class="row">
+              <div class="col-6">
+                <label class="choice-card d-block mb-0 {% if transport %}checked{% endif %}">
+                  <input type="radio" name="transport" value="true" {% if transport %}checked{% endif %} onchange="this.closest('form').querySelectorAll('[name=transport]').forEach(r=>r.closest('.choice-card').classList.toggle('checked', r.checked))">With Transport
+                </label>
+              </div>
+              <div class="col-6">
+                <label class="choice-card d-block mb-0 {% if not transport %}checked{% endif %}">
+                  <input type="radio" name="transport" value="false" {% if not transport %}checked{% endif %} onchange="this.closest('form').querySelectorAll('[name=transport]').forEach(r=>r.closest('.choice-card').classList.toggle('checked', r.checked))">No Transport
+                </label>
               </div>
             </div>
           </div>
         </div>
       {% else %}
         <div class="card mb-3">
-          <div class="card-header"><strong>Select Fees</strong></div>
+          <div class="card-header"><i class="bi bi-bag mr-2"></i>Select Fees</div>
           <div class="card-body">
             {% if other_fee_structures %}
               {% for fee in other_fee_structures %}
-                <div class="form-check mb-2">
-                  <input class="form-check-input" type="checkbox" name="fee_id" value="{{ fee.id }}" id="fee-{{ fee.id }}">
-                  <label class="form-check-label" for="fee-{{ fee.id }}">
-                    <strong>{{ fee.name }}</strong> (₦{{ fee.amount|floatformat:2 }})
-                    {% if fee.description %}<div class="text-muted small">{{ fee.description }}</div>{% endif %}
-                  </label>
-                </div>
+                <label class="choice-card d-block mb-2">
+                  <input class="form-check-input" type="checkbox" name="fee_id" value="{{ fee.id }}" onchange="this.closest('label').classList.toggle('checked', this.checked)">
+                  <strong>{{ fee.name }}</strong> <span class="text-muted">(₦{{ fee.amount|floatformat:2 }})</span>
+                  {% if fee.description %}<div class="text-muted small ml-4">{{ fee.description }}</div>{% endif %}
+                </label>
               {% endfor %}
             {% else %}
-              <p class="text-muted mb-0">No other fees are active for this session/term.</p>
+              <p class="text-muted mb-0">No other fees are active right now.</p>
             {% endif %}
           </div>
         </div>
       {% endif %}
 
       <div class="card mb-3">
-        <div class="card-header"><strong>Select Children</strong></div>
+        <div class="card-header"><i class="bi bi-people-fill mr-2"></i>Select Children</div>
         <div class="card-body">
           {% for link in links %}
-            <div class="form-check mb-2">
-              <input class="form-check-input" type="checkbox" name="student_id" value="{{ link.student.id }}" id="student-{{ link.student.id }}">
-              <label class="form-check-label" for="student-{{ link.student.id }}">
-                {{ link.student.first_name }} {{ link.student.last_name }} ({{ link.student.admission_number }}) - {{ link.student.enrolled_class|default:"Not assigned" }}
-              </label>
-            </div>
+            <label class="student-pick mb-2">
+              <input type="checkbox" name="student_id" value="{{ link.student.id }}" style="display:none;" onchange="this.closest('label').classList.toggle('checked', this.checked)">
+              <span class="student-avatar">{{ link.student.first_name|first }}{{ link.student.last_name|first }}</span>
+              <span>
+                <strong class="d-block" style="font-size:.92rem;">{{ link.student.first_name }} {{ link.student.last_name }}</strong>
+                <span class="text-muted small">{{ link.student.admission_number }} - {{ link.student.enrolled_class|default:"Not assigned" }}</span>
+              </span>
+            </label>
           {% endfor %}
         </div>
       </div>
 
-      <button type="submit" class="btn btn-primary">Continue to Payment</button>
+      <button type="submit" class="btn btn-primary btn-lg btn-block"><i class="bi bi-arrow-right-circle mr-1"></i>Continue to Payment</button>
     </form>
   {% else %}
     <p class="text-muted">No children linked to your account yet. <a href="{% url 'wallet:add_child' %}">Add one now</a>.</p>

@@ -1,73 +1,73 @@
 {% extends 'wallet/base.html' %}
 {% block title %}Pay Fees{% endblock %}
 {% block content %}
-<h4 class="mb-3">{% if fee_type == 'school_fees' %}Pay School Fees{% else %}Pay Other Fees{% endif %}</h4>
-<p class="text-muted">{{ session.name }} - {{ term.name }}</p>
+<h4 class="mb-1">{% if fee_type == 'school_fees' %}Pay School Fees{% else %}Pay Other Fees{% endif %}</h4>
+<p class="text-muted mb-3"><i class="bi bi-calendar3 mr-1"></i>{{ session.name }} - {{ term.name }}</p>
 
 {% if fee_selections %}
   <div class="card mb-3">
+    <div class="card-header"><i class="bi bi-receipt mr-2"></i>Summary</div>
     <div class="card-body p-0">
-      <div class="table-responsive">
-        <table class="table mb-0">
-          <thead><tr><th>Child</th><th>Fee</th><th>Amount</th></tr></thead>
-          <tbody>
-            {% for item in fee_selections %}
-              <tr>
-                <td>{{ item.student.first_name }} {{ item.student.last_name }}</td>
-                <td>{% if item.other_fee %}{{ item.other_fee.name }}{% else %}School Fees{% endif %}</td>
-                <td>₦{{ item.amount|floatformat:2 }}</td>
-              </tr>
-            {% endfor %}
-          </tbody>
-          <tfoot>
-            <tr><th colspan="2">Total</th><th>₦{{ total_amount|floatformat:2 }}</th></tr>
-          </tfoot>
-        </table>
+      <div class="list-group list-group-flush">
+        {% for item in fee_selections %}
+          <div class="d-flex justify-content-between align-items-center px-3 py-3" style="border-bottom:1px solid #f0f2f7;">
+            <div>
+              <div style="font-weight:600; font-size:.92rem;">{{ item.student.first_name }} {{ item.student.last_name }}</div>
+              <div class="text-muted small">{% if item.other_fee %}{{ item.other_fee.name }}{% else %}School Fees{% endif %}</div>
+            </div>
+            <div style="font-weight:700;">₦{{ item.amount|floatformat:2 }}</div>
+          </div>
+        {% endfor %}
+      </div>
+      <div class="d-flex justify-content-between align-items-center px-3 py-3" style="background:#f4f6fb;">
+        <strong>Total</strong>
+        <strong style="font-size:1.15rem;">₦{{ total_amount|floatformat:2 }}</strong>
       </div>
     </div>
   </div>
 
-  <div class="row">
-    <div class="col-12 col-md-6 mb-3">
-      <div class="card h-100">
-        <div class="card-body">
-          <h5>Pay via Paystack</h5>
-          <p class="text-muted small">Pay the full amount now using card, bank transfer, or USSD through Paystack.</p>
-          <a href="{% url 'unified_payment' %}" class="btn btn-outline-primary">Go to Paystack Payment</a>
-        </div>
+  <div class="card mb-3">
+    <div class="card-body">
+      <div class="d-flex align-items-center mb-2">
+        <i class="bi bi-credit-card" style="font-size:1.3rem; color:#10182b;"></i>
+        <h6 class="mb-0 ml-2">Pay via Paystack</h6>
       </div>
+      <p class="text-muted small">Pay the full amount now using card, bank transfer, or USSD through Paystack.</p>
+      <a href="{% url 'unified_payment' %}" class="btn btn-outline-primary btn-block">Go to Paystack Payment</a>
     </div>
-    <div class="col-12 col-md-6 mb-3">
-      <div class="card h-100">
-        <div class="card-body">
-          <h5>Pay from Wallet</h5>
-          <p class="mb-1">Wallet balance: <strong>₦{{ wallet.balance|floatformat:2 }}</strong></p>
-          <p class="text-muted small">A transfer fee of approximately ₦{{ estimated_fee|floatformat:2 }} applies, charged by Zainpay on top of the fee amount.</p>
-          {% if can_pay_from_wallet %}
-            <form method="POST" action="{% url 'wallet:confirm_wallet_payment' %}">
-              {% csrf_token %}
-              <input type="hidden" name="fee_type" value="{{ fee_type }}">
-              <input type="hidden" name="session_id" value="{{ session.id }}">
-              <input type="hidden" name="term_id" value="{{ term.id }}">
-              {% if fee_type == 'school_fees' %}
-                <input type="hidden" name="student_type" value="{{ student_type }}">
-                <input type="hidden" name="transport" value="{{ transport|yesno:'true,false' }}">
-              {% else %}
-                {% for fee_id in fee_ids %}
-                  <input type="hidden" name="fee_id" value="{{ fee_id }}">
-                {% endfor %}
-              {% endif %}
-              {% for student_id in unique_student_ids %}
-                <input type="hidden" name="student_id" value="{{ student_id }}">
-              {% endfor %}
-              <button type="submit" class="btn btn-primary">Pay ₦{{ total_amount|floatformat:2 }} from Wallet</button>
-            </form>
-          {% else %}
-            <button class="btn btn-secondary" disabled>Insufficient Wallet Balance</button>
-            <p class="text-danger small mt-2">Fund your wallet or use Paystack instead.</p>
-          {% endif %}
-        </div>
+  </div>
+
+  <div class="card mb-3">
+    <div class="card-body">
+      <div class="d-flex align-items-center mb-2">
+        <i class="bi bi-wallet2" style="font-size:1.3rem; color:#c9a227;"></i>
+        <h6 class="mb-0 ml-2">Pay from Wallet</h6>
       </div>
+      <p class="mb-1 small">Wallet balance: <strong>₦{{ wallet.balance|floatformat:2 }}</strong></p>
+      <p class="text-muted small">A transfer fee of approximately ₦{{ estimated_fee|floatformat:2 }} applies, charged by Zainpay on top of the fee amount.</p>
+      {% if can_pay_from_wallet %}
+        <form method="POST" action="{% url 'wallet:confirm_wallet_payment' %}">
+          {% csrf_token %}
+          <input type="hidden" name="fee_type" value="{{ fee_type }}">
+          <input type="hidden" name="session_id" value="{{ session.id }}">
+          <input type="hidden" name="term_id" value="{{ term.id }}">
+          {% if fee_type == 'school_fees' %}
+            <input type="hidden" name="student_type" value="{{ student_type }}">
+            <input type="hidden" name="transport" value="{{ transport|yesno:'true,false' }}">
+          {% else %}
+            {% for fee_id in fee_ids %}
+              <input type="hidden" name="fee_id" value="{{ fee_id }}">
+            {% endfor %}
+          {% endif %}
+          {% for student_id in unique_student_ids %}
+            <input type="hidden" name="student_id" value="{{ student_id }}">
+          {% endfor %}
+          <button type="submit" class="btn btn-gold btn-block btn-lg">Pay ₦{{ total_amount|floatformat:2 }} from Wallet</button>
+        </form>
+      {% else %}
+        <button class="btn btn-secondary btn-block" disabled>Insufficient Wallet Balance</button>
+        <p class="text-danger small mt-2 mb-0">Fund your wallet or use Paystack instead.</p>
+      {% endif %}
     </div>
   </div>
 {% else %}

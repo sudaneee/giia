@@ -1,31 +1,49 @@
 {% extends 'wallet/base.html' %}
 {% block title %}Login{% endblock %}
+{% block extra_head %}
+<style>
+  body { background: linear-gradient(135deg, #10182b 0%, #1c2944 55%, #2a3a63 100%); min-height: 100vh; }
+  .auth-input-group .input-group-text { background:#fff; border-right:none; border-radius: var(--radius-sm) 0 0 var(--radius-sm); color: var(--muted); }
+  .auth-input-group .form-control { border-left:none; border-radius: 0 var(--radius-sm) var(--radius-sm) 0; }
+</style>
+{% endblock %}
 {% block content %}
-<div class="row">
+<div class="row align-items-center" style="min-height: 80vh;">
   <div class="col-12 col-sm-8 offset-sm-2 col-md-6 offset-md-3 col-lg-6 offset-lg-3 col-xl-4 offset-xl-4">
+    <div class="text-center mb-4">
+      {% if data.logo %}
+        <img src="{{ data.logo.url }}" alt="School Logo" style="max-height: 64px; border-radius:10px; background:#fff; padding:6px;">
+      {% endif %}
+      <h5 class="mt-3 mb-0" style="color:#fff;">Great Insight Int'l Academy</h5>
+      <p class="small mb-0" style="color:rgba(255,255,255,.6);">Parent Wallet Portal</p>
+    </div>
     <div class="card">
-      <div class="card-header">
-        <h4 class="text-center">Parent Portal Login</h4>
-      </div>
-      <div class="card-body">
+      <div class="card-body" style="padding:1.75rem;">
+        <h5 class="mb-3 text-center">Welcome Back</h5>
         {% if error %}
           <div class="alert alert-danger">{{ error }}</div>
         {% endif %}
         <form method="POST" novalidate>
           {% csrf_token %}
           <div class="form-group">
-            <label for="identifier">Email or Username</label>
-            <input id="identifier" type="text" class="form-control" name="identifier" required autofocus>
+            <label for="identifier" class="small text-muted">Email or Username</label>
+            <div class="input-group auth-input-group">
+              <div class="input-group-prepend"><span class="input-group-text"><i class="bi bi-person"></i></span></div>
+              <input id="identifier" type="text" class="form-control" name="identifier" required autofocus>
+            </div>
           </div>
           <div class="form-group">
-            <label for="password">Password</label>
-            <input id="password" type="password" class="form-control" name="password" required>
+            <label for="password" class="small text-muted">Password</label>
+            <div class="input-group auth-input-group">
+              <div class="input-group-prepend"><span class="input-group-text"><i class="bi bi-lock"></i></span></div>
+              <input id="password" type="password" class="form-control" name="password" required>
+            </div>
           </div>
-          <div class="form-group">
+          <div class="form-group mt-4 mb-0">
             <button type="submit" class="btn btn-primary btn-lg btn-block">Login</button>
           </div>
         </form>
-        <p class="text-center mt-3">Don't have an account? <a href="{% url 'wallet:register' %}">Register here</a></p>
+        <p class="text-center mt-3 mb-0 small">Don't have an account? <a href="{% url 'wallet:register' %}">Register here</a></p>
       </div>
     </div>
   </div>
