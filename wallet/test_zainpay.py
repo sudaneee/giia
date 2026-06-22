@@ -185,6 +185,23 @@ class TransferToSchoolTests(TestCase):
         with self.assertRaises(ZainpayTransferError):
             zainpay_service.transfer_to_school('2917863937', 5000, 'fee-pay-ref-2', 'School fees')
 
+    @patch('wallet.services.zainpay_service.requests.post')
+    def test_amount_sent_as_plain_integer_not_decimal(self, mock_post):
+        """
+        Regression test: Zainpay rejected "12000.00" in production with
+        "Invalid_amount" - it requires a plain integer string like "12000".
+        """
+        mock_post.return_value = mock_response({
+            'code': '200 OK',
+            'data': {'amount': '12000', 'status': 'success', 'totalTxnAmount': '12300', 'txnFee': '300', 'txnRef': 'fee-pay-ref-3'},
+            'description': 'Funds Transfer Successful',
+        })
+
+        zainpay_service.transfer_to_school('2917863937', Decimal('12000.00'), 'fee-pay-ref-3', 'School fees')
+
+        sent_payload = mock_post.call_args.kwargs['json']
+        self.assertEqual(sent_payload['amount'], '12000')
+
 
 @override_settings(ZAINPAY_SECRET_KEY='test-secret-key')
 class DepositWebhookViewTests(TestCase):

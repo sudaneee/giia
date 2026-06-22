@@ -1,6 +1,7 @@
 import hashlib
 import hmac
 import logging
+from decimal import ROUND_HALF_UP, Decimal
 
 import requests
 from django.conf import settings
@@ -154,10 +155,15 @@ def transfer_to_school(source_account_number, amount, txn_ref, narration):
     account for a school-fee payment. Returns the transfer data dict
     (including totalTxnAmount/txnFee) on success, or raises ZainpayTransferError.
     """
+    # Zainpay rejects a decimal-formatted amount (e.g. "12000.00") with
+    # "Invalid_amount" - confirmed in production. It wants a plain integer
+    # string, so whole naira amounts are sent as e.g. "12000".
+    amount_int = int(Decimal(str(amount)).quantize(Decimal('1'), rounding=ROUND_HALF_UP))
+
     payload = {
         "destinationAccountNumber": settings.ZAINPAY_SCHOOL_SETTLEMENT_ACCOUNT_NUMBER,
         "destinationBankCode": settings.ZAINPAY_SCHOOL_SETTLEMENT_BANK_CODE,
-        "amount": str(amount),
+        "amount": str(amount_int),
         "sourceAccountNumber": source_account_number,
         "sourceBankCode": settings.ZAINPAY_BANK_CODE,
         "zainboxCode": settings.ZAINPAY_ZAINBOX_CODE,
