@@ -124,7 +124,7 @@ def list_account_transactions(account_number):
     if result.get('code') != '00':
         return []
 
-    return result.get('data', [])
+    return result.get('data') or []
 
 
 def verify_deposit(txn_ref):
@@ -188,7 +188,11 @@ def transfer_to_school(source_account_number, amount, txn_ref, narration):
 
     logger.info('Zainpay transfer response (ref %s): status=%s body=%s', txn_ref, response.status_code, result)
 
-    data = result.get('data', {})
+    # `.get('data', {})` only falls back to {} when the key is *absent* - if
+    # Zainpay returns the key with an explicit null (seen in production on a
+    # rejected request), `.get()` still returns None and `.get('status')`
+    # below would crash. `or {}` covers both cases.
+    data = result.get('data') or {}
 
     if data.get('status') != 'success':
         reason = data.get('failureReason') or result.get('description') or 'Transfer failed.'
