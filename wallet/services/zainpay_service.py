@@ -1,5 +1,6 @@
 import hashlib
 import hmac
+import logging
 
 import requests
 from django.conf import settings
@@ -8,6 +9,8 @@ from django.db import IntegrityError
 from wallet.models import VirtualAccount
 
 from .exceptions import VirtualAccountCreationError, ZainpayTransferError
+
+logger = logging.getLogger(__name__)
 
 
 def _headers():
@@ -163,6 +166,8 @@ def transfer_to_school(source_account_number, amount, txn_ref, narration):
         "callbackUrl": f"{settings.SITE_BASE_URL}/parent/webhooks/zainpay/transfer/",
     }
 
+    logger.info('Zainpay transfer request (ref %s): %s', txn_ref, payload)
+
     try:
         response = requests.post(
             f"{settings.ZAINPAY_BASE_URL}/bank/transfer/v2",
@@ -172,14 +177,17 @@ def transfer_to_school(source_account_number, amount, txn_ref, narration):
         )
         result = response.json()
     except (requests.RequestException, ValueError) as e:
+        logger.warning('Zainpay transfer (ref %s) could not reach Zainpay: %s', txn_ref, e)
         raise ZainpayTransferError(f"Could not reach Zainpay: {e}")
+
+    logger.info('Zainpay transfer response (ref %s): status=%s body=%s', txn_ref, response.status_code, result)
 
     data = result.get('data', {})
 
     if data.get('status') != 'success':
-        raise ZainpayTransferError(
-            data.get('failureReason') or result.get('description') or 'Transfer failed.'
-        )
+        reason = data.get('failureReason') or result.get('description') or 'Transfer failed.'
+        logger.warning('Zainpay transfer (ref %s) failed: %s | full response: %s', txn_ref, reason, result)
+        raise ZainpayTransferError(reason)
 
     return data
 
