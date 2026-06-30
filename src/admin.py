@@ -137,9 +137,13 @@ class FeeComponentAdmin(admin.ModelAdmin):
 
 @admin.register(Payment)
 class PaymentAdmin(admin.ModelAdmin):
-    list_display = ('student', 'amount_paid', 'payment_date', 'status', 'session', 'term')
+    list_display = ('student', 'student_class', 'amount_paid', 'payment_method', 'payment_date', 'status', 'session', 'term')
     search_fields = ('student__first_name', 'student__last_name', 'session__name', 'term__name')
     list_filter = ('status', 'payment_method', 'session', 'term')
+
+    @admin.display(description='Class', ordering='student__enrolled_class__name')
+    def student_class(self, obj):
+        return obj.student.enrolled_class or '—'
 
 @admin.register(Item)
 class ItemAdmin(admin.ModelAdmin):

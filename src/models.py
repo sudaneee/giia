@@ -730,7 +730,8 @@ class Payment(models.Model):
         ('cash', 'Cash'),
         ('bank_transfer', 'Bank Transfer'),
         ('credit_card', 'Credit Card'),
-        ('waiver', 'Fee Waiver'), 
+        ('waiver', 'Fee Waiver'),
+        ('wallet', 'Wallet'),
     ])
     status = models.CharField(max_length=20, choices=[('paid', 'Paid'), ('pending', 'Pending'), ('overdue', 'Overdue')])
     session = models.ForeignKey(Session, on_delete=models.CASCADE)

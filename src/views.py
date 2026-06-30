@@ -80,6 +80,9 @@ def user_login(request):
         password = request.POST.get('password')
         user = authenticate(request, username=username, password=password)
         if user is not None:
+            if hasattr(user, 'parent_account'):
+                messages.error(request, 'Parent accounts cannot access the school system. Please use the parent portal.')
+                return render(request, 'src/login.html')
             login(request, user)
             request.session['username'] = username  # Set session data
             return redirect('student_list')
