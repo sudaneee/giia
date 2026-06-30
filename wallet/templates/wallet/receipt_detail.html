@@ -39,7 +39,9 @@
           <div class="d-flex justify-content-between align-items-center px-3 py-2 mb-2" style="background:#f4f6fb; border-radius:10px;">
             <div>
               <div style="font-weight:600; font-size:.88rem;">{{ payment.student.first_name }} {{ payment.student.last_name }}</div>
-              <div class="text-muted small">{{ payment.student.admission_number }} &middot; {% if payment.other_fee %}{{ payment.other_fee.name }}{% else %}School Fees{% endif %}</div>
+              <div class="text-muted small">
+                {{ payment.student.admission_number }}{% if payment.student.enrolled_class %} &middot; {{ payment.student.enrolled_class }}{% endif %} &middot; {% if payment.other_fee %}{{ payment.other_fee.name }}{% else %}School Fees{% endif %}
+              </div>
             </div>
             <strong>₦{{ payment.amount_paid|floatformat:2|intcomma }}</strong>
           </div>

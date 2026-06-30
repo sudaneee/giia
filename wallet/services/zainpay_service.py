@@ -43,12 +43,14 @@ def create_virtual_account(parent_account):
         "surname": user.last_name,
         "email": user.email,
         "mobileNumber": parent_account.phone_number,
-        "dob": parent_account.date_of_birth.strftime("%d-%m-%Y"),
-        "gender": parent_account.gender,
-        "address": parent_account.address,
-        "title": parent_account.title,
-        "state": parent_account.state,
-        "bvn": parent_account.bvn,
+        # BVN/DOB/gender/address/state are the head of school's details,
+        # shared across all parent virtual accounts (parents don't supply KYC).
+        "dob": settings.ZAINPAY_KYC_DOB,
+        "gender": settings.ZAINPAY_KYC_GENDER,
+        "address": settings.ZAINPAY_KYC_ADDRESS,
+        "title": settings.ZAINPAY_KYC_TITLE,
+        "state": settings.ZAINPAY_KYC_STATE,
+        "bvn": settings.ZAINPAY_KYC_BVN,
         "zainboxCode": settings.ZAINPAY_ZAINBOX_CODE,
     }
 

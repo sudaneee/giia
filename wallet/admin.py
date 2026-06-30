@@ -11,7 +11,7 @@ class ParentStudentLinkInline(admin.TabularInline):
 
 @admin.register(ParentAccount)
 class ParentAccountAdmin(admin.ModelAdmin):
-    list_display = ['__str__', 'user_email', 'phone_number', 'state', 'created_at']
+    list_display = ['__str__', 'user_email', 'phone_number', 'created_at']
     search_fields = ['user__email', 'user__first_name', 'user__last_name', 'phone_number']
     inlines = [ParentStudentLinkInline]
 

@@ -180,6 +180,15 @@ SITE_BASE_URL = os.getenv("SITE_BASE_URL", "http://localhost:8000")
 # before the real transfer happens. The actual debit always uses the real
 # totalTxnAmount Zainpay returns, never this estimate.
 ZAINPAY_TRANSFER_FEE_ESTIMATE = Decimal(os.getenv("ZAINPAY_TRANSFER_FEE_ESTIMATE", "300"))
+# KYC details used for all parent virtual account creation requests.
+# Zainpay requires BVN/DOB/gender/address/state but parents don't supply them;
+# the school provides a single authoritative set from the head of school.
+ZAINPAY_KYC_BVN     = os.getenv("ZAINPAY_KYC_BVN", "22156184124")
+ZAINPAY_KYC_DOB     = os.getenv("ZAINPAY_KYC_DOB", "22-06-2026")   # format: DD-MM-YYYY
+ZAINPAY_KYC_GENDER  = os.getenv("ZAINPAY_KYC_GENDER", "M")
+ZAINPAY_KYC_TITLE   = os.getenv("ZAINPAY_KYC_TITLE", "Mr")
+ZAINPAY_KYC_ADDRESS = os.getenv("ZAINPAY_KYC_ADDRESS", "No. 186 Railway Street H Dogo Samaru Zaria")
+ZAINPAY_KYC_STATE   = os.getenv("ZAINPAY_KYC_STATE", "Kaduna")
 
 # Without this, Python's default logging level (WARNING) silently drops every
 # logger.info() call in the wallet app - including the webhook diagnostics -

@@ -39,12 +39,6 @@ def register(request):
             ParentAccount.objects.create(
                 user=user,
                 phone_number=data['phone_number'],
-                title=data['title'],
-                gender=data['gender'],
-                date_of_birth=data['date_of_birth'],
-                bvn=data['bvn'],
-                address=data['address'],
-                state=data['state'],
             )
             login(request, user)
             messages.success(request, 'Registration successful. Welcome to the parent portal!')
@@ -193,7 +187,7 @@ VALID_STUDENT_TYPES = ('new', 'returning')
 
 
 def _linked_student_or_none(parent_account, student_id):
-    link = parent_account.student_links.filter(student_id=student_id).select_related('student').first()
+    link = parent_account.student_links.filter(student_id=student_id).select_related('student', 'student__enrolled_class').first()
     return link.student if link else None
 
 
@@ -435,7 +429,7 @@ def receipt_detail(request, reference):
         wallet_transaction__reference=reference,
         wallet_transaction__wallet=parent_account.wallet,
     )
-    payments = wallet_payment.payments.select_related('student', 'fee_structure', 'other_fee').all()
+    payments = wallet_payment.payments.select_related('student', 'student__enrolled_class', 'fee_structure', 'other_fee').all()
 
     return render(request, 'wallet/receipt_detail.html', {
         'wallet_payment': wallet_payment,

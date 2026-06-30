@@ -3,13 +3,12 @@
 {% block extra_head %}
 <style>
   body { background: linear-gradient(135deg, #10182b 0%, #1c2944 45%, #2a3a63 100%); min-height: 100vh; }
-  .section-label { font-size:.72rem; text-transform:uppercase; letter-spacing:.06em; color: var(--gold); font-weight:700; margin: 1.25rem 0 .6rem; }
   .form-group label { font-size:.82rem; color: var(--muted); }
 </style>
 {% endblock %}
 {% block content %}
 <div class="row">
-  <div class="col-12 col-md-10 offset-md-1 col-lg-8 offset-lg-2">
+  <div class="col-12 col-md-8 offset-md-2 col-lg-6 offset-lg-3">
     <div class="text-center mb-4">
       {% if data.logo %}
         <img src="{{ data.logo.url }}" alt="School Logo" style="max-height: 64px; border-radius:10px; background:#fff; padding:6px;">
@@ -22,73 +21,31 @@
         <form method="POST" novalidate>
           {% csrf_token %}
 
-          <p class="section-label mt-0"><i class="bi bi-person-circle mr-1"></i>Personal Information</p>
           <div class="form-row">
-            <div class="form-group col-md-6">
+            <div class="form-group col-6">
               <label>First Name</label>
               {{ form.first_name }}
               {% for error in form.first_name.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
             </div>
-            <div class="form-group col-md-6">
+            <div class="form-group col-6">
               <label>Last Name</label>
               {{ form.last_name }}
               {% for error in form.last_name.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
             </div>
           </div>
 
-          <div class="form-row">
-            <div class="form-group col-md-6">
-              <label>Email Address</label>
-              {{ form.email }}
-              {% for error in form.email.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
-            </div>
-            <div class="form-group col-md-6">
-              <label>Phone Number</label>
-              {{ form.phone_number }}
-              {% for error in form.phone_number.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
-            </div>
-          </div>
-
-          <div class="form-row">
-            <div class="form-group col-md-4">
-              <label>Title</label>
-              {{ form.title }}
-              {% for error in form.title.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
-            </div>
-            <div class="form-group col-md-4">
-              <label>Gender</label>
-              {{ form.gender }}
-              {% for error in form.gender.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
-            </div>
-            <div class="form-group col-md-4">
-              <label>Date of Birth</label>
-              {{ form.date_of_birth }}
-              {% for error in form.date_of_birth.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
-            </div>
-          </div>
-
-          <p class="section-label"><i class="bi bi-shield-check mr-1"></i>Identity &amp; Address</p>
-          <div class="form-row">
-            <div class="form-group col-md-6">
-              <label>BVN</label>
-              {{ form.bvn }}
-              <small class="form-text text-muted">{{ form.bvn.help_text }}</small>
-              {% for error in form.bvn.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
-            </div>
-            <div class="form-group col-md-6">
-              <label>State</label>
-              {{ form.state }}
-              {% for error in form.state.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
-            </div>
+          <div class="form-group">
+            <label>Email Address</label>
+            {{ form.email }}
+            {% for error in form.email.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
           </div>
 
           <div class="form-group">
-            <label>Address</label>
-            {{ form.address }}
-            {% for error in form.address.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+            <label>Phone Number</label>
+            {{ form.phone_number }}
+            {% for error in form.phone_number.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
           </div>
 
-          <p class="section-label"><i class="bi bi-lock mr-1"></i>Account Security</p>
           <div class="form-row">
             <div class="form-group col-md-6">
               <label>Password</label>
@@ -106,7 +63,7 @@
             <div class="alert alert-danger">{{ form.non_field_errors }}</div>
           {% endif %}
 
-          <button type="submit" class="btn btn-primary btn-lg btn-block mt-3">Create Account</button>
+          <button type="submit" class="btn btn-primary btn-lg btn-block mt-2">Create Account</button>
         </form>
         <p class="text-center mt-3 mb-0 small">Already have an account? <a href="{% url 'wallet:login' %}">Login</a></p>
       </div>

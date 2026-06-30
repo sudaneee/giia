@@ -6,31 +6,12 @@ from django.db.models import Sum
 
 
 class ParentAccount(models.Model):
-    TITLE_CHOICES = [
-        ('Mr', 'Mr'),
-        ('Mrs', 'Mrs'),
-        ('Miss', 'Miss'),
-        ('Dr', 'Dr'),
-        ('Chief', 'Chief'),
-        ('Other', 'Other'),
-    ]
-    GENDER_CHOICES = [
-        ('M', 'Male'),
-        ('F', 'Female'),
-    ]
-
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name='parent_account',
     )
     phone_number = models.CharField(max_length=20)
-    title = models.CharField(max_length=10, choices=TITLE_CHOICES)
-    gender = models.CharField(max_length=1, choices=GENDER_CHOICES)
-    date_of_birth = models.DateField()
-    bvn = models.CharField(max_length=11)
-    address = models.CharField(max_length=255)
-    state = models.CharField(max_length=50)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
