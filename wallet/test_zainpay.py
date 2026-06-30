@@ -186,21 +186,22 @@ class TransferToSchoolTests(TestCase):
             zainpay_service.transfer_to_school('2917863937', 5000, 'fee-pay-ref-2', 'School fees')
 
     @patch('wallet.services.zainpay_service.requests.post')
-    def test_amount_sent_as_plain_integer_not_decimal(self, mock_post):
+    def test_amount_sent_as_kobo_integer(self, mock_post):
         """
-        Regression test: Zainpay rejected "12000.00" in production with
-        "Invalid_amount" - it requires a plain integer string like "12000".
+        Zainpay's transfer API expects amounts in kobo as a plain integer
+        string (confirmed in production: sending "900" transferred ₦9.00).
+        ₦12,000 must be sent as "1200000" (kobo), not "12000" or "12000.00".
         """
         mock_post.return_value = mock_response({
             'code': '200 OK',
-            'data': {'amount': '12000', 'status': 'success', 'totalTxnAmount': '12300', 'txnFee': '300', 'txnRef': 'fee-pay-ref-3'},
+            'data': {'amount': '1200000', 'status': 'success', 'totalTxnAmount': '1230000', 'txnFee': '30000', 'txnRef': 'fee-pay-ref-3'},
             'description': 'Funds Transfer Successful',
         })
 
         zainpay_service.transfer_to_school('2917863937', Decimal('12000.00'), 'fee-pay-ref-3', 'School fees')
 
         sent_payload = mock_post.call_args.kwargs['json']
-        self.assertEqual(sent_payload['amount'], '12000')
+        self.assertEqual(sent_payload['amount'], '1200000')
 
 
 @override_settings(ZAINPAY_SECRET_KEY='test-secret-key')

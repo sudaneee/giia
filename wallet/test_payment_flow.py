@@ -67,11 +67,14 @@ def make_fee_fixture():
 
 
 def mock_transfer_success(amount):
+    # Zainpay returns amounts in kobo: ₦300 fee = 30000 kobo.
+    amount_d = Decimal(str(amount))
+    total_kobo = int((amount_d + Decimal('300')) * 100)
     return {
         'status': 'success',
-        'amount': str(amount),
-        'totalTxnAmount': str(Decimal(str(amount)) + Decimal('300')),
-        'txnFee': '300',
+        'amount': str(int(amount_d * 100)),
+        'totalTxnAmount': str(total_kobo),
+        'txnFee': '30000',
         'txnRef': 'whatever',
     }
 

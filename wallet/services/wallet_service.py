@@ -217,7 +217,11 @@ def pay_school_fees_from_wallet(parent_account, fee_selections, session, term):
         virtual_account.account_number, total_fee_amount, txn_ref, narration,
     )
 
-    actual_debit_amount = Decimal(str(transfer_data.get('totalTxnAmount', total_fee_amount)))
+    # Zainpay's transfer response returns totalTxnAmount in KOBO (same
+    # direction as the request). Divide by 100 to get naira for our ledger.
+    # Fall back to total_fee_amount (naira) only if the field is absent.
+    raw_kobo = transfer_data.get('totalTxnAmount')
+    actual_debit_amount = Decimal(str(raw_kobo)) / 100 if raw_kobo is not None else total_fee_amount
 
     try:
         with transaction.atomic():

@@ -155,15 +155,15 @@ def transfer_to_school(source_account_number, amount, txn_ref, narration):
     account for a school-fee payment. Returns the transfer data dict
     (including totalTxnAmount/txnFee) on success, or raises ZainpayTransferError.
     """
-    # Zainpay rejects a decimal-formatted amount (e.g. "12000.00") with
-    # "Invalid_amount" - confirmed in production. It wants a plain integer
-    # string, so whole naira amounts are sent as e.g. "12000".
-    amount_int = int(Decimal(str(amount)).quantize(Decimal('1'), rounding=ROUND_HALF_UP))
+    # Zainpay's transfer API expects amounts in KOBO (confirmed in production:
+    # sending "900" transferred ₦9.00, not ₦900). Multiply naira by 100 and
+    # send as a plain integer string - decimal format is also rejected.
+    amount_kobo = int(Decimal(str(amount)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP) * 100)
 
     payload = {
         "destinationAccountNumber": settings.ZAINPAY_SCHOOL_SETTLEMENT_ACCOUNT_NUMBER,
         "destinationBankCode": settings.ZAINPAY_SCHOOL_SETTLEMENT_BANK_CODE,
-        "amount": str(amount_int),
+        "amount": str(amount_kobo),
         "sourceAccountNumber": source_account_number,
         "sourceBankCode": settings.ZAINPAY_BANK_CODE,
         "zainboxCode": settings.ZAINPAY_ZAINBOX_CODE,
