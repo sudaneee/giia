@@ -132,6 +132,17 @@ def add_child(request):
 
 
 @parent_required
+@require_POST
+def remove_child(request, link_id):
+    parent_account = request.user.parent_account
+    link = get_object_or_404(ParentStudentLink, id=link_id, parent_account=parent_account)
+    name = f"{link.student.first_name} {link.student.last_name}"
+    link.delete()
+    messages.success(request, f'{name} has been removed from your account.')
+    return redirect('wallet:children_list')
+
+
+@parent_required
 def wallet_overview(request):
     wallet = request.user.parent_account.wallet
     virtual_account = VirtualAccount.objects.filter(wallet=wallet).first()

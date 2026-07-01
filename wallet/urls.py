@@ -11,6 +11,7 @@ urlpatterns = [
     path('dashboard/', views.dashboard, name='dashboard'),
     path('children/', views.children_list, name='children_list'),
     path('children/add/', views.add_child, name='add_child'),
+    path('children/<int:link_id>/remove/', views.remove_child, name='remove_child'),
     path('wallet/', views.wallet_overview, name='wallet_overview'),
     path('wallet/activate/', views.wallet_activate, name='wallet_activate'),
     path('wallet/transactions/', views.wallet_transactions, name='wallet_transactions'),

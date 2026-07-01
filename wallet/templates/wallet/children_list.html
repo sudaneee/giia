@@ -26,7 +26,13 @@
               <span class="text-muted small">Class</span>
               <strong class="small">{{ link.student.enrolled_class|default:"Not assigned" }}</strong>
             </div>
-            <p class="card-text text-muted small mt-2 mb-0">Added {{ link.added_at|date:"M d, Y" }}</p>
+            <div class="d-flex justify-content-between align-items-center mt-2">
+              <p class="card-text text-muted small mb-0">Added {{ link.added_at|date:"M d, Y" }}</p>
+              <form method="POST" action="{% url 'wallet:remove_child' link.id %}" onsubmit="return confirm('Remove {{ link.student.first_name }} from your account?')">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm btn-outline-danger">Remove</button>
+              </form>
+            </div>
           </div>
         </div>
       </div>
