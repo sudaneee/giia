@@ -249,7 +249,35 @@ def wallet_admin_pay_fees(request, parent_id):
     student_type = _clean_student_type(request)
     transport = _clean_transport(request)
 
+    debug_info = []
     if fee_type == 'school_fees':
+        term_group = term.name.lower().split()[0]
+        for student_id in _safe_int_list(student_ids):
+            student = _linked_student_or_none(parent_account, student_id)
+            if not student:
+                debug_info.append(f'Student {student_id}: not linked to this parent.')
+                continue
+            if not student.enrolled_class:
+                debug_info.append(f'{student.get_full_name()}: no enrolled class.')
+                continue
+            if not student.enrolled_class.section:
+                debug_info.append(f'{student.get_full_name()}: class "{student.enrolled_class}" has no section.')
+                continue
+            from src.models import FeeStructure
+            fee = FeeStructure.objects.filter(
+                section=student.enrolled_class.section,
+                session=session,
+                term_group=term_group,
+                student_type=student_type,
+                transport=transport,
+            ).first()
+            if not fee:
+                debug_info.append(
+                    f'{student.get_full_name()}: no fee structure for section="{student.enrolled_class.section}", '
+                    f'session="{session}", term_group="{term_group}", student_type="{student_type}", transport={transport}.'
+                )
+                continue
+            debug_info.append(f'{student.get_full_name()}: fee structure found (₦{fee.total_amount}), computing balance...')
         fee_selections = _build_school_fee_selections(parent_account, session, term, student_ids, student_type, transport)
     else:
         fee_ids = request.GET.getlist('fee_id')
@@ -275,6 +303,7 @@ def wallet_admin_pay_fees(request, parent_id):
         'can_pay': can_pay,
         'student_ids': student_ids,
         'fee_ids': request.GET.getlist('fee_id') if fee_type == 'other_fees' else [],
+        'debug_info': debug_info,
     })
 
 
