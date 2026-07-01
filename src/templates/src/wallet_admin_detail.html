@@ -1,0 +1,115 @@
+{% extends "src/partials/base.html" %}
+{% block content %}
+<div class="main-content mt-1">
+
+  {% if messages %}
+    {% for msg in messages %}
+      <div class="alert alert-{{ msg.tags }} alert-dismissible fade show">
+        {{ msg }}<button type="button" class="close" data-dismiss="alert">&times;</button>
+      </div>
+    {% endfor %}
+  {% endif %}
+
+  <!-- Header -->
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+      <h4 class="mb-0">{{ parent_account.user.get_full_name }}</h4>
+      <small class="text-muted">{{ parent_account.user.email }} &middot; {{ parent_account.phone_number }}</small>
+    </div>
+    <div>
+      <a href="{% url 'wallet_admin_make_payment' parent_account.id %}" class="btn btn-success btn-sm mr-1">Pay Fees</a>
+      <a href="{% url 'wallet_admin_list' %}" class="btn btn-secondary btn-sm">Back</a>
+    </div>
+  </div>
+
+  <div class="row">
+
+    <!-- Wallet Info -->
+    <div class="col-md-4 mb-3">
+      <div class="card h-100">
+        <div class="card-header"><strong>Wallet</strong></div>
+        <div class="card-body">
+          <h3 class="text-success">₦{{ wallet.balance|floatformat:2 }}</h3>
+          <p class="text-muted small mb-2">Current Balance</p>
+          <hr>
+          {% if virtual_account %}
+            <p class="mb-1"><strong>Account Number:</strong> {{ virtual_account.account_number }}</p>
+            <p class="mb-1"><strong>Bank:</strong> {{ virtual_account.bank_name }}</p>
+            <p class="mb-0"><strong>Account Name:</strong> {{ virtual_account.account_name }}</p>
+            <div class="alert alert-info mt-3 small mb-0">
+              Parent can fund by transferring to this account. Balance updates automatically within 5 minutes.
+            </div>
+          {% else %}
+            <p class="text-muted small">No virtual account yet.</p>
+            <form method="POST" action="{% url 'wallet_admin_activate' parent_account.id %}">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-primary btn-block btn-sm">Activate Virtual Account</button>
+            </form>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Children -->
+    <div class="col-md-4 mb-3">
+      <div class="card h-100">
+        <div class="card-header"><strong>Linked Children</strong></div>
+        <div class="card-body">
+          {% for link in links %}
+            <div class="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">
+              <div>
+                <strong class="small">{{ link.student.first_name }} {{ link.student.last_name }}</strong><br>
+                <span class="text-muted small">{{ link.student.admission_number }} &middot; {{ link.student.enrolled_class|default:"No class" }}</span>
+              </div>
+              <form method="POST" action="{% url 'wallet_admin_remove_child' parent_account.id link.id %}"
+                    onsubmit="return confirm('Remove {{ link.student.first_name }}?')">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm btn-outline-danger">Remove</button>
+              </form>
+            </div>
+          {% empty %}
+            <p class="text-muted small">No children linked yet.</p>
+          {% endfor %}
+
+          <hr>
+          <p class="small mb-1"><strong>Add Child by Admission Number</strong></p>
+          <form method="POST" action="{% url 'wallet_admin_add_child' parent_account.id %}">
+            {% csrf_token %}
+            <div class="input-group input-group-sm">
+              {{ add_child_form.admission_number }}
+              <div class="input-group-append">
+                <button type="submit" class="btn btn-primary">Add</button>
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- Recent Transactions -->
+    <div class="col-md-4 mb-3">
+      <div class="card h-100">
+        <div class="card-header"><strong>Recent Transactions</strong></div>
+        <div class="card-body p-0">
+          <div class="list-group list-group-flush">
+            {% for txn in transactions %}
+              <div class="list-group-item px-3 py-2">
+                <div class="d-flex justify-content-between">
+                  <span class="small">{{ txn.narration|truncatechars:30 }}</span>
+                  <span class="small {% if txn.transaction_type == 'credit' %}text-success{% else %}text-danger{% endif %}">
+                    {% if txn.transaction_type == 'credit' %}+{% else %}-{% endif %}₦{{ txn.amount|floatformat:2 }}
+                  </span>
+                </div>
+                <div class="text-muted" style="font-size:0.72rem;">{{ txn.created_at|date:"M d, Y H:i" }} &middot; {{ txn.status }}</div>
+              </div>
+            {% empty %}
+              <div class="list-group-item text-muted small">No transactions yet.</div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}

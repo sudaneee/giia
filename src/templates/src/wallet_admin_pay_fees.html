@@ -1,0 +1,81 @@
+{% extends "src/partials/base.html" %}
+{% block content %}
+<div class="main-content mt-1">
+  <div class="card" style="max-width:640px; margin:auto;">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <h4 class="mb-0">Confirm Payment — {{ parent_account.user.get_full_name }}</h4>
+      <a href="{% url 'wallet_admin_make_payment' parent_account.id %}" class="btn btn-secondary btn-sm">Back</a>
+    </div>
+    <div class="card-body">
+
+      {% if messages %}
+        {% for msg in messages %}
+          <div class="alert alert-{{ msg.tags }}">{{ msg }}</div>
+        {% endfor %}
+      {% endif %}
+
+      {% if fee_selections %}
+        <table class="table table-sm mb-3">
+          <thead>
+            <tr>
+              <th>Student</th>
+              <th>Fee</th>
+              <th class="text-right">Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in fee_selections %}
+              <tr>
+                <td>{{ item.student.first_name }} {{ item.student.last_name }}</td>
+                <td>{% if item.other_fee %}{{ item.other_fee.name }}{% else %}School Fees{% endif %}</td>
+                <td class="text-right">₦{{ item.amount|floatformat:2 }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+          <tfoot>
+            <tr>
+              <td colspan="2"><strong>Subtotal</strong></td>
+              <td class="text-right"><strong>₦{{ total_amount|floatformat:2 }}</strong></td>
+            </tr>
+            <tr>
+              <td colspan="2" class="text-muted small">Transfer fee (est.)</td>
+              <td class="text-right text-muted small">₦{{ estimated_fee|floatformat:2 }}</td>
+            </tr>
+            <tr>
+              <td colspan="2"><strong>Total Deducted</strong></td>
+              <td class="text-right"><strong>₦{{ total_amount|floatformat:2 }} + fee</strong></td>
+            </tr>
+          </tfoot>
+        </table>
+
+        <div class="alert {% if can_pay %}alert-success{% else %}alert-danger{% endif %} small">
+          Wallet balance: <strong>₦{{ wallet.balance|floatformat:2 }}</strong> —
+          {% if can_pay %}sufficient to cover this payment.{% else %}insufficient. Please fund the wallet first.{% endif %}
+        </div>
+
+        {% if can_pay %}
+          <form method="POST" action="{% url 'wallet_admin_confirm_payment' parent_account.id %}">
+            {% csrf_token %}
+            <input type="hidden" name="fee_type" value="{{ fee_type }}">
+            <input type="hidden" name="session_id" value="{{ session.id }}">
+            <input type="hidden" name="term_id" value="{{ term.id }}">
+            <input type="hidden" name="student_type" value="{{ student_type }}">
+            <input type="hidden" name="transport" value="{{ transport|yesno:'true,false' }}">
+            {% for sid in unique_student_ids %}
+              <input type="hidden" name="student_id" value="{{ sid }}">
+            {% endfor %}
+            {% for fid in fee_ids %}
+              <input type="hidden" name="fee_id" value="{{ fid }}">
+            {% endfor %}
+            <button type="submit" class="btn btn-success btn-block">Confirm & Pay from Wallet</button>
+          </form>
+        {% endif %}
+
+      {% else %}
+        <div class="alert alert-warning">No outstanding fees found for the selected students and term.</div>
+      {% endif %}
+
+    </div>
+  </div>
+</div>
+{% endblock %}

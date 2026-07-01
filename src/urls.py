@@ -1,9 +1,20 @@
 # src/urls.py
 
 from django.urls import path
-from . import views
+from . import views, wallet_admin_views
 
 urlpatterns = [
+    # Wallet Admin (superuser only)
+    path('wallet-admin/', wallet_admin_views.wallet_admin_list, name='wallet_admin_list'),
+    path('wallet-admin/create/', wallet_admin_views.wallet_admin_create, name='wallet_admin_create'),
+    path('wallet-admin/<int:parent_id>/', wallet_admin_views.wallet_admin_detail, name='wallet_admin_detail'),
+    path('wallet-admin/<int:parent_id>/activate/', wallet_admin_views.wallet_admin_activate, name='wallet_admin_activate'),
+    path('wallet-admin/<int:parent_id>/children/add/', wallet_admin_views.wallet_admin_add_child, name='wallet_admin_add_child'),
+    path('wallet-admin/<int:parent_id>/children/<int:link_id>/remove/', wallet_admin_views.wallet_admin_remove_child, name='wallet_admin_remove_child'),
+    path('wallet-admin/<int:parent_id>/pay/', wallet_admin_views.wallet_admin_make_payment, name='wallet_admin_make_payment'),
+    path('wallet-admin/<int:parent_id>/pay/fees/', wallet_admin_views.wallet_admin_pay_fees, name='wallet_admin_pay_fees'),
+    path('wallet-admin/<int:parent_id>/pay/confirm/', wallet_admin_views.wallet_admin_confirm_payment, name='wallet_admin_confirm_payment'),
+
     path('login/', views.user_login, name='login'),
     path('logout/', views.user_logout, name='logout'),
     path('students/', views.student_list, name='student_list'),

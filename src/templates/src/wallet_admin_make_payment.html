@@ -1,0 +1,99 @@
+{% extends "src/partials/base.html" %}
+{% block content %}
+<div class="main-content mt-1">
+  <div class="card" style="max-width:700px; margin:auto;">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <h4 class="mb-0">Pay Fees — {{ parent_account.user.get_full_name }}</h4>
+      <a href="{% url 'wallet_admin_detail' parent_account.id %}" class="btn btn-secondary btn-sm">Back</a>
+    </div>
+    <div class="card-body">
+
+      <form method="GET" action="{% url 'wallet_admin_pay_fees' parent_account.id %}">
+
+        <!-- Fee Type -->
+        <div class="form-group">
+          <label>Fee Type</label>
+          <select name="fee_type" class="form-control" onchange="this.form.submit()">
+            <option value="school_fees" {% if fee_type == 'school_fees' %}selected{% endif %}>School Fees</option>
+            <option value="other_fees" {% if fee_type == 'other_fees' %}selected{% endif %}>Other Fees</option>
+          </select>
+        </div>
+
+        <!-- Session -->
+        <div class="form-group">
+          <label>Session</label>
+          <select name="session_id" class="form-control" onchange="this.form.submit()">
+            <option value="">-- Select Session --</option>
+            {% for s in sessions %}
+              <option value="{{ s.id }}" {% if selected_session.id == s.id %}selected{% endif %}>{{ s.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <!-- Term -->
+        <div class="form-group">
+          <label>Term</label>
+          <select name="term_id" class="form-control">
+            <option value="">-- Select Term --</option>
+            {% for t in terms %}
+              <option value="{{ t.id }}" {% if selected_term.id == t.id %}selected{% endif %}>{{ t.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        {% if fee_type == 'school_fees' %}
+          <!-- Student Type -->
+          <div class="form-group">
+            <label>Student Type</label>
+            <select name="student_type" class="form-control">
+              <option value="returning" {% if student_type == 'returning' %}selected{% endif %}>Returning</option>
+              <option value="new" {% if student_type == 'new' %}selected{% endif %}>New</option>
+            </select>
+          </div>
+          <!-- Transport -->
+          <div class="form-group">
+            <label>Transport</label>
+            <select name="transport" class="form-control">
+              <option value="false" {% if not transport %}selected{% endif %}>No Transport</option>
+              <option value="true" {% if transport %}selected{% endif %}>With Transport</option>
+            </select>
+          </div>
+        {% endif %}
+
+        <!-- Children -->
+        <div class="form-group">
+          <label>Select Children</label>
+          {% for link in links %}
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" name="student_id" value="{{ link.student.id }}" id="s{{ link.student.id }}" checked>
+              <label class="form-check-label" for="s{{ link.student.id }}">
+                {{ link.student.first_name }} {{ link.student.last_name }} ({{ link.student.admission_number }})
+              </label>
+            </div>
+          {% empty %}
+            <p class="text-muted small">No children linked to this account.</p>
+          {% endfor %}
+        </div>
+
+        {% if fee_type == 'other_fees' %}
+          <div class="form-group">
+            <label>Select Fees</label>
+            {% for fee in other_fee_structures %}
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" name="fee_id" value="{{ fee.id }}" id="f{{ fee.id }}" checked>
+                <label class="form-check-label" for="f{{ fee.id }}">{{ fee.name }} — ₦{{ fee.amount|floatformat:2 }}</label>
+              </div>
+            {% endfor %}
+          </div>
+          <input type="hidden" name="fee_type" value="other_fees">
+        {% else %}
+          <input type="hidden" name="fee_type" value="school_fees">
+        {% endif %}
+
+        <button type="submit" class="btn btn-primary btn-block">View Fee Breakdown</button>
+      </form>
+
+    </div>
+  </div>
+</div>
+{% endblock %}
