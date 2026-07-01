@@ -235,8 +235,15 @@ def wallet_admin_pay_fees(request, parent_id):
     if fee_type not in ('school_fees', 'other_fees'):
         fee_type = 'school_fees'
 
-    session = get_object_or_404(Session, id=request.GET.get('session_id'))
-    term = get_object_or_404(Term, id=request.GET.get('term_id'), session=session)
+    session_id = request.GET.get('session_id', '').strip()
+    term_id = request.GET.get('term_id', '').strip()
+
+    if not session_id or not term_id:
+        messages.error(request, 'Please select both a session and a term.')
+        return redirect('wallet_admin_make_payment', parent_id=parent_id)
+
+    session = get_object_or_404(Session, id=session_id)
+    term = get_object_or_404(Term, id=term_id, session=session)
     student_ids = request.GET.getlist('student_id')
 
     student_type = _clean_student_type(request)
