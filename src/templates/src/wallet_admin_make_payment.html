@@ -8,87 +8,125 @@
     </div>
     <div class="card-body">
 
-      <form method="GET" action="{% url 'wallet_admin_pay_fees' parent_account.id %}">
+      <!-- Fee type tabs -->
+      <div class="mb-3">
+        <a href="?fee_type=school_fees{% if selected_session %}&session_id={{ selected_session.id }}{% endif %}{% if selected_term %}&term_id={{ selected_term.id }}{% endif %}"
+           class="btn btn-sm {% if fee_type == 'school_fees' %}btn-primary{% else %}btn-outline-primary{% endif %} mr-1">School Fees</a>
+        <a href="?fee_type=other_fees{% if selected_session %}&session_id={{ selected_session.id }}{% endif %}{% if selected_term %}&term_id={{ selected_term.id }}{% endif %}"
+           class="btn btn-sm {% if fee_type == 'other_fees' %}btn-primary{% else %}btn-outline-primary{% endif %}">Other Fees</a>
+      </div>
 
-        <!-- Fee Type -->
-        <div class="form-group">
-          <label>Fee Type</label>
-          <select name="fee_type" class="form-control" onchange="this.form.submit()">
-            <option value="school_fees" {% if fee_type == 'school_fees' %}selected{% endif %}>School Fees</option>
-            <option value="other_fees" {% if fee_type == 'other_fees' %}selected{% endif %}>Other Fees</option>
-          </select>
-        </div>
-
-        <!-- Session -->
-        <div class="form-group">
-          <label>Session</label>
-          <select name="session_id" class="form-control" onchange="this.form.submit()">
-            <option value="">-- Select Session --</option>
-            {% for s in sessions %}
-              <option value="{{ s.id }}" {% if selected_session.id == s.id %}selected{% endif %}>{{ s.name }}</option>
-            {% endfor %}
-          </select>
-        </div>
-
-        <!-- Term -->
-        <div class="form-group">
-          <label>Term</label>
-          <select name="term_id" class="form-control">
-            <option value="">-- Select Term --</option>
-            {% for t in terms %}
-              <option value="{{ t.id }}" {% if selected_term.id == t.id %}selected{% endif %}>{{ t.name }}</option>
-            {% endfor %}
-          </select>
-        </div>
-
-        {% if fee_type == 'school_fees' %}
-          <!-- Student Type -->
-          <div class="form-group">
-            <label>Student Type</label>
-            <select name="student_type" class="form-control">
-              <option value="returning" {% if student_type == 'returning' %}selected{% endif %}>Returning</option>
-              <option value="new" {% if student_type == 'new' %}selected{% endif %}>New</option>
+      <!-- Form 1: session/term — submits back to this same page to reload terms -->
+      <form method="GET" class="mb-3">
+        <input type="hidden" name="fee_type" value="{{ fee_type }}">
+        <div class="form-row">
+          <div class="form-group col-md-6">
+            <label>Session</label>
+            <select name="session_id" class="form-control" onchange="this.form.submit()">
+              <option value="">Select session</option>
+              {% for s in sessions %}
+                <option value="{{ s.id }}" {% if selected_session.id == s.id %}selected{% endif %}>{{ s.name }}</option>
+              {% endfor %}
             </select>
           </div>
-          <!-- Transport -->
-          <div class="form-group">
-            <label>Transport</label>
-            <select name="transport" class="form-control">
-              <option value="false" {% if not transport %}selected{% endif %}>No Transport</option>
-              <option value="true" {% if transport %}selected{% endif %}>With Transport</option>
+          {% if selected_session %}
+          <div class="form-group col-md-6">
+            <label>Term</label>
+            <select name="term_id" class="form-control" onchange="this.form.submit()">
+              <option value="">Select term</option>
+              {% for t in terms %}
+                <option value="{{ t.id }}" {% if selected_term.id == t.id %}selected{% endif %}>{{ t.name }}</option>
+              {% endfor %}
             </select>
           </div>
-        {% endif %}
-
-        <!-- Children -->
-        <div class="form-group">
-          <label>Select Children</label>
-          {% for link in links %}
-            <div class="form-check">
-              <input class="form-check-input" type="checkbox" name="student_id" value="{{ link.student.id }}" id="s{{ link.student.id }}" checked>
-              <label class="form-check-label" for="s{{ link.student.id }}">
-                {{ link.student.first_name }} {{ link.student.last_name }} ({{ link.student.admission_number }})
-              </label>
-            </div>
-          {% empty %}
-            <p class="text-muted small">No children linked to this account.</p>
-          {% endfor %}
+          {% endif %}
         </div>
-
-        {% if fee_type == 'other_fees' %}
-          <div class="form-group">
-            <label>Select Fees</label>
-            {% for fee in other_fee_structures %}
-              <div class="form-check">
-                <input class="form-check-input" type="checkbox" name="fee_id" value="{{ fee.id }}" id="f{{ fee.id }}" checked>
-                <label class="form-check-label" for="f{{ fee.id }}">{{ fee.name }} — ₦{{ fee.amount|floatformat:2 }}</label>
-              </div>
-            {% endfor %}
-          </div>
-        {% endif %}
-
-        <button type="submit" class="btn btn-primary btn-block">View Fee Breakdown</button>
       </form>
+
+      <!-- Form 2: student/fee selection — only shown when session AND term are selected -->
+      {% if selected_session and selected_term %}
+        {% if links %}
+          <form method="GET" action="{% url 'wallet_admin_pay_fees' parent_account.id %}">
+            <input type="hidden" name="fee_type" value="{{ fee_type }}">
+            <input type="hidden" name="session_id" value="{{ selected_session.id }}">
+            <input type="hidden" name="term_id" value="{{ selected_term.id }}">
+
+            {% if fee_type == 'school_fees' %}
+              <div class="form-group">
+                <label>Student Type</label>
+                <div class="form-row">
+                  <div class="col-6">
+                    <div class="border rounded p-2 text-center" style="cursor:pointer;">
+                      <label class="mb-0 w-100" style="cursor:pointer;">
+                        <input type="radio" name="student_type" value="returning" {% if student_type == 'returning' %}checked{% endif %}> Returning
+                      </label>
+                    </div>
+                  </div>
+                  <div class="col-6">
+                    <div class="border rounded p-2 text-center" style="cursor:pointer;">
+                      <label class="mb-0 w-100" style="cursor:pointer;">
+                        <input type="radio" name="student_type" value="new" {% if student_type == 'new' %}checked{% endif %}> New Intake
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="form-group">
+                <label>Transport</label>
+                <div class="form-row">
+                  <div class="col-6">
+                    <div class="border rounded p-2 text-center" style="cursor:pointer;">
+                      <label class="mb-0 w-100" style="cursor:pointer;">
+                        <input type="radio" name="transport" value="false" {% if not transport %}checked{% endif %}> No Transport
+                      </label>
+                    </div>
+                  </div>
+                  <div class="col-6">
+                    <div class="border rounded p-2 text-center" style="cursor:pointer;">
+                      <label class="mb-0 w-100" style="cursor:pointer;">
+                        <input type="radio" name="transport" value="true" {% if transport %}checked{% endif %}> With Transport
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            {% else %}
+              <div class="form-group">
+                <label>Select Fees</label>
+                {% for fee in other_fee_structures %}
+                  <div class="form-check border rounded p-2 mb-2">
+                    <input class="form-check-input" type="checkbox" name="fee_id" value="{{ fee.id }}" id="f{{ fee.id }}" checked>
+                    <label class="form-check-label" for="f{{ fee.id }}">
+                      <strong>{{ fee.name }}</strong> — ₦{{ fee.amount|floatformat:2 }}
+                    </label>
+                  </div>
+                {% empty %}
+                  <p class="text-muted small">No active other fees.</p>
+                {% endfor %}
+              </div>
+            {% endif %}
+
+            <div class="form-group">
+              <label>Select Children</label>
+              {% for link in links %}
+                <div class="form-check border rounded p-2 mb-2">
+                  <input class="form-check-input" type="checkbox" name="student_id" value="{{ link.student.id }}" id="s{{ link.student.id }}" checked>
+                  <label class="form-check-label" for="s{{ link.student.id }}">
+                    <strong>{{ link.student.first_name }} {{ link.student.last_name }}</strong>
+                    <span class="text-muted small ml-1">{{ link.student.admission_number }} — {{ link.student.enrolled_class|default:"No class" }}</span>
+                  </label>
+                </div>
+              {% endfor %}
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-block">Continue to Payment Breakdown</button>
+          </form>
+        {% else %}
+          <p class="text-muted">No children linked to this account.</p>
+        {% endif %}
+      {% else %}
+        <p class="text-muted">Select a session and term to continue.</p>
+      {% endif %}
 
     </div>
   </div>

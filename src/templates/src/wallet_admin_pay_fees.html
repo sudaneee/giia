@@ -72,17 +72,10 @@
         {% endif %}
 
       {% else %}
-        <div class="alert alert-warning">No outstanding fees found for the selected students and term.</div>
-        {% if debug_info %}
-          <div class="card mt-3">
-            <div class="card-header small"><strong>Debug — why no fees were found:</strong></div>
-            <ul class="list-group list-group-flush small">
-              {% for line in debug_info %}
-                <li class="list-group-item py-1">{{ line }}</li>
-              {% endfor %}
-            </ul>
-          </div>
-        {% endif %}
+        <div class="alert alert-warning">
+          No outstanding fees found for the selected students and term.
+          <a href="{% url 'wallet_admin_make_payment' parent_account.id %}" class="alert-link">Go back</a>
+        </div>
       {% endif %}
 
     </div>
