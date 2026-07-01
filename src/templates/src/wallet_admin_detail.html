@@ -37,7 +37,7 @@
             <p class="mb-1"><strong>Bank:</strong> {{ virtual_account.bank_name }}</p>
             <p class="mb-0"><strong>Account Name:</strong> {{ virtual_account.account_name }}</p>
             <div class="alert alert-info mt-3 small mb-0">
-              Parent can fund by transferring to this account. Balance updates automatically within 5 minutes.
+              Parent funds by transferring to this account. Balance updates within 5 minutes.
             </div>
           {% else %}
             <p class="text-muted small">No virtual account yet.</p>
@@ -50,32 +50,35 @@
       </div>
     </div>
 
-    <!-- Children -->
-    <div class="col-md-4 mb-3">
+    <!-- Linked Children -->
+    <div class="col-md-8 mb-3">
       <div class="card h-100">
         <div class="card-header"><strong>Linked Children</strong></div>
         <div class="card-body">
-          {% for link in links %}
-            <div class="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">
-              <div>
-                <strong class="small">{{ link.student.first_name }} {{ link.student.last_name }}</strong><br>
-                <span class="text-muted small">{{ link.student.admission_number }} &middot; {{ link.student.enrolled_class|default:"No class" }}</span>
+          <div class="row">
+            {% for link in links %}
+              <div class="col-md-6 mb-2">
+                <div class="d-flex justify-content-between align-items-center border rounded p-2">
+                  <div>
+                    <strong class="small">{{ link.student.first_name }} {{ link.student.last_name }}</strong><br>
+                    <span class="text-muted small">{{ link.student.admission_number }} &middot; {{ link.student.enrolled_class|default:"No class" }}</span>
+                  </div>
+                  <form method="POST" action="{% url 'wallet_admin_remove_child' parent_account.id link.id %}"
+                        onsubmit="return confirm('Remove {{ link.student.first_name }}?')">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-sm btn-outline-danger">Remove</button>
+                  </form>
+                </div>
               </div>
-              <form method="POST" action="{% url 'wallet_admin_remove_child' parent_account.id link.id %}"
-                    onsubmit="return confirm('Remove {{ link.student.first_name }}?')">
-                {% csrf_token %}
-                <button type="submit" class="btn btn-sm btn-outline-danger">Remove</button>
-              </form>
-            </div>
-          {% empty %}
-            <p class="text-muted small">No children linked yet.</p>
-          {% endfor %}
-
-          <hr>
+            {% empty %}
+              <div class="col-12"><p class="text-muted small mb-2">No children linked yet.</p></div>
+            {% endfor %}
+          </div>
+          <hr class="my-2">
           <p class="small mb-1"><strong>Add Child by Admission Number</strong></p>
           <form method="POST" action="{% url 'wallet_admin_add_child' parent_account.id %}">
             {% csrf_token %}
-            <div class="input-group input-group-sm">
+            <div class="input-group input-group-sm" style="max-width:360px;">
               {{ add_child_form.admission_number }}
               <div class="input-group-append">
                 <button type="submit" class="btn btn-primary">Add</button>
@@ -86,30 +89,69 @@
       </div>
     </div>
 
-    <!-- Recent Transactions -->
-    <div class="col-md-4 mb-3">
-      <div class="card h-100">
-        <div class="card-header"><strong>Recent Transactions</strong></div>
-        <div class="card-body p-0">
-          <div class="list-group list-group-flush">
-            {% for txn in transactions %}
-              <div class="list-group-item px-3 py-2">
-                <div class="d-flex justify-content-between">
-                  <span class="small">{{ txn.narration|truncatechars:30 }}</span>
-                  <span class="small {% if txn.transaction_type == 'credit' %}text-success{% else %}text-danger{% endif %}">
-                    {% if txn.transaction_type == 'credit' %}+{% else %}-{% endif %}₦{{ txn.amount|floatformat:2 }}
-                  </span>
-                </div>
-                <div class="text-muted" style="font-size:0.72rem;">{{ txn.created_at|date:"M d, Y H:i" }} &middot; {{ txn.status }}</div>
-              </div>
-            {% empty %}
-              <div class="list-group-item text-muted small">No transactions yet.</div>
-            {% endfor %}
-          </div>
-        </div>
-      </div>
-    </div>
-
   </div>
+
+  <!-- Transactions -->
+  <div class="card">
+    <div class="card-header"><strong>Transactions</strong></div>
+    <div class="card-body border-bottom pb-3">
+      <form method="GET" class="form-inline flex-wrap">
+        <div class="form-group mr-2 mb-2">
+          <label class="mr-1 small">From</label>
+          <input type="date" name="date_from" value="{{ date_from }}" class="form-control form-control-sm">
+        </div>
+        <div class="form-group mr-2 mb-2">
+          <label class="mr-1 small">To</label>
+          <input type="date" name="date_to" value="{{ date_to }}" class="form-control form-control-sm">
+        </div>
+        <div class="form-group mr-2 mb-2">
+          <select name="txn_type" class="form-control form-control-sm">
+            <option value="">All Types</option>
+            <option value="credit" {% if txn_type == 'credit' %}selected{% endif %}>Credit</option>
+            <option value="debit"  {% if txn_type == 'debit'  %}selected{% endif %}>Debit</option>
+          </select>
+        </div>
+        <button type="submit" class="btn btn-primary btn-sm mb-2 mr-2">Filter</button>
+        <a href="{% url 'wallet_admin_detail' parent_account.id %}" class="btn btn-secondary btn-sm mb-2">Reset</a>
+      </form>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-sm mb-0">
+        <thead class="thead-light">
+          <tr>
+            <th>Date</th>
+            <th>Type</th>
+            <th>Narration</th>
+            <th class="text-right">Amount</th>
+            <th class="text-right">Balance After</th>
+            <th>Status</th>
+            <th>Source</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for txn in transactions %}
+            <tr>
+              <td class="small">{{ txn.created_at|date:"M d, Y H:i" }}</td>
+              <td>
+                <span class="badge {% if txn.transaction_type == 'credit' %}badge-success{% else %}badge-danger{% endif %}">
+                  {{ txn.transaction_type|capfirst }}
+                </span>
+              </td>
+              <td class="small">{{ txn.narration }}</td>
+              <td class="text-right small {% if txn.transaction_type == 'credit' %}text-success{% else %}text-danger{% endif %}">
+                {% if txn.transaction_type == 'credit' %}+{% else %}-{% endif %}₦{{ txn.amount|floatformat:2 }}
+              </td>
+              <td class="text-right small">₦{{ txn.balance_after|floatformat:2 }}</td>
+              <td class="small">{{ txn.status }}</td>
+              <td class="small text-muted">{{ txn.source }}</td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="7" class="text-center text-muted py-3">No transactions in this period.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
 </div>
 {% endblock %}

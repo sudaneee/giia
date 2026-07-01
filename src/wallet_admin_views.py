@@ -128,19 +128,37 @@ def wallet_admin_create(request):
 
 @superadmin_required
 def wallet_admin_detail(request, parent_id):
+    from datetime import date, timedelta
     parent_account = get_object_or_404(ParentAccount.objects.select_related('user', 'wallet'), id=parent_id)
     wallet = parent_account.wallet
     virtual_account = VirtualAccount.objects.filter(wallet=wallet).first()
     links = parent_account.student_links.select_related('student', 'student__enrolled_class').all()
-    transactions = wallet.transactions.order_by('-created_at')[:20]
     add_child_form = AddChildForm()
+
+    qs = wallet.transactions.order_by('-created_at')
+
+    default_from = (date.today() - timedelta(days=30)).isoformat()
+    date_from = request.GET.get('date_from', default_from)
+    date_to   = request.GET.get('date_to', '')
+    txn_type  = request.GET.get('txn_type', '')
+
+    if date_from:
+        qs = qs.filter(created_at__date__gte=date_from)
+    if date_to:
+        qs = qs.filter(created_at__date__lte=date_to)
+    if txn_type in ('credit', 'debit'):
+        qs = qs.filter(transaction_type=txn_type)
+
     return render(request, 'src/wallet_admin_detail.html', {
         'parent_account': parent_account,
         'wallet': wallet,
         'virtual_account': virtual_account,
         'links': links,
-        'transactions': transactions,
+        'transactions': qs,
         'add_child_form': add_child_form,
+        'date_from': date_from,
+        'date_to': date_to,
+        'txn_type': txn_type,
     })
 
 
