@@ -22,7 +22,6 @@
               <th>Email</th>
               <th>Phone</th>
               <th>Balance</th>
-              <th>Virtual Account</th>
               <th>Children</th>
               <th>Actions</th>
             </tr>
@@ -34,13 +33,6 @@
               <td>{{ pa.user.email }}</td>
               <td>{{ pa.phone_number }}</td>
               <td><strong>₦{{ pa.wallet.balance|floatformat:2 }}</strong></td>
-              <td>
-                {% if pa.wallet.virtual_account %}
-                  <span class="badge badge-success">{{ pa.wallet.virtual_account.account_number }}</span>
-                {% else %}
-                  <span class="badge badge-secondary">Not activated</span>
-                {% endif %}
-              </td>
               <td>{{ pa.student_links.count }}</td>
               <td>
                 <a href="{% url 'wallet_admin_detail' pa.id %}" class="btn btn-sm btn-info">Manage</a>

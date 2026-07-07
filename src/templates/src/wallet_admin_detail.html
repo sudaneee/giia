@@ -32,20 +32,7 @@
           <h3 class="text-success">₦{{ wallet.balance|floatformat:2 }}</h3>
           <p class="text-muted small mb-2">Current Balance</p>
           <hr>
-          {% if virtual_account %}
-            <p class="mb-1"><strong>Account Number:</strong> {{ virtual_account.account_number }}</p>
-            <p class="mb-1"><strong>Bank:</strong> {{ virtual_account.bank_name }}</p>
-            <p class="mb-0"><strong>Account Name:</strong> {{ virtual_account.account_name }}</p>
-            <div class="alert alert-info mt-3 small mb-0">
-              Parent funds by transferring to this account. Balance updates within 5 minutes.
-            </div>
-          {% else %}
-            <p class="text-muted small">No virtual account yet.</p>
-            <form method="POST" action="{% url 'wallet_admin_activate' parent_account.id %}">
-              {% csrf_token %}
-              <button type="submit" class="btn btn-primary btn-block btn-sm">Activate Virtual Account</button>
-            </form>
-          {% endif %}
+          <p class="text-muted small mb-0">Parent funds this wallet themselves via Paystack Checkout in the parent portal.</p>
         </div>
       </div>
     </div>

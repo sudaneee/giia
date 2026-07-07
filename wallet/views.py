@@ -1,4 +1,6 @@
-from django.conf import settings
+from decimal import Decimal
+from uuid import uuid4
+
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.models import User
@@ -11,14 +13,10 @@ from src.models import OtherFeeStructure, Session, Student, Term
 
 from .decorators import parent_required
 from .forms import AddChildForm, ParentRegistrationForm
-from .models import ParentAccount, ParentStudentLink, VirtualAccount, WalletPayment
-from .services import fee_service, wallet_service, zainpay_service
-from .services.exceptions import (
-    InsufficientFundsError,
-    VirtualAccountCreationError,
-    WalletInactiveError,
-    ZainpayTransferError,
-)
+from .models import ParentAccount, ParentStudentLink, WalletPayment
+from .services import fee_service, paystack_service, wallet_service
+from .services.exceptions import InsufficientFundsError, WalletInactiveError
+from .services.wallet_service import credit_wallet
 
 
 def register(request):
@@ -145,25 +143,83 @@ def remove_child(request, link_id):
 @parent_required
 def wallet_overview(request):
     wallet = request.user.parent_account.wallet
-    virtual_account = VirtualAccount.objects.filter(wallet=wallet).first()
 
-    return render(request, 'wallet/wallet_overview.html', {
-        'wallet': wallet,
-        'virtual_account': virtual_account,
-    })
+    return render(request, 'wallet/wallet_overview.html', {'wallet': wallet})
 
 
 @parent_required
 @require_POST
-def wallet_activate(request):
+def wallet_fund_initiate(request):
     parent_account = request.user.parent_account
+    wallet = parent_account.wallet
+
+    if not wallet.is_active:
+        messages.error(request, 'This wallet is not active.')
+        return redirect('wallet:wallet_overview')
+
+    payment_method = request.POST.get('payment_method', 'card')
+    if payment_method not in ('card', 'bank_transfer'):
+        payment_method = 'card'
 
     try:
-        zainpay_service.create_virtual_account(parent_account)
-        messages.success(request, 'Your wallet funding account is ready below.')
-    except VirtualAccountCreationError as e:
-        messages.error(request, f'Could not set up your funding account: {e}')
+        amount = Decimal(request.POST.get('amount', '0'))
+    except Exception:
+        amount = Decimal('0')
 
+    if amount <= 0:
+        messages.error(request, 'Enter a valid amount to fund.')
+        return redirect('wallet:wallet_overview')
+
+    fee = paystack_service.calculate_topup_fee(amount, payment_method)
+    total_charge = amount + fee
+    reference = f"WALLETFUND-{uuid4().hex[:12].upper()}"
+
+    result = paystack_service.initialize_topup(
+        email=request.user.email,
+        amount=total_charge,
+        payment_method=payment_method,
+        reference=reference,
+        callback_url=request.build_absolute_uri(reverse('wallet:wallet_fund_callback')),
+        metadata={
+            'purpose': 'wallet_funding',
+            'wallet_id': wallet.id,
+            'requested_amount': str(amount),
+        },
+    )
+
+    if result.get('status') and result.get('data', {}).get('authorization_url'):
+        return redirect(result['data']['authorization_url'])
+
+    messages.error(request, 'Could not start wallet funding. Please try again.')
+    return redirect('wallet:wallet_overview')
+
+
+@parent_required
+def wallet_fund_callback(request):
+    reference = request.GET.get('reference')
+    if not reference:
+        messages.error(request, 'No payment reference provided.')
+        return redirect('wallet:wallet_overview')
+
+    verified = paystack_service.verify_transaction(reference)
+    if not verified:
+        messages.error(request, 'Payment could not be verified.')
+        return redirect('wallet:wallet_overview')
+
+    metadata = verified.get('metadata') or {}
+    if metadata.get('purpose') != 'wallet_funding':
+        messages.error(request, 'Payment could not be verified.')
+        return redirect('wallet:wallet_overview')
+
+    credit_wallet(
+        wallet_id=metadata['wallet_id'],
+        amount=metadata['requested_amount'],
+        reference=reference,
+        narration='Wallet funding via Paystack',
+        source='paystack_callback',
+        metadata=verified,
+    )
+    messages.success(request, 'Your wallet has been funded successfully.')
     return redirect('wallet:wallet_overview')
 
 
@@ -357,8 +413,7 @@ def pay_fees(request):
 
     total_amount = sum(item['amount'] for item in fee_selections)
 
-    estimated_fee = settings.ZAINPAY_TRANSFER_FEE_ESTIMATE
-    can_pay_from_wallet = bool(fee_selections) and wallet.balance >= (total_amount + estimated_fee)
+    can_pay_from_wallet = bool(fee_selections) and wallet.balance >= total_amount
 
     # Deduplicated student ids for the confirm form's hidden inputs - other
     # fees can produce several fee_selections entries for the same student
@@ -376,7 +431,6 @@ def pay_fees(request):
         'unique_student_ids': unique_student_ids,
         'total_amount': total_amount,
         'wallet': wallet,
-        'estimated_fee': estimated_fee,
         'can_pay_from_wallet': can_pay_from_wallet,
         'student_ids': student_ids,
         'fee_ids': request.GET.getlist('fee_id') if fee_type == 'other_fees' else [],
@@ -416,7 +470,7 @@ def confirm_wallet_payment(request):
         return redirect('wallet:receipt_detail', reference=wallet_payment.wallet_transaction.reference)
     except InsufficientFundsError:
         messages.error(request, 'Insufficient wallet balance for this payment.')
-    except (ZainpayTransferError, WalletInactiveError, ValueError) as e:
+    except (WalletInactiveError, ValueError) as e:
         messages.error(request, f'Payment could not be completed: {e}')
 
     return redirect('wallet:make_payment')

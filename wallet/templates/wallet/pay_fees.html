@@ -45,7 +45,6 @@
         <h6 class="mb-0 ml-2">Pay from Wallet</h6>
       </div>
       <p class="mb-1 small">Wallet balance: <strong>₦{{ wallet.balance|floatformat:2|intcomma }}</strong></p>
-      <p class="text-muted small">A transfer fee of approximately ₦{{ estimated_fee|floatformat:2|intcomma }} applies, charged by Zainpay on top of the fee amount.</p>
       {% if can_pay_from_wallet %}
         <form method="POST" action="{% url 'wallet:confirm_wallet_payment' %}">
           {% csrf_token %}

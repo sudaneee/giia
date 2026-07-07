@@ -7,15 +7,9 @@ from django.views.decorators.http import require_POST
 
 from src.models import OtherFeeStructure, Session, Student, Term
 from wallet.forms import AddChildForm, ParentRegistrationForm
-from wallet.models import ParentAccount, ParentStudentLink, VirtualAccount, WalletPayment
-from wallet.services import fee_service, wallet_service, zainpay_service
-from wallet.services.exceptions import (
-    InsufficientFundsError,
-    VirtualAccountCreationError,
-    WalletInactiveError,
-    ZainpayTransferError,
-)
-from django.conf import settings
+from wallet.models import ParentAccount, ParentStudentLink, WalletPayment
+from wallet.services import fee_service, wallet_service
+from wallet.services.exceptions import InsufficientFundsError, WalletInactiveError
 
 
 def superadmin_required(view_func):
@@ -97,7 +91,7 @@ def _build_other_fee_selections(parent_account, session, term, student_ids, fee_
 @superadmin_required
 def wallet_admin_list(request):
     parent_accounts = ParentAccount.objects.select_related(
-        'user', 'wallet', 'wallet__virtual_account'
+        'user', 'wallet'
     ).prefetch_related('student_links').order_by('user__last_name', 'user__first_name')
     return render(request, 'src/wallet_admin_list.html', {'parent_accounts': parent_accounts})
 
@@ -131,7 +125,6 @@ def wallet_admin_detail(request, parent_id):
     from datetime import date, timedelta
     parent_account = get_object_or_404(ParentAccount.objects.select_related('user', 'wallet'), id=parent_id)
     wallet = parent_account.wallet
-    virtual_account = VirtualAccount.objects.filter(wallet=wallet).first()
     links = parent_account.student_links.select_related('student', 'student__enrolled_class').all()
     add_child_form = AddChildForm()
 
@@ -152,7 +145,6 @@ def wallet_admin_detail(request, parent_id):
     return render(request, 'src/wallet_admin_detail.html', {
         'parent_account': parent_account,
         'wallet': wallet,
-        'virtual_account': virtual_account,
         'links': links,
         'transactions': qs,
         'add_child_form': add_child_form,
@@ -160,18 +152,6 @@ def wallet_admin_detail(request, parent_id):
         'date_to': date_to,
         'txn_type': txn_type,
     })
-
-
-@superadmin_required
-@require_POST
-def wallet_admin_activate(request, parent_id):
-    parent_account = get_object_or_404(ParentAccount, id=parent_id)
-    try:
-        zainpay_service.create_virtual_account(parent_account)
-        messages.success(request, 'Virtual account activated successfully.')
-    except VirtualAccountCreationError as e:
-        messages.error(request, f'Could not activate virtual account: {e}')
-    return redirect('wallet_admin_detail', parent_id=parent_id)
 
 
 @superadmin_required
@@ -274,8 +254,7 @@ def wallet_admin_pay_fees(request, parent_id):
         fee_selections = _build_other_fee_selections(parent_account, session, term, student_ids, fee_ids)
 
     total_amount = sum(item['amount'] for item in fee_selections)
-    estimated_fee = settings.ZAINPAY_TRANSFER_FEE_ESTIMATE
-    can_pay = bool(fee_selections) and wallet.balance >= (total_amount + estimated_fee)
+    can_pay = bool(fee_selections) and wallet.balance >= total_amount
     unique_student_ids = list(dict.fromkeys(item['student'].id for item in fee_selections))
 
     return render(request, 'src/wallet_admin_pay_fees.html', {
@@ -289,7 +268,6 @@ def wallet_admin_pay_fees(request, parent_id):
         'unique_student_ids': unique_student_ids,
         'total_amount': total_amount,
         'wallet': wallet,
-        'estimated_fee': estimated_fee,
         'can_pay': can_pay,
         'student_ids': student_ids,
         'fee_ids': request.GET.getlist('fee_id') if fee_type == 'other_fees' else [],
@@ -327,7 +305,7 @@ def wallet_admin_confirm_payment(request, parent_id):
         return redirect('wallet_admin_detail', parent_id=parent_id)
     except InsufficientFundsError:
         messages.error(request, 'Insufficient wallet balance.')
-    except (ZainpayTransferError, WalletInactiveError, ValueError) as e:
+    except (WalletInactiveError, ValueError) as e:
         messages.error(request, f'Payment failed: {e}')
 
     return redirect('wallet_admin_detail', parent_id=parent_id)

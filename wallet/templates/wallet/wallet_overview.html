@@ -11,40 +11,31 @@
   </div>
 </div>
 
-{% if virtual_account %}
-  <div class="card mb-3">
-    <div class="card-header"><i class="bi bi-bank mr-2"></i>Fund Your Wallet</div>
-    <div class="card-body">
-      <p class="text-muted small mb-3">Transfer any amount to this account from any bank. Your wallet is credited automatically.</p>
-      <div class="d-flex justify-content-between align-items-center p-3 mb-2" style="background:#f4f6fb; border-radius:12px;">
-        <div>
-          <div class="text-muted small" style="text-transform:uppercase; letter-spacing:.04em; font-size:.7rem;">Account Number</div>
-          <div style="font-size:1.4rem; font-weight:800; letter-spacing:.03em;">{{ virtual_account.account_number }}</div>
+<div class="card mb-3">
+  <div class="card-header"><i class="bi bi-bank mr-2"></i>Fund Your Wallet</div>
+  <div class="card-body">
+    <p class="text-muted small mb-3">Pick an amount and pay securely through Paystack. Your wallet is credited as soon as payment is confirmed.</p>
+    <form method="POST" action="{% url 'wallet:wallet_fund_initiate' %}">
+      {% csrf_token %}
+      <div class="form-group">
+        <label for="amount" class="small text-muted">Amount (₦)</label>
+        <input type="number" min="1" step="0.01" name="amount" id="amount" class="form-control" required>
+      </div>
+      <div class="form-group">
+        <label class="small text-muted d-block">Pay With</label>
+        <div class="form-check form-check-inline">
+          <input class="form-check-input" type="radio" name="payment_method" id="payment_method_card" value="card" checked>
+          <label class="form-check-label" for="payment_method_card">Card</label>
         </div>
-        <i class="bi bi-clipboard-check" style="font-size:1.3rem; color:#c9a227;"></i>
+        <div class="form-check form-check-inline">
+          <input class="form-check-input" type="radio" name="payment_method" id="payment_method_bank" value="bank_transfer">
+          <label class="form-check-label" for="payment_method_bank">Bank Transfer / USSD</label>
+        </div>
       </div>
-      <div class="d-flex justify-content-between py-2" style="border-bottom:1px solid #f0f2f7;">
-        <span class="text-muted small">Account Name</span>
-        <strong class="small">{{ virtual_account.account_name }}</strong>
-      </div>
-      <div class="d-flex justify-content-between py-2">
-        <span class="text-muted small">Bank</span>
-        <strong class="small">{{ virtual_account.bank_name }}</strong>
-      </div>
-    </div>
+      <button type="submit" class="btn btn-gold btn-block btn-lg"><i class="bi bi-plus-circle mr-1"></i>Fund Wallet</button>
+    </form>
   </div>
-{% else %}
-  <div class="card mb-3">
-    <div class="card-body text-center py-4">
-      <i class="bi bi-wallet2" style="font-size:2.2rem; color:#c9a227;"></i>
-      <p class="text-muted mt-3 mb-3">Activate your wallet to get a dedicated account number you can fund by bank transfer, anytime.</p>
-      <form method="POST" action="{% url 'wallet:wallet_activate' %}">
-        {% csrf_token %}
-        <button type="submit" class="btn btn-primary btn-lg"><i class="bi bi-plus-circle mr-1"></i>Activate Wallet</button>
-      </form>
-    </div>
-  </div>
-{% endif %}
+</div>
 
 <a href="{% url 'wallet:wallet_transactions' %}" class="btn btn-outline-primary btn-block"><i class="bi bi-clock-history mr-1"></i>View Transaction History</a>
 {% endblock %}

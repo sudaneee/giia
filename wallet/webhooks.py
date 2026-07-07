@@ -7,7 +7,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
 from .models import VirtualAccount, WalletTransaction
-from .services import zainpay_service
+from .services import paystack_service, zainpay_service
 from .services.wallet_service import credit_wallet
 
 logger = logging.getLogger(__name__)
@@ -122,6 +122,62 @@ def zainpay_deposit_webhook(request):
         narration=f"Bank transfer deposit via {account_number}",
         source='zainpay_webhook',
         metadata=verified,
+    )
+
+    return JsonResponse({'status': 'success'}, status=200)
+
+
+@csrf_exempt
+@require_POST
+def paystack_funding_webhook(request):
+    """
+    Backup path for wallet-funding confirmation: normally
+    wallet_fund_callback (the browser redirect back from Paystack Checkout)
+    credits the wallet, but if the parent closes the tab before that redirect
+    completes, this webhook is what actually gets the wallet credited.
+    credit_wallet()'s reference-based idempotency means whichever of the two
+    paths runs first wins - the other is a no-op.
+    """
+    raw_body = request.body
+    signature = request.headers.get('x-paystack-signature')
+
+    logger.info(
+        'Paystack funding webhook inbound - headers: %s | body: %s',
+        dict(request.headers), raw_body.decode('utf-8', errors='replace'),
+    )
+
+    if not paystack_service.verify_webhook_signature(raw_body, signature):
+        logger.warning('Paystack funding webhook rejected: invalid signature.')
+        return JsonResponse({'error': 'Invalid signature'}, status=401)
+
+    try:
+        payload = json.loads(raw_body)
+    except ValueError:
+        return JsonResponse({'status': 'ignored'}, status=200)
+
+    if payload.get('event') != 'charge.success':
+        return JsonResponse({'status': 'ignored'}, status=200)
+
+    data = payload.get('data', {})
+    metadata = data.get('metadata') or {}
+
+    if metadata.get('purpose') != 'wallet_funding':
+        return JsonResponse({'status': 'ignored'}, status=200)
+
+    reference = data.get('reference')
+    if not reference:
+        return JsonResponse({'status': 'ignored'}, status=200)
+
+    if WalletTransaction.objects.filter(reference=reference).exists():
+        return JsonResponse({'status': 'already_processed'}, status=200)
+
+    credit_wallet(
+        wallet_id=metadata['wallet_id'],
+        amount=metadata['requested_amount'],
+        reference=reference,
+        narration='Wallet funding via Paystack',
+        source='paystack_webhook',
+        metadata=data,
     )
 
     return JsonResponse({'status': 'success'}, status=200)

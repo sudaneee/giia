@@ -1,7 +1,9 @@
 import threading
 from decimal import Decimal
+from io import StringIO
 
 from django.contrib.auth.models import User
+from django.core.management import call_command
 from django.db import OperationalError, connection
 from django.test import TestCase, TransactionTestCase
 
@@ -12,16 +14,7 @@ from wallet.services.wallet_service import credit_wallet, debit_wallet
 
 def make_parent_account(email='parent@example.com'):
     user = User.objects.create_user(username=email, email=email, password='TestPass123!')
-    return ParentAccount.objects.create(
-        user=user,
-        phone_number='08000000000',
-        title='Mr',
-        gender='M',
-        date_of_birth='1990-01-01',
-        bvn='12345678901',
-        address='1 Test Street',
-        state='Kano',
-    )
+    return ParentAccount.objects.create(user=user, phone_number='08000000000')
 
 
 class WalletServiceTests(TestCase):
@@ -161,3 +154,32 @@ class WalletConcurrencyTests(TransactionTestCase):
         self.assertEqual(self.wallet.balance, Decimal('3000.00'))  # 1000 seed + 2000 once
         self.assertEqual(WalletTransaction.objects.filter(reference='webhook-retry-ref').count(), 1)
         self.assertEqual(self.wallet.balance, self.wallet.authoritative_balance)
+
+
+class ReconciliationCommandTests(TestCase):
+    def test_reconcile_detects_balance_mismatch(self):
+        parent_account = make_parent_account('reconcile-parent@example.com')
+        wallet = parent_account.wallet
+        credit_wallet(wallet.id, Decimal('1000.00'), 'recon-ref-1', 'Funding', 'paystack_webhook')
+
+        # Simulate drift: directly corrupt the cached balance, bypassing the service.
+        wallet.balance = Decimal('9999.00')
+        wallet.save(update_fields=['balance'])
+
+        out = StringIO()
+        call_command('reconcile_wallet_balances', stdout=out)
+        output = out.getvalue()
+
+        self.assertIn('MISMATCH', output)
+        self.assertIn(str(wallet.id), output)
+
+    def test_reconcile_reports_clean_when_balances_match(self):
+        parent_account = make_parent_account('clean-parent@example.com')
+        credit_wallet(parent_account.wallet.id, Decimal('500.00'), 'recon-ref-2', 'Funding', 'paystack_webhook')
+
+        out = StringIO()
+        call_command('reconcile_wallet_balances', stdout=out)
+        output = out.getvalue()
+
+        self.assertNotIn('MISMATCH', output)
+        self.assertIn('all balances match', output)

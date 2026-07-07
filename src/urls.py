@@ -8,7 +8,6 @@ urlpatterns = [
     path('wallet-admin/', wallet_admin_views.wallet_admin_list, name='wallet_admin_list'),
     path('wallet-admin/create/', wallet_admin_views.wallet_admin_create, name='wallet_admin_create'),
     path('wallet-admin/<int:parent_id>/', wallet_admin_views.wallet_admin_detail, name='wallet_admin_detail'),
-    path('wallet-admin/<int:parent_id>/activate/', wallet_admin_views.wallet_admin_activate, name='wallet_admin_activate'),
     path('wallet-admin/<int:parent_id>/children/add/', wallet_admin_views.wallet_admin_add_child, name='wallet_admin_add_child'),
     path('wallet-admin/<int:parent_id>/children/<int:link_id>/remove/', wallet_admin_views.wallet_admin_remove_child, name='wallet_admin_remove_child'),
     path('wallet-admin/<int:parent_id>/pay/', wallet_admin_views.wallet_admin_make_payment, name='wallet_admin_make_payment'),

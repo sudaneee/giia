@@ -1,23 +1,18 @@
-import logging
 import random
 import time
 from decimal import Decimal
 from functools import wraps
 from uuid import uuid4
 
-from django.conf import settings
 from django.db import IntegrityError, OperationalError, connection, transaction
 from django.db.models import F
 from django.db.transaction import TransactionManagementError
 from django.utils import timezone
 
-from wallet.models import VirtualAccount, Wallet, WalletPayment, WalletTransaction
+from wallet.models import Wallet, WalletPayment, WalletTransaction
 
-from . import zainpay_service
 from .exceptions import InsufficientFundsError, WalletInactiveError
 from .payment_service import create_payment_record
-
-logger = logging.getLogger(__name__)
 
 MAX_LOCK_RETRIES = 5
 
@@ -180,12 +175,10 @@ def pay_school_fees_from_wallet(parent_account, fee_selections, session, term):
     Other Fees tabs. The caller must have already validated that each
     student belongs to this parent and that each amount is real.
 
-    This is a real money movement, not just internal bookkeeping: it calls
-    Zainpay's Funds Transfer API to move money from the parent's virtual
-    account to the school's settlement account *before* writing anything to
-    our ledger. Only on a confirmed successful transfer do we debit the
-    wallet and create the Payment records - if the transfer fails, nothing
-    is written, so the ledger never disagrees with what Zainpay actually did.
+    Funds already sit in the school's own Paystack settlement account (the
+    wallet was funded via Paystack Checkout), so this is pure internal
+    bookkeeping - a ledger debit plus the Payment/WalletPayment records, all
+    in one atomic block. No external money movement happens here.
     """
     # Fetch fresh rather than trust parent_account.wallet - Django caches that
     # reverse OneToOne lookup on the instance, so a caller that accessed it
@@ -195,77 +188,44 @@ def pay_school_fees_from_wallet(parent_account, fee_selections, session, term):
     if not wallet.is_active:
         raise WalletInactiveError('This wallet is not active.')
 
-    virtual_account = VirtualAccount.objects.filter(wallet=wallet).first()
-    if not virtual_account:
-        raise ValueError('Activate your wallet before paying fees from it.')
-
     total_fee_amount = sum(Decimal(str(item['amount'])) for item in fee_selections)
     if total_fee_amount <= 0:
         raise ValueError('Nothing to pay.')
 
-    # Fail fast before calling Zainpay at all if the wallet clearly can't
-    # cover the fee plus the estimated transfer charge. This is just a UX
-    # short-circuit - the real, authoritative check is debit_wallet()'s
-    # atomic conditional update below, using Zainpay's actual amount charged.
-    if wallet.balance < total_fee_amount + settings.ZAINPAY_TRANSFER_FEE_ESTIMATE:
+    if wallet.balance < total_fee_amount:
         raise InsufficientFundsError('Insufficient wallet balance for this payment.')
 
     txn_ref = str(uuid4())
-    narration = f"Fee payment - {session} {term}"
 
-    transfer_data = zainpay_service.transfer_to_school(
-        virtual_account.account_number, total_fee_amount, txn_ref, narration,
-    )
-
-    # Zainpay's transfer response returns totalTxnAmount in KOBO (same
-    # direction as the request). Divide by 100 to get naira for our ledger.
-    # Fall back to total_fee_amount (naira) only if the field is absent.
-    raw_kobo = transfer_data.get('totalTxnAmount')
-    actual_debit_amount = Decimal(str(raw_kobo)) / 100 if raw_kobo is not None else total_fee_amount
-
-    try:
-        with transaction.atomic():
-            wallet_txn = debit_wallet(
-                wallet.id,
-                actual_debit_amount,
-                txn_ref,
-                f"Wallet payment for fees ({session} {term})",
-                source='wallet_fee_payment',
-                metadata=transfer_data,
-            )
-
-            payments = []
-            for index, item in enumerate(fee_selections):
-                # Indexed rather than keyed on student id alone, since other
-                # fees can include several items for the same student (e.g.
-                # cardigan + tahfeez), which would otherwise collide.
-                payment = create_payment_record(
-                    student=item['student'],
-                    amount=item['amount'],
-                    payment_method='wallet',
-                    session=session,
-                    term=term,
-                    transaction_reference=f"{txn_ref}-{index}",
-                    fee_structure=item.get('fee_structure'),
-                    other_fee=item.get('other_fee'),
-                )
-                payments.append(payment)
-
-            wallet_payment = WalletPayment.objects.create(
-                wallet_transaction=wallet_txn, session=session, term=term,
-            )
-            wallet_payment.payments.set(payments)
-    except Exception:
-        # The real Zainpay transfer already succeeded by this point - the
-        # money has left the parent's account regardless of what happens to
-        # our own bookkeeping. This must never fail silently: it needs a
-        # human to reconcile manually, since Zainpay transfers can't be
-        # reversed through this integration.
-        logger.critical(
-            'Zainpay transfer %s for wallet %s succeeded but recording it failed locally. '
-            'Manual reconciliation required. Transfer data: %s',
-            txn_ref, wallet.id, transfer_data,
+    with transaction.atomic():
+        wallet_txn = debit_wallet(
+            wallet.id,
+            total_fee_amount,
+            txn_ref,
+            f"Wallet payment for fees ({session} {term})",
+            source='wallet_fee_payment',
         )
-        raise
+
+        payments = []
+        for index, item in enumerate(fee_selections):
+            # Indexed rather than keyed on student id alone, since other
+            # fees can include several items for the same student (e.g.
+            # cardigan + tahfeez), which would otherwise collide.
+            payment = create_payment_record(
+                student=item['student'],
+                amount=item['amount'],
+                payment_method='wallet',
+                session=session,
+                term=term,
+                transaction_reference=f"{txn_ref}-{index}",
+                fee_structure=item.get('fee_structure'),
+                other_fee=item.get('other_fee'),
+            )
+            payments.append(payment)
+
+        wallet_payment = WalletPayment.objects.create(
+            wallet_transaction=wallet_txn, session=session, term=term,
+        )
+        wallet_payment.payments.set(payments)
 
     return wallet_payment
