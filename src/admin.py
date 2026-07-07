@@ -135,6 +135,16 @@ class FeeComponentAdmin(admin.ModelAdmin):
     )
 
 
+@admin.register(PaymentBatch)
+class PaymentBatchAdmin(admin.ModelAdmin):
+    list_display = (
+        'reference', 'parent_email', 'amount_paid', 'payment_channel',
+        'status', 'webhook_processed', 'webhook_attempts', 'last_webhook_attempt', 'created_at',
+    )
+    list_filter = ('status', 'webhook_processed', 'payment_channel')
+    search_fields = ('reference', 'parent_email')
+
+
 @admin.register(Payment)
 class PaymentAdmin(admin.ModelAdmin):
     list_display = ('student', 'student_class', 'amount_paid', 'payment_method', 'payment_date', 'status', 'session', 'term')

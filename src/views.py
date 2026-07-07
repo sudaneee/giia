@@ -4431,137 +4431,174 @@ from django.shortcuts import render
 from django.contrib import messages
 
 
-def paystack_callback(request):
-    """Payment callback - extracts student info from metadata"""
-    import requests
-    from decimal import Decimal
-    from django.db import transaction
-    from django.shortcuts import render, redirect
-    from django.contrib import messages
+def process_paystack_charge_success(paystack_data):
+    """
+    Single source of truth for turning a confirmed Paystack charge.success
+    into Payment records - shared by paystack_callback (browser redirect)
+    and paystack_webhook (server-to-server), so both paths run identical
+    logic and neither can mark a batch successful without evidence.
+
+    Idempotency is per-payment (Payment.transaction_reference's unique
+    constraint), not a batch-level status read: if the callback and webhook
+    race for the same charge, whichever writes first wins and the other's
+    IntegrityError on that one student/fee is swallowed rather than rolling
+    back every other payment in the same batch.
+    """
+    from django.db import IntegrityError
     from wallet.services.payment_service import create_payment_record
 
+    reference = paystack_data['reference']
+    amount_paid = Decimal(str(paystack_data['amount'])) / 100
+
+    transaction_metadata = paystack_data.get('metadata', {})
+    payment_data = transaction_metadata.get('payment_data', {})
+    fee_type = payment_data.get('fee_type')
+    students_info = payment_data.get('students', [])
+
+    batch = PaymentBatch.objects.filter(reference=reference).first()
+    if not batch:
+        session = Session.objects.filter(id=payment_data.get('session_id')).first()
+        term = Term.objects.filter(id=payment_data.get('term_id')).first()
+        batch = PaymentBatch.objects.create(
+            reference=reference,
+            parent_email=paystack_data.get('customer', {}).get('email', ''),
+            amount_paid=amount_paid,
+            session=session,
+            term=term,
+            payment_channel=paystack_data.get('channel', 'card'),
+            status='pending',
+        )
+
+    batch.webhook_attempts += 1
+    batch.last_webhook_attempt = timezone.now()
+    batch.save(update_fields=['webhook_attempts', 'last_webhook_attempt'])
+
+    if batch.status == 'success':
+        return batch
+
+    # batch.payment_channel is the raw frontend value ("card"/"transfer") set
+    # at initialize time - normalize it to Payment.payment_method's actual
+    # choices (credit_card/bank_transfer) rather than writing the raw value
+    # straight through, which silently didn't match any choice and made these
+    # payments invisible to payment_method__in-based reports.
+    payment_method = 'credit_card' if batch.payment_channel == 'card' else 'bank_transfer'
+
+    logger.info('Processing Paystack charge %s: %d student(s) in metadata, fee_type=%s', reference, len(students_info), fee_type)
+
+    for student_info in students_info:
+        admission_number = student_info.get('admission_number')
+        student = Student.objects.filter(admission_number=admission_number).first() if admission_number else None
+
+        if not student:
+            logger.warning('Paystack charge %s: no student found for admission number %s', reference, admission_number)
+            continue
+
+        if fee_type == 'school_fees':
+            amount = Decimal(str(student_info.get('amount', 0)))
+            if amount <= 0:
+                continue
+
+            fee_structure = None
+            fee_structure_id = student_info.get('fee_structure_id')
+            if fee_structure_id:
+                fee_structure = FeeStructure.objects.filter(id=fee_structure_id).first()
+
+            try:
+                with transaction.atomic():
+                    create_payment_record(
+                        student=student,
+                        amount=amount,
+                        payment_method=payment_method,
+                        session=batch.session,
+                        term=batch.term,
+                        transaction_reference=f"{reference}-{student.id}",
+                        fee_structure=fee_structure,
+                        batch=batch,
+                        payment_metadata={'paystack_reference': reference, 'admission_number': admission_number},
+                    )
+                logger.info('Paystack charge %s: created payment for %s', reference, student.admission_number)
+            except IntegrityError:
+                logger.info('Paystack charge %s: payment for student %s already recorded, skipping', reference, student.id)
+        else:
+            for fee_item in student_info.get('fees', []):
+                fee_amount = Decimal(str(fee_item.get('amount', 0)))
+                if fee_amount <= 0:
+                    continue
+
+                other_fee = OtherFeeStructure.objects.filter(id=fee_item.get('id')).first()
+
+                try:
+                    with transaction.atomic():
+                        create_payment_record(
+                            student=student,
+                            amount=fee_amount,
+                            payment_method=payment_method,
+                            session=batch.session,
+                            term=batch.term,
+                            transaction_reference=f"{reference}-{student.id}-{fee_item.get('id')}",
+                            other_fee=other_fee,
+                            batch=batch,
+                            payment_metadata={
+                                'paystack_reference': reference,
+                                'admission_number': admission_number,
+                                'fee_name': fee_item.get('name'),
+                            },
+                        )
+                    logger.info('Paystack charge %s: created other-fee payment for %s (%s)', reference, student.admission_number, fee_item.get('name'))
+                except IntegrityError:
+                    logger.info('Paystack charge %s: payment for student %s fee %s already recorded, skipping', reference, student.id, fee_item.get('id'))
+
+    if Payment.objects.filter(payment_batch=batch).exists():
+        batch.status = 'success'
+        batch.webhook_processed = True
+        batch.save(update_fields=['status', 'webhook_processed'])
+    else:
+        logger.warning(
+            'Paystack charge %s: no Payment rows created (fee_type=%s, %d student(s) in metadata) - '
+            'batch left pending for investigation', reference, fee_type, len(students_info),
+        )
+
+    return batch
+
+
+def paystack_callback(request):
+    """Payment callback - verifies with Paystack, then delegates to process_paystack_charge_success"""
+    from django.shortcuts import redirect
+    from django.contrib import messages
+
     reference = request.GET.get("reference")
-    
+
     if not reference:
         messages.error(request, 'No payment reference provided')
         return redirect('unified_payment')
-    
+
     try:
-        # Verify with Paystack API
         response = requests.get(
             f"https://api.paystack.co/transaction/verify/{reference}",
             headers={"Authorization": f"Bearer {settings.PAYSTACK_SECRET_KEY}"}
         )
-        
+
         if response.status_code != 200:
             messages.error(request, 'Payment verification failed')
             return redirect('unified_payment')
-        
+
         data = response.json()
-        
+
         if not data.get('status') or data['data']['status'] != 'success':
             messages.error(request, 'Payment was not successful')
             return redirect('unified_payment')
-        
-        paystack_data = data['data']
-        amount_paid = Decimal(str(paystack_data['amount'])) / 100
-        
-        # Extract metadata from Paystack transaction
-        transaction_metadata = paystack_data.get('metadata', {})
-        payment_data = transaction_metadata.get('payment_data', {})
-        students_info = payment_data.get('students', [])
-        
-        print(f"Found {len(students_info)} students in metadata")
-        
-        # Get or create batch
-        batch = PaymentBatch.objects.filter(reference=reference).first()
-        
-        if not batch:
-            # Create batch from metadata
-            session = Session.objects.filter(id=payment_data.get('session_id')).first()
-            term = Term.objects.filter(id=payment_data.get('term_id')).first()
-            
-            batch = PaymentBatch.objects.create(
-                reference=reference,
-                parent_email=paystack_data['customer']['email'],
-                amount_paid=amount_paid,
-                session=session,
-                term=term,
-                payment_channel=paystack_data.get('channel', 'card'),
-                status='pending',
-                payment_metadata={
-                    'payment_type': payment_data.get('fee_type'),
-                    'students_info': students_info,
-                    'timestamp': timezone.now().isoformat(),
-                }
-            )
-        
-        # Check if already processed
-        if batch.status == 'success':
-            return redirect('payment_receipt', reference=batch.reference)
-        
-        with transaction.atomic():
-            # Create payments using student info from metadata
-            for student_info in students_info:
-                admission_number = student_info.get('admission_number')
-                amount = Decimal(str(student_info.get('amount', 0)))
-                
-                if not admission_number or amount <= 0:
-                    continue
-                
-                student = Student.objects.filter(admission_number=admission_number).first()
-                
-                if not student:
-                    print(f"Student not found: {admission_number}")
-                    continue
-                
-                # Check if payment already exists
-                existing = Payment.objects.filter(
-                    payment_batch=batch,
-                    student=student
-                ).exists()
-                
-                if existing:
-                    print(f"Payment already exists for {student.admission_number}")
-                    continue
-                
-                # Get fee structure if this is school fees
-                fee_structure = None
-                if payment_data.get('fee_type') == 'school_fees':
-                    fee_structure_id = student_info.get('fee_structure_id')
-                    if fee_structure_id:
-                        fee_structure = FeeStructure.objects.filter(id=fee_structure_id).first()
-                
-                # Create payment
-                create_payment_record(
-                    student=student,
-                    amount=amount,
-                    payment_method=batch.payment_channel if batch.payment_channel else 'credit_card',
-                    session=batch.session,
-                    term=batch.term,
-                    transaction_reference=f"{batch.reference}-{student.id}",
-                    fee_structure=fee_structure,
-                    batch=batch,
-                    payment_metadata={
-                        'paystack_reference': reference,
-                        'admission_number': admission_number,
-                        'from_metadata': True,
-                    }
-                )
 
-                print(f"Created payment for {student.first_name} {student.last_name}: ₦{amount}")
-            
-            # Update batch status
-            batch.status = 'success'
-            batch.save()
-        
+        batch = process_paystack_charge_success(data['data'])
+
+        if batch.status != 'success':
+            messages.error(request, 'Payment received but could not be matched to a student - please contact the school office with your payment reference.')
+            return redirect('unified_payment')
+
         messages.success(request, 'Payment successful!')
         return redirect('payment_receipt', reference=batch.reference)
-        
+
     except Exception as e:
-        print(f"Callback error: {str(e)}")
-        import traceback
-        traceback.print_exc()
+        logger.exception('Paystack callback error for reference %s: %s', reference, e)
         messages.error(request, f'Error processing payment: {str(e)}')
         return redirect('unified_payment')
 
@@ -4882,7 +4919,7 @@ def compute_student_fee_status(student, fee_structure, session, term):
         student=student,
         session=session,
         term=term,
-        payment_method__in=["cash", "bank_transfer", "credit_card"]
+        payment_method__in=["cash", "bank_transfer", "credit_card", "wallet"]
     ).aggregate(total=Sum("amount_paid"))["total"] or Decimal("0.00")
 
     total_waiver = Payment.objects.filter(
@@ -5961,246 +5998,37 @@ def initialize_paystack_unified(request):
 @csrf_exempt
 @require_http_methods(["POST"])
 def paystack_webhook(request):
-    """Handle Paystack webhook with student info from metadata"""
+    """Handle Paystack webhook - verifies signature, then delegates to process_paystack_charge_success"""
     import json
     import hmac
     import hashlib
-    from decimal import Decimal
-    from django.db import transaction
-    from wallet.services.payment_service import create_payment_record
 
     signature = request.headers.get('x-paystack-signature')
     if not signature:
         return JsonResponse({'error': 'No signature'}, status=400)
-    
+
     computed_hash = hmac.new(
         settings.PAYSTACK_SECRET_KEY.encode('utf-8'),
         request.body,
         hashlib.sha512
     ).hexdigest()
-    
+
     if not hmac.compare_digest(computed_hash, signature):
         return JsonResponse({'error': 'Invalid signature'}, status=401)
-    
+
     try:
         data = json.loads(request.body)
-    except:
+    except ValueError:
         return JsonResponse({'error': 'Invalid JSON'}, status=400)
-    
-    if data.get('event') == 'charge.success':
-        paystack_data = data['data']
-        reference = paystack_data['reference']
-        
-        # Extract metadata
-        transaction_metadata = paystack_data.get('metadata', {})
-        payment_data = transaction_metadata.get('payment_data', {})
-        students_info = payment_data.get('students', [])
-        
-        print(f"Webhook: Found {len(students_info)} students in metadata")
-        
-        try:
-            with transaction.atomic():
-                batch = PaymentBatch.objects.filter(reference=reference).first()
-                
-                if not batch:
-                    session = Session.objects.filter(id=payment_data.get('session_id')).first()
-                    term = Term.objects.filter(id=payment_data.get('term_id')).first()
-                    
-                    batch = PaymentBatch.objects.create(
-                        reference=reference,
-                        parent_email=paystack_data['customer']['email'],
-                        amount_paid=Decimal(str(paystack_data['amount'])) / 100,
-                        session=session,
-                        term=term,
-                        payment_channel=paystack_data.get('channel', 'card'),
-                        status='pending',
-                    )
-                
-                if batch.status == 'success':
-                    return JsonResponse({'status': 'already_processed'}, status=200)
-                
-                # Create payments from student info
-                for student_info in students_info:
-                    admission_number = student_info.get('admission_number')
-                    amount = Decimal(str(student_info.get('amount', 0)))
-                    
-                    if not admission_number or amount <= 0:
-                        continue
-                    
-                    student = Student.objects.filter(admission_number=admission_number).first()
-                    
-                    if student and not Payment.objects.filter(payment_batch=batch, student=student).exists():
-                        create_payment_record(
-                            student=student,
-                            amount=amount,
-                            payment_method=batch.payment_channel or 'card',
-                            session=batch.session,
-                            term=batch.term,
-                            transaction_reference=f"{reference}-{student.id}",
-                            batch=batch,
-                        )
-                        print(f"Webhook: Created payment for {student.admission_number}")
-                
-                batch.status = 'success'
-                batch.save()
-                
-                return JsonResponse({'status': 'success'}, status=200)
-                
-        except Exception as e:
-            print(f"Webhook error: {e}")
-            return JsonResponse({'error': str(e)}, status=500)
-    
-    return JsonResponse({'status': 'ignored'}, status=200)
 
+    if data.get('event') != 'charge.success':
+        return JsonResponse({'status': 'ignored'}, status=200)
 
-def process_school_fees_webhook_complete(batch, paystack_data, breakdown, parent_data):
-    """Complete school fees processing with metadata"""
-    from decimal import Decimal
-    from django.db import transaction
-    from django.utils import timezone
-    
-    amount_paid = Decimal(str(paystack_data['amount'])) / 100
-    amount_left = amount_paid
-    
-    for item in breakdown:
-        if amount_left <= 0:
-            break
-        
-        student = Student.objects.get(id=item['student_id'])
-        fee_structure = FeeStructure.objects.get(id=item['fee_structure_id'])
-        
-        # Check if payment already exists for this student
-        existing = Payment.objects.filter(
-            student=student,
-            fee_structure=fee_structure,
-            payment_batch=batch
-        ).exists()
-        
-        if not existing:
-            pay_amount = min(amount_left, Decimal(str(item.get('balance', 0))))
-            
-            if pay_amount > 0:
-                Payment.objects.create(
-                    student=student,
-                    transaction_reference=f"{batch.reference}-{student.id}",
-                    fee_structure=fee_structure,
-                    amount_paid=pay_amount,
-                    payment_method=batch.payment_channel if batch.payment_channel else 'credit_card',
-                    status='paid',
-                    session=batch.session,
-                    term=batch.term,
-                    payment_batch=batch,
-                    payment_date=timezone.now().date(),
-                    payment_metadata={
-                        'paystack_reference': paystack_data['reference'],
-                        'webhook_processed_at': timezone.now().isoformat(),
-                    }
-                )
-                amount_left -= pay_amount
-    
-    batch.status = 'success'
-    batch.save()
+    try:
+        batch = process_paystack_charge_success(data['data'])
+    except Exception as e:
+        logger.exception('Paystack webhook error for payload %s: %s', data, e)
+        return JsonResponse({'error': str(e)}, status=500)
 
-
-def process_other_fees_webhook_complete(batch, paystack_data, breakdown, parent_data):
-    """Complete other fees processing with metadata"""
-    from decimal import Decimal
-    from django.db import transaction
-    from django.utils import timezone
-    
-    for item in breakdown:
-        student = Student.objects.get(id=item['student_id'])
-        
-        for fee_item in item.get('fees', []):
-            existing = Payment.objects.filter(
-                student=student,
-                other_fee_id=fee_item['id'],
-                payment_batch=batch
-            ).exists()
-            
-            if not existing:
-                other_fee = OtherFeeStructure.objects.get(id=fee_item['id'])
-                
-                Payment.objects.create(
-                    student=student,
-                    transaction_reference=f"{batch.reference}-{student.id}-{other_fee.id}",
-                    other_fee=other_fee,
-                    amount_paid=Decimal(str(fee_item['amount'])),
-                    payment_method=batch.payment_channel if batch.payment_channel else 'credit_card',
-                    status='paid',
-                    session=batch.session,
-                    term=batch.term,
-                    payment_batch=batch,
-                    payment_date=timezone.now().date(),
-                    payment_metadata={
-                        'paystack_reference': paystack_data['reference'],
-                        'fee_name': fee_item['name'],
-                        'webhook_processed_at': timezone.now().isoformat(),
-                    }
-                )
-    
-    batch.status = 'success'
-    batch.save()
-    """Simplified other fees processing for webhook - works without metadata columns"""
-    from decimal import Decimal
-    from django.db import transaction
-    from django.utils import timezone
-    
-    print(f"Processing other fees webhook for batch {batch.reference}")
-    
-    with transaction.atomic():
-        # Update all pending payments for this batch
-        pending_payments = Payment.objects.filter(
-            payment_batch=batch,
-            status='pending'
-        )
-        
-        if pending_payments.exists():
-            updated = pending_payments.update(
-                status='paid',
-                payment_metadata={
-                    'paystack_reference': paystack_data['reference'],
-                    'webhook_processed_at': timezone.now().isoformat(),
-                }
-            )
-            print(f"Updated {updated} pending payments to paid")
-        else:
-            print("No pending payments found for this batch")
-        
-        # Mark batch as success
-        batch.status = 'success'
-        batch.save()
-        print(f"Batch {batch.reference} marked as success")
-    """Process other fees payment from webhook"""
-    
-    payment_data = batch.payment_metadata.get('parent_data', {})
-    breakdown = payment_data.get('breakdown', [])
-    amount_paid = Decimal(str(paystack_data['amount'])) / 100
-    
-    # Calculate per-student amount
-    students_count = len(breakdown)
-    if students_count == 0:
-        return
-    
-    for item in breakdown:
-        student = Student.objects.get(id=item['student_id'])
-        
-        for fee_item in item.get('fees', []):
-            other_fee = OtherFeeStructure.objects.get(id=fee_item['id'])
-            
-            Payment.objects.create(
-                student=student,
-                transaction_reference=f"{batch.reference}-{student.id}-{other_fee.id}",
-                other_fee=other_fee,
-                amount_paid=Decimal(str(fee_item['amount'])),
-                payment_method=batch.payment_channel if batch.payment_channel else 'credit_card',
-                status='paid',
-                session=batch.session,
-                term=batch.term,
-                payment_batch=batch,
-                payment_metadata={
-                    'paystack_reference': paystack_data['reference'],
-                    'fee_name': fee_item['name'],
-                    'webhook_processed_at': timezone.now().isoformat(),
-                }
-            )
+    status = 'success' if batch.status == 'success' else 'no_payments_created'
+    return JsonResponse({'status': status}, status=200)
