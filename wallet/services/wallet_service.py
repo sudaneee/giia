@@ -11,7 +11,7 @@ from django.db.models import F
 from django.db.transaction import TransactionManagementError
 from django.utils import timezone
 
-from wallet.models import Wallet, WalletPayment, WalletTransaction
+from wallet.models import Wallet, WalletFundingRequest, WalletPayment, WalletTransaction
 
 from . import zainpay_service
 from .exceptions import InsufficientFundsError, WalletInactiveError
@@ -274,3 +274,43 @@ def pay_school_fees_from_wallet(parent_account, fee_selections, session, term):
         raise
 
     return wallet_payment
+
+
+def credit_zainpay_deposit_if_found(reference):
+    """
+    Looks up one specific deposit by reference in the wallet Zainbox's
+    transaction history and credits the matching wallet if found. Used by
+    wallet_fund_callback for immediate, on-redirect crediting instead of
+    waiting for the deposit.success webhook (which isn't reliably arriving)
+    or the periodic sync_zainpay_transactions reconciliation pass.
+
+    Returns True if the deposit is now credited (or was already credited
+    earlier by the webhook/reconciliation command - idempotent either way),
+    False if Zainpay doesn't have a matching deposit yet (e.g. the parent
+    hasn't actually completed the bank transfer, or it hasn't settled yet).
+    """
+    if WalletTransaction.objects.filter(reference=reference).exists():
+        return True
+
+    funding_request = WalletFundingRequest.objects.filter(reference=reference).first()
+    if not funding_request:
+        return False
+
+    transactions = zainpay_service.list_account_transactions(settings.ZAINPAY_WALLET_ACCOUNT_NUMBER)
+    matching = next(
+        (t for t in transactions if t.get('transactionRef') == reference and t.get('transactionType') == 'deposit'),
+        None,
+    )
+    if not matching:
+        return False
+
+    amount = Decimal(str(matching.get('amount', 0))) / 100
+    credit_wallet(
+        wallet_id=funding_request.wallet_id,
+        amount=amount,
+        reference=reference,
+        narration='Wallet funding via Zainpay',
+        source='zainpay_callback_verified',
+        metadata=matching,
+    )
+    return True

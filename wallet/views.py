@@ -234,17 +234,33 @@ def wallet_fund_callback(request):
     # we always have a record of what actually arrived here regardless of
     # method/auth state.
     logger.info(
-        'wallet_fund_callback hit: method=%s GET=%s POST=%s authenticated=%s',
-        request.method, dict(request.GET), dict(request.POST), request.user.is_authenticated,
+        'wallet_fund_callback hit: method=%s GET=%s POST=%s raw_body=%r authenticated=%s',
+        request.method, dict(request.GET), dict(request.POST), request.body[:1000], request.user.is_authenticated,
     )
 
     if settings.WALLET_FUNDING_PROVIDER == 'zainpay':
-        # Zainpay's checkout callback carries no reliable reference param and
-        # has no verify-by-reference endpoint for this product, so this page
-        # can't confirm anything itself - the deposit webhook is the sole
-        # authoritative source of truth here, same as the original Zainpay
-        # virtual-account deposit flow already worked in this codebase.
-        messages.success(request, "Payment received! Your wallet will update within a few minutes once we confirm with Zainpay.")
+        # Confirmed in production: Zainpay appends status/txnRef as query
+        # params on the browser redirect. There's still no documented
+        # verify-by-reference endpoint for this product, so rather than
+        # trust the "status" value blindly, use it to look up the deposit
+        # directly in Zainpay's own transaction history and credit
+        # immediately if it's really there - idempotent with the webhook and
+        # sync_zainpay_transactions either way.
+        txn_ref = request.GET.get('txnRef')
+        status = (request.GET.get('status') or '').lower()
+
+        if not txn_ref:
+            messages.success(request, "Payment received! Your wallet will update within a few minutes once we confirm with Zainpay.")
+            return redirect('wallet:wallet_overview')
+
+        if status in ('cancel', 'cancelled', 'failed', 'failure'):
+            messages.error(request, 'Payment was not completed.')
+            return redirect('wallet:wallet_overview')
+
+        if wallet_service.credit_zainpay_deposit_if_found(txn_ref):
+            messages.success(request, 'Your wallet has been funded successfully.')
+        else:
+            messages.success(request, "Payment received! Your wallet will update within a few minutes once we confirm with Zainpay.")
         return redirect('wallet:wallet_overview')
 
     reference = request.GET.get('reference')

@@ -209,6 +209,77 @@ class WalletFundInitiateZainpayTests(TestCase):
         self.assertContains(response, 'Could not start wallet funding')
 
 
+@override_settings(WALLET_FUNDING_PROVIDER='zainpay', ZAINPAY_WALLET_ACCOUNT_NUMBER='4812833397')
+class WalletFundCallbackZainpayTests(TestCase):
+    """
+    Production incident: the browser redirect back from Zainpay's checkout
+    page appends ?status=...&txnRef=... query params (confirmed live), and
+    the deposit.success webhook isn't reliably arriving - so the callback
+    actively verifies against Zainpay's own transaction history instead of
+    just showing a generic message.
+    """
+    def setUp(self):
+        from wallet.test_support import seed_site_context_fixtures
+        seed_site_context_fixtures()
+        self.parent_account = make_parent_account('callback-zp-parent@example.com')
+        self.wallet = self.parent_account.wallet
+        self.client = Client()
+        self.client.login(username='callback-zp-parent@example.com', password='TestPass123!')
+
+    @patch('wallet.services.zainpay_service.list_account_transactions')
+    def test_credits_wallet_when_deposit_is_confirmed(self, mock_list):
+        funding_request = WalletFundingRequest.objects.create(
+            wallet=self.wallet, reference='WALLETFUND-CB1', amount=Decimal('500.00'),
+        )
+        mock_list.return_value = [
+            {'transactionType': 'deposit', 'transactionRef': 'WALLETFUND-CB1', 'amount': 49250},
+        ]
+
+        response = self.client.get('/parent/wallet/fund/callback/?status=success&txnRef=WALLETFUND-CB1', follow=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'funded successfully')
+        self.wallet.refresh_from_db()
+        self.assertEqual(self.wallet.balance, Decimal('492.50'))
+
+    @patch('wallet.services.zainpay_service.list_account_transactions')
+    def test_shows_pending_message_when_deposit_not_yet_confirmed(self, mock_list):
+        WalletFundingRequest.objects.create(
+            wallet=self.wallet, reference='WALLETFUND-CB2', amount=Decimal('500.00'),
+        )
+        mock_list.return_value = []
+
+        response = self.client.get('/parent/wallet/fund/callback/?status=success&txnRef=WALLETFUND-CB2', follow=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'update within a few minutes')
+        self.wallet.refresh_from_db()
+        self.assertEqual(self.wallet.balance, Decimal('0.00'))
+
+    def test_cancelled_status_shows_error_and_never_calls_zainpay(self):
+        with patch('wallet.services.zainpay_service.list_account_transactions') as mock_list:
+            response = self.client.get('/parent/wallet/fund/callback/?status=cancel&txnRef=WALLETFUND-CB3', follow=True)
+
+            self.assertEqual(response.status_code, 200)
+            self.assertContains(response, 'not completed')
+            mock_list.assert_not_called()
+
+    def test_missing_txn_ref_shows_generic_pending_message(self):
+        response = self.client.get('/parent/wallet/fund/callback/', follow=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'update within a few minutes')
+
+    def test_unauthenticated_post_does_not_error(self):
+        # Simulates a server-to-server hit with no browser session at all -
+        # must not redirect to login or raise, just be logged and ignored.
+        anon_client = Client()
+        response = anon_client.post('/parent/wallet/fund/callback/', content_type='application/json', data='{}')
+
+        self.assertEqual(response.status_code, 302)
+        self.assertNotIn('/parent/login/', response.url)
+
+
 @override_settings(
     ZAINPAY_SECRET_KEY='test-secret-key',
     ZAINPAY_WALLET_ZAINBOX_CODE='76812_yJ8B7wyLV38ypP2Noqgc',
