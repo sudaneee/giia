@@ -2,10 +2,12 @@ import hashlib
 import hmac
 import json
 from decimal import Decimal
+from io import StringIO
 from unittest.mock import MagicMock, patch
 
 import requests
 from django.contrib.auth.models import User
+from django.core.management import call_command
 from django.test import Client, TestCase, override_settings
 
 from wallet.models import ParentAccount, WalletFundingRequest, WalletTransaction
@@ -311,3 +313,80 @@ class ZainpayDepositWebhookTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertFalse(WalletTransaction.objects.filter(reference='unknown-ref').exists())
+
+
+@override_settings(ZAINPAY_WALLET_ACCOUNT_NUMBER='4812833397')
+class SyncZainpayTransactionsCommandTests(TestCase):
+    """
+    Safety net for exactly the production incident this was built for: a
+    deposit lands on Zainpay's side (confirmed via list_account_transactions)
+    but the deposit.success webhook never arrives, so the wallet is never
+    credited without this command catching it.
+    """
+    @patch('wallet.management.commands.sync_zainpay_transactions.zainpay_service.list_account_transactions')
+    def test_credits_missed_deposit(self, mock_list):
+        parent_account = make_parent_account('sync-parent@example.com')
+        funding_request = WalletFundingRequest.objects.create(
+            wallet=parent_account.wallet, reference='WALLETFUND-MISSED1', amount=Decimal('500.00'),
+        )
+        mock_list.return_value = [
+            {
+                'transactionType': 'deposit',
+                'transactionRef': 'WALLETFUND-MISSED1',
+                'amount': 49250,  # kobo - Zainpay's own fee already deducted
+            },
+        ]
+
+        out = StringIO()
+        call_command('sync_zainpay_transactions', stdout=out)
+
+        funding_request.wallet.refresh_from_db()
+        self.assertEqual(funding_request.wallet.balance, Decimal('492.50'))
+        self.assertTrue(WalletTransaction.objects.filter(reference='WALLETFUND-MISSED1').exists())
+        self.assertIn('Credited missed deposit', out.getvalue())
+
+    @patch('wallet.management.commands.sync_zainpay_transactions.zainpay_service.list_account_transactions')
+    def test_does_not_recredit_known_transaction(self, mock_list):
+        parent_account = make_parent_account('sync-parent-2@example.com')
+        WalletFundingRequest.objects.create(
+            wallet=parent_account.wallet, reference='WALLETFUND-KNOWN1', amount=Decimal('1000.00'),
+        )
+        credit_wallet(parent_account.wallet.id, Decimal('1000.00'), 'WALLETFUND-KNOWN1', 'Funding', 'zainpay_checkout_webhook')
+
+        mock_list.return_value = [
+            {'transactionType': 'deposit', 'transactionRef': 'WALLETFUND-KNOWN1', 'amount': 100000},
+        ]
+
+        out = StringIO()
+        call_command('sync_zainpay_transactions', stdout=out)
+
+        parent_account.wallet.refresh_from_db()
+        self.assertEqual(parent_account.wallet.balance, Decimal('1000.00'))
+        self.assertEqual(WalletTransaction.objects.filter(reference='WALLETFUND-KNOWN1').count(), 1)
+
+    @patch('wallet.management.commands.sync_zainpay_transactions.zainpay_service.list_account_transactions')
+    def test_ignores_deposits_without_a_funding_request(self, mock_list):
+        mock_list.return_value = [
+            {'transactionType': 'deposit', 'transactionRef': 'SETTLEMENT-UNRELATED', 'amount': 5000000},
+        ]
+
+        out = StringIO()
+        call_command('sync_zainpay_transactions', stdout=out)
+
+        self.assertFalse(WalletTransaction.objects.filter(reference='SETTLEMENT-UNRELATED').exists())
+        self.assertIn('1 unmatched', out.getvalue())
+
+    @patch('wallet.management.commands.sync_zainpay_transactions.zainpay_service.list_account_transactions')
+    def test_ignores_non_deposit_transaction_types(self, mock_list):
+        parent_account = make_parent_account('sync-parent-3@example.com')
+        WalletFundingRequest.objects.create(
+            wallet=parent_account.wallet, reference='WALLETFUND-TRANSFERTYPE', amount=Decimal('500.00'),
+        )
+        mock_list.return_value = [
+            {'transactionType': 'transfer', 'transactionRef': 'WALLETFUND-TRANSFERTYPE', 'amount': 50000},
+        ]
+
+        out = StringIO()
+        call_command('sync_zainpay_transactions', stdout=out)
+
+        self.assertFalse(WalletTransaction.objects.filter(reference='WALLETFUND-TRANSFERTYPE').exists())

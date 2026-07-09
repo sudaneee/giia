@@ -1,3 +1,4 @@
+import logging
 from decimal import Decimal
 from uuid import uuid4
 
@@ -8,6 +9,7 @@ from django.contrib.auth.models import User
 from django.core.paginator import Paginator
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
 from src.models import OtherFeeStructure, Session, Student, Term
@@ -23,6 +25,8 @@ from .services.exceptions import (
     ZainpayTransferError,
 )
 from .services.wallet_service import credit_wallet
+
+logger = logging.getLogger(__name__)
 
 
 def register(request):
@@ -219,8 +223,21 @@ def wallet_fund_initiate(request):
     return redirect('wallet:wallet_overview')
 
 
-@parent_required
+@csrf_exempt
 def wallet_fund_callback(request):
+    # Deliberately NOT @parent_required, and exempted from CSRF: some
+    # gateways (possibly Zainpay - under investigation) may hit this URL
+    # server-to-server, with no browser session or CSRF token at all, in
+    # addition to the browser redirect a logged-in parent gets sent through.
+    # Gating this on auth/CSRF would silently reject any such server call
+    # before we ever saw it. Logged unconditionally, before anything else, so
+    # we always have a record of what actually arrived here regardless of
+    # method/auth state.
+    logger.info(
+        'wallet_fund_callback hit: method=%s GET=%s POST=%s authenticated=%s',
+        request.method, dict(request.GET), dict(request.POST), request.user.is_authenticated,
+    )
+
     if settings.WALLET_FUNDING_PROVIDER == 'zainpay':
         # Zainpay's checkout callback carries no reliable reference param and
         # has no verify-by-reference endpoint for this product, so this page
