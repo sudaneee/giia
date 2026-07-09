@@ -1,7 +1,8 @@
 from decimal import Decimal
+from unittest.mock import patch
 
 from django.contrib.auth.models import User
-from django.test import Client, TestCase
+from django.test import Client, TestCase, override_settings
 
 from src.models import (
     FeeComponent,
@@ -16,9 +17,22 @@ from src.models import (
 )
 from wallet.models import ParentAccount, ParentStudentLink, Wallet, WalletPayment, WalletTransaction
 from wallet.services import fee_service, wallet_service
-from wallet.services.exceptions import InsufficientFundsError
+from wallet.services.exceptions import InsufficientFundsError, ZainpayTransferError
 from wallet.services.wallet_service import credit_wallet
 from wallet.test_support import seed_site_context_fixtures
+
+
+def mock_transfer_success(amount):
+    # Zainpay returns amounts in kobo: ₦300 fee = 30000 kobo.
+    amount_d = Decimal(str(amount))
+    total_kobo = int((amount_d + Decimal('300')) * 100)
+    return {
+        'status': 'success',
+        'amount': str(int(amount_d * 100)),
+        'totalTxnAmount': str(total_kobo),
+        'txnFee': '30000',
+        'txnRef': 'whatever',
+    }
 
 
 def make_parent_account(email='fee-parent@example.com'):
@@ -93,6 +107,10 @@ class FeeServiceOutstandingTests(TestCase):
 
 
 class PayFromWalletServiceTests(TestCase):
+    """
+    WALLET_FUNDING_PROVIDER defaults to 'zainpay', so pay_school_fees_from_wallet
+    calls zainpay_service.transfer_wallet_to_school() for real - mocked here.
+    """
     def setUp(self):
         self.fixture = make_fee_fixture()
         self.parent_account = make_parent_account()
@@ -106,15 +124,17 @@ class PayFromWalletServiceTests(TestCase):
             'fee_structure': self.fixture['fee_structure'],
         }]
 
-    def test_successful_payment_debits_wallet_and_creates_payment(self):
-        credit_wallet(self.wallet.id, Decimal('100000.00'), 'fund-1', 'Funding', 'paystack_webhook')
+    @patch('wallet.services.wallet_service.zainpay_service.transfer_wallet_to_school')
+    def test_successful_payment_debits_wallet_and_creates_payment(self, mock_transfer):
+        credit_wallet(self.wallet.id, Decimal('100000.00'), 'fund-1', 'Funding', 'zainpay_checkout_webhook')
+        mock_transfer.return_value = mock_transfer_success(Decimal('50000.00'))
 
         wallet_payment = wallet_service.pay_school_fees_from_wallet(
             self.parent_account, self._fee_selections(), self.fixture['session'], self.fixture['term'],
         )
 
         self.wallet.refresh_from_db()
-        self.assertEqual(self.wallet.balance, Decimal('100000.00') - Decimal('50000.00'))
+        self.assertEqual(self.wallet.balance, Decimal('100000.00') - Decimal('50300.00'))
         self.assertEqual(self.wallet.balance, self.wallet.authoritative_balance)
 
         self.assertEqual(wallet_payment.payments.count(), 1)
@@ -123,16 +143,65 @@ class PayFromWalletServiceTests(TestCase):
         self.assertEqual(payment.amount_paid, Decimal('50000.00'))
         self.assertEqual(payment.student, self.fixture['student'])
 
-    def test_insufficient_balance_raises(self):
-        credit_wallet(self.wallet.id, Decimal('1000.00'), 'fund-2', 'Funding', 'paystack_webhook')
+        mock_transfer.assert_called_once()
+        call_args = mock_transfer.call_args[0]
+        self.assertEqual(call_args[0], Decimal('50000.00'))
+
+    @patch('wallet.services.wallet_service.zainpay_service.transfer_wallet_to_school')
+    def test_insufficient_balance_never_calls_zainpay(self, mock_transfer):
+        credit_wallet(self.wallet.id, Decimal('1000.00'), 'fund-2', 'Funding', 'zainpay_checkout_webhook')
 
         with self.assertRaises(InsufficientFundsError):
             wallet_service.pay_school_fees_from_wallet(
                 self.parent_account, self._fee_selections(), self.fixture['session'], self.fixture['term'],
             )
 
+        mock_transfer.assert_not_called()
         self.wallet.refresh_from_db()
         self.assertEqual(self.wallet.balance, Decimal('1000.00'))
+
+    @patch('wallet.services.wallet_service.zainpay_service.transfer_wallet_to_school')
+    def test_transfer_failure_leaves_no_trace_in_ledger(self, mock_transfer):
+        credit_wallet(self.wallet.id, Decimal('100000.00'), 'fund-3', 'Funding', 'zainpay_checkout_webhook')
+        mock_transfer.side_effect = ZainpayTransferError('destination bank not responding')
+
+        with self.assertRaises(ZainpayTransferError):
+            wallet_service.pay_school_fees_from_wallet(
+                self.parent_account, self._fee_selections(), self.fixture['session'], self.fixture['term'],
+            )
+
+        self.wallet.refresh_from_db()
+        self.assertEqual(self.wallet.balance, Decimal('100000.00'))
+        self.assertEqual(Payment.objects.filter(student=self.fixture['student']).count(), 0)
+        self.assertEqual(WalletPayment.objects.count(), 0)
+
+
+@override_settings(WALLET_FUNDING_PROVIDER='paystack')
+class PayFromWalletServicePaystackFallbackTests(TestCase):
+    """
+    Confirms flipping WALLET_FUNDING_PROVIDER back to 'paystack' really does
+    restore the old pure-bookkeeping behavior with zero code changes needed.
+    """
+    def setUp(self):
+        self.fixture = make_fee_fixture()
+        self.parent_account = make_parent_account('paystack-fallback@example.com')
+        ParentStudentLink.objects.create(parent_account=self.parent_account, student=self.fixture['student'])
+        self.wallet = self.parent_account.wallet
+
+    @patch('wallet.services.wallet_service.zainpay_service.transfer_wallet_to_school')
+    def test_paystack_provider_never_calls_zainpay_and_debits_exact_amount(self, mock_transfer):
+        credit_wallet(self.wallet.id, Decimal('100000.00'), 'fallback-fund-1', 'Funding', 'paystack_webhook')
+
+        wallet_payment = wallet_service.pay_school_fees_from_wallet(
+            self.parent_account,
+            [{'student': self.fixture['student'], 'amount': Decimal('50000.00'), 'fee_structure': self.fixture['fee_structure']}],
+            self.fixture['session'], self.fixture['term'],
+        )
+
+        mock_transfer.assert_not_called()
+        self.wallet.refresh_from_db()
+        self.assertEqual(self.wallet.balance, Decimal('100000.00') - Decimal('50000.00'))
+        self.assertEqual(wallet_payment.payments.count(), 1)
 
 
 class PayFeesViewTests(TestCase):
@@ -182,8 +251,10 @@ class PayFeesViewTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Nothing selected to pay')
 
-    def test_confirm_wallet_payment_end_to_end(self):
-        credit_wallet(self.wallet.id, Decimal('100000.00'), 'view-fund-1', 'Funding', 'paystack_webhook')
+    @patch('wallet.services.wallet_service.zainpay_service.transfer_wallet_to_school')
+    def test_confirm_wallet_payment_end_to_end(self, mock_transfer):
+        credit_wallet(self.wallet.id, Decimal('100000.00'), 'view-fund-1', 'Funding', 'zainpay_checkout_webhook')
+        mock_transfer.return_value = mock_transfer_success(Decimal('50000.00'))
 
         response = self.client.post('/parent/fees/pay/confirm/', {
             'session_id': self.fixture['session'].id,
@@ -195,7 +266,7 @@ class PayFeesViewTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Payment Successful')
         self.wallet.refresh_from_db()
-        self.assertEqual(self.wallet.balance, Decimal('100000.00') - Decimal('50000.00'))
+        self.assertEqual(self.wallet.balance, Decimal('100000.00') - Decimal('50300.00'))
 
     def test_receipt_detail_not_visible_to_other_parents(self):
         credit_wallet(self.wallet.id, Decimal('100000.00'), 'view-fund-2', 'Funding', 'paystack_webhook')
@@ -269,8 +340,10 @@ class OtherFeesPaymentTests(TestCase):
         # 2 children x 2 fees = 4 line items, total = 2 x (5000 + 3000) = 16000
         self.assertContains(response, '16,000.00')
 
-    def test_confirm_wallet_payment_for_other_fees_creates_correct_payments(self):
-        credit_wallet(self.wallet.id, Decimal('100000.00'), 'other-fees-fund-1', 'Funding', 'paystack_webhook')
+    @patch('wallet.services.wallet_service.zainpay_service.transfer_wallet_to_school')
+    def test_confirm_wallet_payment_for_other_fees_creates_correct_payments(self, mock_transfer):
+        credit_wallet(self.wallet.id, Decimal('100000.00'), 'other-fees-fund-1', 'Funding', 'zainpay_checkout_webhook')
+        mock_transfer.return_value = mock_transfer_success(Decimal('16000.00'))
 
         response = self.client.post('/parent/fees/pay/confirm/', {
             'fee_type': 'other_fees',
@@ -284,7 +357,7 @@ class OtherFeesPaymentTests(TestCase):
         self.assertContains(response, 'Payment Successful')
 
         self.wallet.refresh_from_db()
-        self.assertEqual(self.wallet.balance, Decimal('100000.00') - Decimal('16000.00'))
+        self.assertEqual(self.wallet.balance, Decimal('100000.00') - Decimal('16300.00'))
 
         payments = Payment.objects.filter(payment_method='wallet')
         self.assertEqual(payments.count(), 4)

@@ -32,7 +32,10 @@ class CalculateTopupFeeTests(TestCase):
         self.assertEqual(paystack_service.calculate_topup_fee(Decimal('5000.00'), 'bank_transfer'), Decimal('300.00'))
 
 
-@override_settings(PAYSTACK_SECRET_KEY='test-secret-key', SITE_BASE_URL='http://localhost:8000')
+@override_settings(
+    PAYSTACK_SECRET_KEY='test-secret-key', SITE_BASE_URL='http://localhost:8000',
+    WALLET_FUNDING_PROVIDER='paystack',
+)
 class WalletFundInitiateTests(TestCase):
     def setUp(self):
         seed_site_context_fixtures()
@@ -80,7 +83,7 @@ class WalletFundInitiateTests(TestCase):
         mock_post.assert_not_called()
 
 
-@override_settings(PAYSTACK_SECRET_KEY='test-secret-key')
+@override_settings(PAYSTACK_SECRET_KEY='test-secret-key', WALLET_FUNDING_PROVIDER='paystack')
 class WalletFundCallbackTests(TestCase):
     def setUp(self):
         seed_site_context_fixtures()
@@ -148,7 +151,7 @@ class WalletFundCallbackTests(TestCase):
         self.assertEqual(WalletTransaction.objects.filter(reference='WALLETFUND-DUP1').count(), 1)
 
 
-@override_settings(PAYSTACK_SECRET_KEY='test-secret-key')
+@override_settings(PAYSTACK_SECRET_KEY='test-secret-key', WALLET_FUNDING_PROVIDER='paystack')
 class PaystackFundingWebhookTests(TestCase):
     def setUp(self):
         self.parent_account = make_parent_account('webhook-parent@example.com')

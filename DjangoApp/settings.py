@@ -168,27 +168,32 @@ PAYSTACK_SECRET_KEY = os.getenv("PAYSTACK_SECRET_KEY")
 ZAINPAY_SECRET_KEY = os.getenv("ZAINPAY_SECRET_KEY")
 ZAINPAY_PUBLIC_KEY = os.getenv("ZAINPAY_PUBLIC_KEY")
 ZAINPAY_BASE_URL = os.getenv("ZAINPAY_BASE_URL", "https://sandbox.zainpay.ng")
-ZAINPAY_ZAINBOX_CODE = os.getenv("ZAINPAY_ZAINBOX_CODE")
-# Parent virtual accounts are all created with bankType "zainBank" - this is
-# that bank's numeric bank code, used as sourceBankCode on outgoing transfers.
-ZAINPAY_BANK_CODE = os.getenv("ZAINPAY_BANK_CODE", "")
-# The school's own settlement account that receives fee-payment transfers.
-ZAINPAY_SCHOOL_SETTLEMENT_ACCOUNT_NUMBER = os.getenv("ZAINPAY_SCHOOL_SETTLEMENT_ACCOUNT_NUMBER")
-ZAINPAY_SCHOOL_SETTLEMENT_BANK_CODE = os.getenv("ZAINPAY_SCHOOL_SETTLEMENT_BANK_CODE", "")
+
+# Which provider actively funds/spends wallets right now - 'zainpay' or
+# 'paystack'. Flipping this one setting is the whole switch: it controls both
+# which checkout a parent is sent to when funding their wallet, and whether
+# paying fees from the wallet does a real Zainpay Zainbox-to-Zainbox transfer
+# (only correct when Zainpay is the active funding provider, since that's
+# where the real money actually sits).
+WALLET_FUNDING_PROVIDER = os.getenv("WALLET_FUNDING_PROVIDER", "zainpay")
+
+# Zainbox 1: every parent's wallet top-up lands in this single pooled Zainbox
+# (no per-parent virtual accounts anymore - Zainpay's checkout page collects
+# from any channel and deposits straight into this account).
+ZAINPAY_WALLET_ZAINBOX_CODE = os.getenv("ZAINPAY_WALLET_ZAINBOX_CODE", "76812_yJ8B7wyLV38ypP2Noqgc")
+ZAINPAY_WALLET_ACCOUNT_NUMBER = os.getenv("ZAINPAY_WALLET_ACCOUNT_NUMBER", "4812833397")
+ZAINPAY_WALLET_BANK_CODE = os.getenv("ZAINPAY_WALLET_BANK_CODE", "090976")
+
+# Zainbox 2: the school's own Zainbox. Paying fees from a wallet transfers
+# funds here from the wallet Zainbox above.
+ZAINPAY_SCHOOL_SETTLEMENT_ACCOUNT_NUMBER = os.getenv("ZAINPAY_SCHOOL_SETTLEMENT_ACCOUNT_NUMBER", "4812350098")
+ZAINPAY_SCHOOL_SETTLEMENT_BANK_CODE = os.getenv("ZAINPAY_SCHOOL_SETTLEMENT_BANK_CODE", "090976")
+
 SITE_BASE_URL = os.getenv("SITE_BASE_URL", "http://localhost:8000")
 # Used only for the upfront "can this wallet afford this payment" UI check,
 # before the real transfer happens. The actual debit always uses the real
 # totalTxnAmount Zainpay returns, never this estimate.
 ZAINPAY_TRANSFER_FEE_ESTIMATE = Decimal(os.getenv("ZAINPAY_TRANSFER_FEE_ESTIMATE", "300"))
-# KYC details used for all parent virtual account creation requests.
-# Zainpay requires BVN/DOB/gender/address/state but parents don't supply them;
-# the school provides a single authoritative set from the head of school.
-ZAINPAY_KYC_BVN     = os.getenv("ZAINPAY_KYC_BVN", "22156184124")
-ZAINPAY_KYC_DOB     = os.getenv("ZAINPAY_KYC_DOB", "22-06-2026")   # format: DD-MM-YYYY
-ZAINPAY_KYC_GENDER  = os.getenv("ZAINPAY_KYC_GENDER", "M")
-ZAINPAY_KYC_TITLE   = os.getenv("ZAINPAY_KYC_TITLE", "Mr")
-ZAINPAY_KYC_ADDRESS = os.getenv("ZAINPAY_KYC_ADDRESS", "No. 186 Railway Street H Dogo Samaru Zaria")
-ZAINPAY_KYC_STATE   = os.getenv("ZAINPAY_KYC_STATE", "Kaduna")
 
 # Without this, Python's default logging level (WARNING) silently drops every
 # logger.info() call in the wallet app - including the webhook diagnostics -

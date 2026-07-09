@@ -1,5 +1,6 @@
 from functools import wraps
 
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.models import User
 from django.shortcuts import get_object_or_404, redirect, render
@@ -9,7 +10,7 @@ from src.models import OtherFeeStructure, Session, Student, Term
 from wallet.forms import AddChildForm, ParentRegistrationForm
 from wallet.models import ParentAccount, ParentStudentLink, WalletPayment
 from wallet.services import fee_service, wallet_service
-from wallet.services.exceptions import InsufficientFundsError, WalletInactiveError
+from wallet.services.exceptions import InsufficientFundsError, WalletInactiveError, ZainpayTransferError
 
 
 def superadmin_required(view_func):
@@ -254,7 +255,10 @@ def wallet_admin_pay_fees(request, parent_id):
         fee_selections = _build_other_fee_selections(parent_account, session, term, student_ids, fee_ids)
 
     total_amount = sum(item['amount'] for item in fee_selections)
-    can_pay = bool(fee_selections) and wallet.balance >= total_amount
+    required_balance = total_amount
+    if settings.WALLET_FUNDING_PROVIDER == 'zainpay':
+        required_balance += settings.ZAINPAY_TRANSFER_FEE_ESTIMATE
+    can_pay = bool(fee_selections) and wallet.balance >= required_balance
     unique_student_ids = list(dict.fromkeys(item['student'].id for item in fee_selections))
 
     return render(request, 'src/wallet_admin_pay_fees.html', {
@@ -305,7 +309,7 @@ def wallet_admin_confirm_payment(request, parent_id):
         return redirect('wallet_admin_detail', parent_id=parent_id)
     except InsufficientFundsError:
         messages.error(request, 'Insufficient wallet balance.')
-    except (WalletInactiveError, ValueError) as e:
+    except (ZainpayTransferError, WalletInactiveError, ValueError) as e:
         messages.error(request, f'Payment failed: {e}')
 
     return redirect('wallet_admin_detail', parent_id=parent_id)

@@ -120,6 +120,23 @@ class VirtualAccount(models.Model):
         return f"{self.account_number} ({self.bank_name}) - {self.wallet.parent_account}"
 
 
+class WalletFundingRequest(models.Model):
+    """
+    Created right before redirecting a parent to a Zainpay checkout session.
+    Zainpay's checkout API has no metadata pass-through (unlike Paystack), so
+    this is how the deposit webhook - which only carries a txnRef and the
+    pooled wallet Zainbox's account number, not which parent paid - knows
+    which wallet to credit and how much was actually requested.
+    """
+    wallet = models.ForeignKey(Wallet, on_delete=models.PROTECT, related_name='funding_requests')
+    reference = models.CharField(max_length=100, unique=True)
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"WalletFundingRequest {self.reference} - {self.wallet.parent_account} - ₦{self.amount}"
+
+
 class WalletPayment(models.Model):
     """
     Audit bridge: links one wallet debit to the school Payment record(s) it

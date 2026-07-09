@@ -16,3 +16,7 @@ class VirtualAccountCreationError(Exception):
 
 class ZainpayTransferError(Exception):
     """Raised when a Zainpay funds transfer fails or cannot be confirmed."""
+
+
+class ZainpayCheckoutError(Exception):
+    """Raised when starting a Zainpay checkout session fails."""

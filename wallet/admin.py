@@ -1,6 +1,14 @@
 from django.contrib import admin
 
-from .models import ParentAccount, ParentStudentLink, VirtualAccount, Wallet, WalletPayment, WalletTransaction
+from .models import (
+    ParentAccount,
+    ParentStudentLink,
+    VirtualAccount,
+    Wallet,
+    WalletFundingRequest,
+    WalletPayment,
+    WalletTransaction,
+)
 
 
 class ParentStudentLinkInline(admin.TabularInline):
@@ -66,6 +74,18 @@ class VirtualAccountAdmin(admin.ModelAdmin):
     def has_add_permission(self, request):
         # Virtual accounts are only ever created via Zainpay through the
         # wallet activation flow - never by hand.
+        return False
+
+
+@admin.register(WalletFundingRequest)
+class WalletFundingRequestAdmin(admin.ModelAdmin):
+    list_display = ['reference', 'wallet', 'amount', 'created_at']
+    search_fields = ['reference', 'wallet__parent_account__user__email']
+    readonly_fields = ['wallet', 'reference', 'amount', 'created_at']
+
+    def has_add_permission(self, request):
+        # Only ever created by wallet_fund_initiate() right before redirecting
+        # to Zainpay's checkout page.
         return False
 
 

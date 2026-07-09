@@ -14,13 +14,14 @@
 <div class="card mb-3">
   <div class="card-header"><i class="bi bi-bank mr-2"></i>Fund Your Wallet</div>
   <div class="card-body">
-    <p class="text-muted small mb-3">Pick an amount and pay securely through Paystack. Your wallet is credited as soon as payment is confirmed.</p>
+    <p class="text-muted small mb-3">Pick an amount and pay securely. Your wallet is credited as soon as payment is confirmed.</p>
     <form method="POST" action="{% url 'wallet:wallet_fund_initiate' %}">
       {% csrf_token %}
       <div class="form-group">
         <label for="amount" class="small text-muted">Amount (₦)</label>
         <input type="number" min="1" step="0.01" name="amount" id="amount" class="form-control" required>
       </div>
+      {% if funding_provider == 'paystack' %}
       <div class="form-group">
         <label class="small text-muted d-block">Pay With</label>
         <div class="form-check form-check-inline">
@@ -32,6 +33,7 @@
           <label class="form-check-label" for="payment_method_bank">Bank Transfer / USSD</label>
         </div>
       </div>
+      {% endif %}
       <button type="submit" class="btn btn-gold btn-block btn-lg"><i class="bi bi-plus-circle mr-1"></i>Fund Wallet</button>
     </form>
   </div>

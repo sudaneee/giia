@@ -1,6 +1,7 @@
 from decimal import Decimal
 from uuid import uuid4
 
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.models import User
@@ -13,9 +14,14 @@ from src.models import OtherFeeStructure, Session, Student, Term
 
 from .decorators import parent_required
 from .forms import AddChildForm, ParentRegistrationForm
-from .models import ParentAccount, ParentStudentLink, WalletPayment
-from .services import fee_service, paystack_service, wallet_service
-from .services.exceptions import InsufficientFundsError, WalletInactiveError
+from .models import ParentAccount, ParentStudentLink, WalletFundingRequest, WalletPayment
+from .services import fee_service, paystack_service, wallet_service, zainpay_service
+from .services.exceptions import (
+    InsufficientFundsError,
+    WalletInactiveError,
+    ZainpayCheckoutError,
+    ZainpayTransferError,
+)
 from .services.wallet_service import credit_wallet
 
 
@@ -144,7 +150,10 @@ def remove_child(request, link_id):
 def wallet_overview(request):
     wallet = request.user.parent_account.wallet
 
-    return render(request, 'wallet/wallet_overview.html', {'wallet': wallet})
+    return render(request, 'wallet/wallet_overview.html', {
+        'wallet': wallet,
+        'funding_provider': settings.WALLET_FUNDING_PROVIDER,
+    })
 
 
 @parent_required
@@ -157,10 +166,6 @@ def wallet_fund_initiate(request):
         messages.error(request, 'This wallet is not active.')
         return redirect('wallet:wallet_overview')
 
-    payment_method = request.POST.get('payment_method', 'card')
-    if payment_method not in ('card', 'bank_transfer'):
-        payment_method = 'card'
-
     try:
         amount = Decimal(request.POST.get('amount', '0'))
     except Exception:
@@ -169,6 +174,26 @@ def wallet_fund_initiate(request):
     if amount <= 0:
         messages.error(request, 'Enter a valid amount to fund.')
         return redirect('wallet:wallet_overview')
+
+    if settings.WALLET_FUNDING_PROVIDER == 'zainpay':
+        reference = f"WALLETFUND-{uuid4().hex[:12].upper()}"
+        WalletFundingRequest.objects.create(wallet=wallet, reference=reference, amount=amount)
+
+        try:
+            redirect_url = zainpay_service.initialize_checkout(
+                parent_account, amount, reference,
+                callback_url=request.build_absolute_uri(reverse('wallet:wallet_fund_callback')),
+            )
+        except ZainpayCheckoutError as e:
+            messages.error(request, f'Could not start wallet funding: {e}')
+            return redirect('wallet:wallet_overview')
+
+        return redirect(redirect_url)
+
+    # Paystack: payment_method choice only matters here, for its fee calc.
+    payment_method = request.POST.get('payment_method', 'card')
+    if payment_method not in ('card', 'bank_transfer'):
+        payment_method = 'card'
 
     fee = paystack_service.calculate_topup_fee(amount, payment_method)
     total_charge = amount + fee
@@ -196,6 +221,15 @@ def wallet_fund_initiate(request):
 
 @parent_required
 def wallet_fund_callback(request):
+    if settings.WALLET_FUNDING_PROVIDER == 'zainpay':
+        # Zainpay's checkout callback carries no reliable reference param and
+        # has no verify-by-reference endpoint for this product, so this page
+        # can't confirm anything itself - the deposit webhook is the sole
+        # authoritative source of truth here, same as the original Zainpay
+        # virtual-account deposit flow already worked in this codebase.
+        messages.success(request, "Payment received! Your wallet will update within a few minutes once we confirm with Zainpay.")
+        return redirect('wallet:wallet_overview')
+
     reference = request.GET.get('reference')
     if not reference:
         messages.error(request, 'No payment reference provided.')
@@ -413,7 +447,14 @@ def pay_fees(request):
 
     total_amount = sum(item['amount'] for item in fee_selections)
 
-    can_pay_from_wallet = bool(fee_selections) and wallet.balance >= total_amount
+    # Zainpay-funded wallets pay a real transfer fee on top of the fee amount
+    # when spending from the wallet (see pay_school_fees_from_wallet) - this
+    # is just the matching UX pre-check so the button isn't shown as enabled
+    # only to fail with InsufficientFundsError on click.
+    required_balance = total_amount
+    if settings.WALLET_FUNDING_PROVIDER == 'zainpay':
+        required_balance += settings.ZAINPAY_TRANSFER_FEE_ESTIMATE
+    can_pay_from_wallet = bool(fee_selections) and wallet.balance >= required_balance
 
     # Deduplicated student ids for the confirm form's hidden inputs - other
     # fees can produce several fee_selections entries for the same student
@@ -470,7 +511,7 @@ def confirm_wallet_payment(request):
         return redirect('wallet:receipt_detail', reference=wallet_payment.wallet_transaction.reference)
     except InsufficientFundsError:
         messages.error(request, 'Insufficient wallet balance for this payment.')
-    except (WalletInactiveError, ValueError) as e:
+    except (ZainpayTransferError, WalletInactiveError, ValueError) as e:
         messages.error(request, f'Payment could not be completed: {e}')
 
     return redirect('wallet:make_payment')

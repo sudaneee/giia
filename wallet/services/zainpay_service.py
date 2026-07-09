@@ -5,11 +5,8 @@ from decimal import ROUND_HALF_UP, Decimal
 
 import requests
 from django.conf import settings
-from django.db import IntegrityError
 
-from wallet.models import VirtualAccount
-
-from .exceptions import VirtualAccountCreationError, ZainpayTransferError
+from .exceptions import ZainpayCheckoutError, ZainpayTransferError
 
 logger = logging.getLogger(__name__)
 
@@ -24,67 +21,41 @@ def _headers():
     }
 
 
-def create_virtual_account(parent_account):
+def initialize_checkout(parent_account, amount, txn_ref, callback_url):
     """
-    Creates a Zainpay static virtual account for this parent and stores it.
-    Called lazily from the wallet activation view, never automatically at
-    registration, so accounts only get created for parents who actually fund.
+    Starts a Zainpay hosted checkout session for a wallet top-up. Despite the
+    endpoint's name ("card"), passing paymentChannels lets the hosted page
+    offer both card and bank transfer/USSD from one session. Every parent's
+    top-up lands in the same pooled wallet Zainbox - there's no per-parent
+    virtual account anymore. Returns the redirect URL the parent should be
+    sent to; raises ZainpayCheckoutError on any failure.
     """
-    wallet = parent_account.wallet
-
-    existing = VirtualAccount.objects.filter(wallet=wallet).first()
-    if existing:
-        return existing
-
     user = parent_account.user
     payload = {
-        "bankType": "zainBank",
-        "firstName": user.first_name,
-        "surname": user.last_name,
-        "email": user.email,
+        "amount": str(Decimal(str(amount)).quantize(Decimal('0.01'))),
+        "txnRef": txn_ref,
         "mobileNumber": parent_account.phone_number,
-        # BVN/DOB/gender/address/state are the head of school's details,
-        # shared across all parent virtual accounts (parents don't supply KYC).
-        "dob": settings.ZAINPAY_KYC_DOB,
-        "gender": settings.ZAINPAY_KYC_GENDER,
-        "address": settings.ZAINPAY_KYC_ADDRESS,
-        "title": settings.ZAINPAY_KYC_TITLE,
-        "state": settings.ZAINPAY_KYC_STATE,
-        "bvn": settings.ZAINPAY_KYC_BVN,
-        "zainboxCode": settings.ZAINPAY_ZAINBOX_CODE,
+        "zainboxCode": settings.ZAINPAY_WALLET_ZAINBOX_CODE,
+        "emailAddress": user.email,
+        "callBackUrl": callback_url,
+        "paymentChannels": ["bank_transfer"],
     }
 
     try:
         response = requests.post(
-            f"{settings.ZAINPAY_BASE_URL}/virtual-account/create/request",
+            f"{settings.ZAINPAY_BASE_URL}/zainbox/card/initialize/payment",
             headers=_headers(),
             json=payload,
             timeout=30,
         )
         result = response.json()
     except (requests.RequestException, ValueError) as e:
-        raise VirtualAccountCreationError(f"Could not reach Zainpay: {e}")
+        raise ZainpayCheckoutError(f"Could not reach Zainpay: {e}")
 
-    if response.status_code != 200 or result.get('code') != '00':
-        raise VirtualAccountCreationError(result.get('description', 'Virtual account creation failed.'))
+    if result.get('code') != '00' or not result.get('data'):
+        raise ZainpayCheckoutError(result.get('description', 'Could not start Zainpay checkout.'))
 
-    data = result['data']
-
-    try:
-        return VirtualAccount.objects.create(
-            wallet=wallet,
-            account_number=data['accountNumber'],
-            account_name=data['accountName'],
-            bank_name=data.get('bankName', 'zainBank'),
-            bank_code=settings.ZAINPAY_BANK_CODE,
-        )
-    except IntegrityError:
-        # Another request for this same parent won the race and already
-        # created the account - return that one instead of erroring.
-        existing = VirtualAccount.objects.filter(wallet=wallet).first()
-        if existing:
-            return existing
-        raise
+    return result['data']
 
 
 def compute_webhook_signature(raw_body):
@@ -151,11 +122,14 @@ def verify_deposit(txn_ref):
     return result['data']
 
 
-def transfer_to_school(source_account_number, amount, txn_ref, narration):
+def transfer_wallet_to_school(amount, txn_ref, narration):
     """
-    Moves money from a parent's virtual account to the school's settlement
-    account for a school-fee payment. Returns the transfer data dict
-    (including totalTxnAmount/txnFee) on success, or raises ZainpayTransferError.
+    Moves money from the wallet Zainbox to the school Zainbox for a
+    fee-payment made from a parent's wallet. Zainpay infers this is a
+    Zainbox-to-Zainbox move (not a real bank transfer) from the account
+    numbers given - same /bank/transfer/v2 endpoint either way. Returns the
+    transfer data dict (including totalTxnAmount/txnFee) on success, or
+    raises ZainpayTransferError.
     """
     # Zainpay's transfer API expects amounts in KOBO (confirmed in production:
     # sending "900" transferred ₦9.00, not ₦900). Multiply naira by 100 and
@@ -166,12 +140,12 @@ def transfer_to_school(source_account_number, amount, txn_ref, narration):
         "destinationAccountNumber": settings.ZAINPAY_SCHOOL_SETTLEMENT_ACCOUNT_NUMBER,
         "destinationBankCode": settings.ZAINPAY_SCHOOL_SETTLEMENT_BANK_CODE,
         "amount": str(amount_kobo),
-        "sourceAccountNumber": source_account_number,
-        "sourceBankCode": settings.ZAINPAY_BANK_CODE,
-        "zainboxCode": settings.ZAINPAY_ZAINBOX_CODE,
+        "sourceAccountNumber": settings.ZAINPAY_WALLET_ACCOUNT_NUMBER,
+        "sourceBankCode": settings.ZAINPAY_WALLET_BANK_CODE,
+        "zainboxCode": settings.ZAINPAY_WALLET_ZAINBOX_CODE,
         "txnRef": txn_ref,
         "narration": narration,
-        "callbackUrl": f"{settings.SITE_BASE_URL}/parent/webhooks/zainpay/transfer/",
+        "callbackUrl": f"{settings.SITE_BASE_URL}/parent/webhooks/zainpay/",
     }
 
     logger.info('Zainpay transfer request (ref %s): %s', txn_ref, payload)
