@@ -41,6 +41,8 @@ def initialize_checkout(parent_account, amount, txn_ref, callback_url):
         "paymentChannels": ["bank_transfer"],
     }
 
+    logger.info('Zainpay checkout initialize request (ref %s): %s', txn_ref, payload)
+
     try:
         response = requests.post(
             f"{settings.ZAINPAY_BASE_URL}/zainbox/card/initialize/payment",
@@ -50,10 +52,15 @@ def initialize_checkout(parent_account, amount, txn_ref, callback_url):
         )
         result = response.json()
     except (requests.RequestException, ValueError) as e:
+        logger.warning('Zainpay checkout initialize (ref %s) could not reach Zainpay: %s', txn_ref, e)
         raise ZainpayCheckoutError(f"Could not reach Zainpay: {e}")
 
+    logger.info('Zainpay checkout initialize response (ref %s): status=%s body=%s', txn_ref, response.status_code, result)
+
     if result.get('code') != '00' or not result.get('data'):
-        raise ZainpayCheckoutError(result.get('description', 'Could not start Zainpay checkout.'))
+        reason = result.get('description') or 'Could not start Zainpay checkout.'
+        logger.warning('Zainpay checkout initialize (ref %s) failed: %s | full response: %s', txn_ref, reason, result)
+        raise ZainpayCheckoutError(reason)
 
     return result['data']
 
