@@ -32,7 +32,9 @@ def initialize_checkout(parent_account, amount, txn_ref, callback_url):
     """
     user = parent_account.user
     payload = {
-        "amount": str(Decimal(str(amount)).quantize(Decimal('0.01'))),
+        # Sent as an actual JSON number (not a quoted string) - Zainpay
+        # rejected a quoted "500.00" with an Invalid_amount error.
+        "amount": float(Decimal(str(amount)).quantize(Decimal('0.01'))),
         "txnRef": txn_ref,
         "mobileNumber": parent_account.phone_number,
         "zainboxCode": settings.ZAINPAY_WALLET_ZAINBOX_CODE,
