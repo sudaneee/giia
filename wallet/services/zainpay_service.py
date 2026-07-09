@@ -52,10 +52,21 @@ def initialize_checkout(parent_account, amount, txn_ref, callback_url):
             json=payload,
             timeout=30,
         )
-        result = response.json()
-    except (requests.RequestException, ValueError) as e:
+    except requests.RequestException as e:
         logger.warning('Zainpay checkout initialize (ref %s) could not reach Zainpay: %s', txn_ref, e)
         raise ZainpayCheckoutError(f"Could not reach Zainpay: {e}")
+
+    try:
+        result = response.json()
+    except ValueError:
+        # Not a network failure - Zainpay responded, but the body wasn't
+        # JSON (an HTML error page, an empty body, etc). Log the raw text
+        # and status code, since that's the only way to see why.
+        logger.warning(
+            'Zainpay checkout initialize (ref %s) returned a non-JSON response: status=%s body=%r',
+            txn_ref, response.status_code, response.text[:500],
+        )
+        raise ZainpayCheckoutError(f"Zainpay returned an unexpected response (status {response.status_code}).")
 
     logger.info('Zainpay checkout initialize response (ref %s): status=%s body=%s', txn_ref, response.status_code, result)
 
