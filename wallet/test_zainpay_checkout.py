@@ -53,13 +53,29 @@ class InitializeCheckoutTests(TestCase):
 
         _, kwargs = mock_post.call_args
         sent = kwargs['json']
-        self.assertEqual(sent['amount'], 5000.00)
-        self.assertIsInstance(sent['amount'], float)
+        # Whole-naira amounts are sent without a decimal suffix (Zainpay
+        # rejected both a JSON float and a "5000.00" string as invalid).
+        self.assertEqual(sent['amount'], '5000')
+        self.assertIsInstance(sent['amount'], str)
         self.assertEqual(sent['txnRef'], 'WALLETFUND-1')
         self.assertEqual(sent['zainboxCode'], '76812_yJ8B7wyLV38ypP2Noqgc')
         self.assertEqual(sent['mobileNumber'], '08011112222')
         self.assertEqual(sent['callBackUrl'], 'https://example.com/callback/')
         self.assertEqual(sent['paymentChannels'], ['bank_transfer'])
+
+    @patch('wallet.services.zainpay_service.requests.post')
+    def test_fractional_amount_keeps_decimal_suffix(self, mock_post):
+        mock_post.return_value = mock_response({
+            'code': '00',
+            'data': 'https://dev.zainpay.ng/merchant/redirect-payment?e=abc456',
+        })
+
+        zainpay_service.initialize_checkout(
+            self.parent_account, Decimal('767.75'), 'WALLETFUND-1B', 'https://example.com/callback/',
+        )
+
+        sent = mock_post.call_args.kwargs['json']
+        self.assertEqual(sent['amount'], '767.75')
 
     @patch('wallet.services.zainpay_service.requests.post')
     def test_raises_on_zainpay_error_response(self, mock_post):
