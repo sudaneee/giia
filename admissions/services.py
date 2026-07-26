@@ -1,4 +1,4 @@
-from decimal import ROUND_HALF_UP, Decimal
+from decimal import ROUND_CEILING, Decimal
 
 from django.conf import settings
 
@@ -22,10 +22,16 @@ def total_with_zainpay_charge(amount):
     G - (G * 1.5% + 50) == amount, i.e. G == (amount + 50) / (1 - 1.5%).
     That's the amount actually collected at checkout - the applicant
     absorbs the charge, and the school still nets the full base fee.
+
+    Rounded UP to a whole naira - confirmed in production that Zainpay's
+    checkout-initialize endpoint rejects any decimal amount at all
+    ("Invalid_amount", even for a cleanly-formatted "5126.90"), so this
+    can't be sent as cents. Rounding up (not to nearest) guarantees the
+    school still nets at least the full base fee after Zainpay's cut.
     """
     amount = Decimal(str(amount))
     gross = (amount + ZAINPAY_FEE_FLAT) / (Decimal('1') - ZAINPAY_FEE_PERCENTAGE)
-    return gross.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+    return gross.quantize(Decimal('1'), rounding=ROUND_CEILING)
 
 
 def confirm_application_payment(reference):

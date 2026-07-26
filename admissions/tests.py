@@ -34,15 +34,17 @@ def make_applicant(session, school_class, reference='APPFEE-TEST1', paid=False):
 
 class ZainpayChargeTests(TestCase):
     def test_grosses_up_so_school_still_nets_the_base_fee(self):
-        # (5000 + 50) / (1 - 0.015) = 5126.90 - after Zainpay deducts
-        # 1.5% + 50 from that on settlement, the school nets ~5000.
+        # (5000 + 50) / (1 - 0.015) = 5126.90, rounded up to a whole naira
+        # (Zainpay's checkout endpoint rejects decimal amounts outright) ->
+        # 5127. After Zainpay deducts 1.5% + 50 from that on settlement,
+        # the school nets slightly over 5000, never under.
         gross = total_with_zainpay_charge(Decimal('5000.00'))
-        self.assertEqual(gross, Decimal('5126.90'))
+        self.assertEqual(gross, Decimal('5127'))
         net = gross - (gross * Decimal('0.015') + Decimal('50'))
-        self.assertAlmostEqual(net, Decimal('5000.00'), delta=Decimal('0.01'))
+        self.assertGreaterEqual(net, Decimal('5000.00'))
 
-    def test_rounds_to_2_decimal_places(self):
-        self.assertEqual(total_with_zainpay_charge(Decimal('999')), Decimal('1064.97'))
+    def test_rounds_up_to_whole_naira(self):
+        self.assertEqual(total_with_zainpay_charge(Decimal('999')), Decimal('1065'))
 
 
 class AdmissionOpeningTests(TestCase):
