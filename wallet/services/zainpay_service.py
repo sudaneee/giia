@@ -33,12 +33,16 @@ def initialize_checkout(email, mobile_number, amount, txn_ref, callback_url, zai
     # elsewhere. A JSON number was rejected outright ("expected a string"),
     # and a forced "500.00" was itself rejected as Invalid_amount - whole
     # amounts are sent without a decimal suffix (e.g. "500"), fractional
-    # ones with one (e.g. "767.75"), matching the API's own docs example.
+    # ones with exactly two (e.g. "767.75"), matching the API's own docs
+    # example. Deliberately quantize rather than .normalize() here -
+    # normalize() strips trailing zeros, so a fee-inclusive amount like
+    # 5126.90 would come out as "5126.9" (one decimal digit) and get
+    # rejected the same way a bare float was.
     amount_decimal = Decimal(str(amount))
     if amount_decimal == amount_decimal.to_integral_value():
         amount_str = str(int(amount_decimal))
     else:
-        amount_str = str(amount_decimal.normalize())
+        amount_str = str(amount_decimal.quantize(Decimal('0.01')))
 
     payload = {
         "amount": amount_str,

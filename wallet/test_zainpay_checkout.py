@@ -91,6 +91,28 @@ class InitializeCheckoutTests(TestCase):
         self.assertEqual(sent['amount'], '767.75')
 
     @patch('wallet.services.zainpay_service.requests.post')
+    def test_fractional_amount_with_trailing_zero_keeps_both_decimals(self, mock_post):
+        # Regression: a fee-inclusive amount like 5126.90 must not be sent
+        # as "5126.9" - Decimal.normalize() strips the trailing zero, which
+        # Zainpay rejects the same way it rejects a bare float.
+        mock_post.return_value = mock_response({
+            'code': '00',
+            'data': 'https://dev.zainpay.ng/merchant/redirect-payment?e=abc789',
+        })
+
+        zainpay_service.initialize_checkout(
+            email=self.parent_account.user.email,
+            mobile_number=self.parent_account.phone_number,
+            amount=Decimal('5126.90'),
+            txn_ref='APPFEE-1C',
+            callback_url='https://example.com/callback/',
+            zainbox_code='89400_HSsbCKey2Luz8jaqhqOH',
+        )
+
+        sent = mock_post.call_args.kwargs['json']
+        self.assertEqual(sent['amount'], '5126.90')
+
+    @patch('wallet.services.zainpay_service.requests.post')
     def test_raises_on_zainpay_error_response(self, mock_post):
         mock_post.return_value = mock_response({'code': '04', 'description': 'Invalid mobile number'})
 
