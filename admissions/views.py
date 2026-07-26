@@ -13,7 +13,7 @@ from wallet.services import zainpay_service
 from wallet.services.exceptions import ZainpayCheckoutError
 
 from .models import AdmissionOpening, Applicant
-from .services import confirm_application_payment
+from .services import confirm_application_payment, total_with_zainpay_charge
 
 logger = logging.getLogger(__name__)
 
@@ -76,6 +76,7 @@ def apply(request):
         'normal_openings': normal_openings,
         'tahfeez_openings': tahfeez_openings,
         'application_fee': settings.APPLICATION_FEE_AMOUNT,
+        'total_payable': total_with_zainpay_charge(settings.APPLICATION_FEE_AMOUNT),
     }
 
     if request.method == 'POST':
@@ -130,7 +131,7 @@ def apply(request):
             redirect_url = zainpay_service.initialize_checkout(
                 email=applicant.father_email or applicant.mother_email or 'no-reply@greatinsight.example',
                 mobile_number=applicant.father_phone or applicant.mother_phone,
-                amount=settings.APPLICATION_FEE_AMOUNT,
+                amount=total_with_zainpay_charge(settings.APPLICATION_FEE_AMOUNT),
                 txn_ref=reference,
                 callback_url=request.build_absolute_uri(reverse('admissions:apply_callback')),
                 zainbox_code=settings.ZAINPAY_SCHOOL_ZAINBOX_CODE,

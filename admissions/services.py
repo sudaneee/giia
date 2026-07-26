@@ -1,10 +1,31 @@
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 
 from django.conf import settings
 
 from wallet.services import zainpay_service
 
 from .models import Applicant
+
+# Zainpay's transfer-checkout charge: 1.5% + NGN50 per transaction.
+ZAINPAY_FEE_PERCENTAGE = Decimal('0.015')
+ZAINPAY_FEE_FLAT = Decimal('50')
+
+
+def total_with_zainpay_charge(amount):
+    """
+    Zainpay deducts its 1.5% + NGN50 charge from the transferred amount
+    itself before settling to the school Zainbox - it isn't billed to the
+    school separately. So simply adding the charge on top of the base fee
+    (amount * 1.5% + 50) isn't enough: Zainpay would then take its cut of
+    the *bumped-up* total, and the school would net slightly less than the
+    intended fee. Instead we gross up: solve for G such that
+    G - (G * 1.5% + 50) == amount, i.e. G == (amount + 50) / (1 - 1.5%).
+    That's the amount actually collected at checkout - the applicant
+    absorbs the charge, and the school still nets the full base fee.
+    """
+    amount = Decimal(str(amount))
+    gross = (amount + ZAINPAY_FEE_FLAT) / (Decimal('1') - ZAINPAY_FEE_PERCENTAGE)
+    return gross.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
 
 
 def confirm_application_payment(reference):

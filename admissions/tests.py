@@ -9,6 +9,7 @@ from django.test import Client, TestCase, override_settings
 from src.models import Section, SchoolClass, Session
 
 from .models import AdmissionOpening, Applicant
+from .services import total_with_zainpay_charge
 
 
 def make_session():
@@ -29,6 +30,19 @@ def make_applicant(session, school_class, reference='APPFEE-TEST1', paid=False):
         session=session, desired_class=school_class, declaration_name='Bello Musa', declaration_agreed=True,
         reference=reference, application_fee_paid=paid,
     )
+
+
+class ZainpayChargeTests(TestCase):
+    def test_grosses_up_so_school_still_nets_the_base_fee(self):
+        # (5000 + 50) / (1 - 0.015) = 5126.90 - after Zainpay deducts
+        # 1.5% + 50 from that on settlement, the school nets ~5000.
+        gross = total_with_zainpay_charge(Decimal('5000.00'))
+        self.assertEqual(gross, Decimal('5126.90'))
+        net = gross - (gross * Decimal('0.015') + Decimal('50'))
+        self.assertAlmostEqual(net, Decimal('5000.00'), delta=Decimal('0.01'))
+
+    def test_rounds_to_2_decimal_places(self):
+        self.assertEqual(total_with_zainpay_charge(Decimal('999')), Decimal('1064.97'))
 
 
 class AdmissionOpeningTests(TestCase):
@@ -110,6 +124,10 @@ class ApplyViewTests(TestCase):
         self.assertEqual(applicant.desired_class, self.open_class)
         self.assertFalse(applicant.application_fee_paid)
         mock_initialize.assert_called_once()
+        self.assertEqual(
+            mock_initialize.call_args.kwargs['amount'],
+            total_with_zainpay_charge(Decimal('5000.00')),
+        )
 
     @patch('admissions.views.zainpay_service.initialize_checkout')
     def test_missing_declaration_agreement_is_rejected(self, mock_initialize):
