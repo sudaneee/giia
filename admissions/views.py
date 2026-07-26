@@ -13,7 +13,7 @@ from wallet.services import zainpay_service
 from wallet.services.exceptions import ZainpayCheckoutError
 
 from .models import AdmissionOpening, Applicant
-from .services import confirm_application_payment, total_with_zainpay_charge
+from .services import confirm_application_payment, send_payment_confirmation_email, total_with_zainpay_charge
 
 logger = logging.getLogger(__name__)
 
@@ -167,7 +167,15 @@ def apply_callback(request):
         messages.error(request, 'Payment was not completed - your application was not submitted.')
         return redirect('admissions:apply')
 
+    applicant = Applicant.objects.filter(reference=txn_ref).first()
+    already_paid = bool(applicant and applicant.application_fee_paid)
+
     if confirm_application_payment(txn_ref):
+        # Only email on the transition to paid, not on every revisit of this
+        # callback URL (e.g. Zainpay retrying, or the webhook having already
+        # confirmed it first) - otherwise the parent gets duplicate emails.
+        if not already_paid:
+            send_payment_confirmation_email(Applicant.objects.get(reference=txn_ref))
         return redirect('admissions:application_receipt', reference=txn_ref)
 
     messages.success(request, "Payment received! We'll confirm and finalize your application shortly.")

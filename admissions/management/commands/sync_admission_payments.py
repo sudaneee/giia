@@ -4,6 +4,7 @@ from django.conf import settings
 from django.core.management.base import BaseCommand
 
 from admissions.models import Applicant
+from admissions.services import send_payment_confirmation_email
 from wallet.services import zainpay_service
 
 
@@ -45,6 +46,7 @@ class Command(BaseCommand):
             self.stdout.write(self.style.SUCCESS(
                 f"Marked application {applicant.app_number} paid: +₦{amount}"
             ))
+            send_payment_confirmation_email(applicant)
 
         self.stdout.write(
             f"Checked {len(deposits)} deposit(s): {credited} newly marked paid, "

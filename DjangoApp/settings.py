@@ -197,6 +197,18 @@ ZAINPAY_SCHOOL_ZAINBOX_CODE = os.getenv("ZAINPAY_SCHOOL_ZAINBOX_CODE", "89400_HS
 APPLICATION_FEE_AMOUNT = Decimal(os.getenv("APPLICATION_FEE_AMOUNT", "5000.00"))
 
 SITE_BASE_URL = os.getenv("SITE_BASE_URL", "http://localhost:8000")
+
+# Gmail SMTP, used for the admission-payment-confirmation email sent out by
+# the sync_admission_payments cronjob. Credentials come from .env only - an
+# app password, never the real account password.
+EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+EMAIL_HOST = "smtp.gmail.com"
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER")
+EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD")
+DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", EMAIL_HOST_USER)
+
 # Used only for the upfront "can this wallet afford this payment" UI check,
 # before the real transfer happens. The actual debit always uses the real
 # totalTxnAmount Zainpay returns, never this estimate.

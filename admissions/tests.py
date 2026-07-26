@@ -2,14 +2,17 @@ import hashlib
 import hmac
 import json
 from decimal import Decimal
+from io import StringIO
 from unittest.mock import patch
 
+from django.core import mail
+from django.core.management import call_command
 from django.test import Client, TestCase, override_settings
 
 from src.models import Section, SchoolClass, Session
 
 from .models import AdmissionOpening, Applicant
-from .services import total_with_zainpay_charge
+from .services import send_payment_confirmation_email, total_with_zainpay_charge
 
 
 def make_session():
@@ -154,6 +157,8 @@ class ApplyCallbackTests(TestCase):
     @patch('admissions.services.zainpay_service.list_account_transactions')
     def test_credits_on_confirmed_deposit(self, mock_list):
         applicant = make_applicant(self.session, self.school_class, reference='APPFEE-CB1', paid=False)
+        applicant.father_email = 'father@example.com'
+        applicant.save(update_fields=['father_email'])
         mock_list.return_value = [
             {'transactionType': 'deposit', 'transactionRef': 'APPFEE-CB1', 'amount': 500000},
         ]
@@ -165,6 +170,22 @@ class ApplyCallbackTests(TestCase):
         applicant.refresh_from_db()
         self.assertTrue(applicant.application_fee_paid)
         self.assertEqual(applicant.amount_paid, Decimal('5000.00'))
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, ['father@example.com'])
+        self.assertIn('/apply/receipt/APPFEE-CB1/', mail.outbox[0].body)
+
+    @patch('admissions.services.zainpay_service.list_account_transactions')
+    def test_revisiting_callback_after_already_paid_does_not_re_email(self, mock_list):
+        applicant = make_applicant(self.session, self.school_class, reference='APPFEE-CB1B', paid=True)
+        applicant.father_email = 'father@example.com'
+        applicant.amount_paid = Decimal('5000.00')
+        applicant.save(update_fields=['father_email', 'amount_paid'])
+
+        response = self.client.get('/apply/callback/?status=success&txnRef=APPFEE-CB1B', follow=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(mail.outbox), 0)
+        mock_list.assert_not_called()
 
     @patch('admissions.services.zainpay_service.list_account_transactions')
     def test_pending_message_when_not_yet_confirmed(self, mock_list):
@@ -208,6 +229,8 @@ class SchoolZainboxWebhookRoutingTests(TestCase):
     @patch('admissions.services.zainpay_service.list_account_transactions')
     def test_school_zainbox_deposit_confirms_matching_applicant(self, mock_list):
         applicant = make_applicant(self.session, self.school_class, reference='APPFEE-WH1', paid=False)
+        applicant.father_email = 'father@example.com'
+        applicant.save(update_fields=['father_email'])
         mock_list.return_value = [
             {'transactionType': 'deposit', 'transactionRef': 'APPFEE-WH1', 'amount': 500000},
         ]
@@ -220,6 +243,23 @@ class SchoolZainboxWebhookRoutingTests(TestCase):
         self.assertEqual(response.status_code, 200)
         applicant.refresh_from_db()
         self.assertTrue(applicant.application_fee_paid)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, ['father@example.com'])
+
+    @patch('admissions.services.zainpay_service.list_account_transactions')
+    def test_school_zainbox_deposit_for_already_paid_applicant_does_not_re_email(self, mock_list):
+        applicant = make_applicant(self.session, self.school_class, reference='APPFEE-WH1B', paid=True)
+        applicant.father_email = 'father@example.com'
+        applicant.amount_paid = Decimal('5000.00')
+        applicant.save(update_fields=['father_email', 'amount_paid'])
+
+        response = self._post_webhook({
+            'event': 'deposit.success',
+            'data': {'txnRef': 'APPFEE-WH1B', 'zainboxCode': '89400_HSsbCKey2Luz8jaqhqOH'},
+        })
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(mail.outbox), 0)
 
     @patch('admissions.services.zainpay_service.list_account_transactions')
     def test_school_zainbox_deposit_with_no_matching_applicant_is_ignored(self, mock_list):
@@ -263,3 +303,77 @@ class ApplicationReceiptViewTests(TestCase):
         response = self.client.get('/apply/receipt/does-not-exist/')
 
         self.assertEqual(response.status_code, 404)
+
+
+class SendPaymentConfirmationEmailTests(TestCase):
+    def setUp(self):
+        self.session = make_session()
+        self.school_class = make_school_class()
+
+    def test_sends_to_father_email_with_receipt_link(self):
+        applicant = make_applicant(self.session, self.school_class, reference='APPFEE-MAIL1', paid=True)
+        applicant.father_email = 'father@example.com'
+        applicant.save(update_fields=['father_email'])
+
+        result = send_payment_confirmation_email(applicant)
+
+        self.assertTrue(result)
+        self.assertEqual(len(mail.outbox), 1)
+        sent = mail.outbox[0]
+        self.assertEqual(sent.to, ['father@example.com'])
+        self.assertIn(applicant.app_number, sent.subject)
+        self.assertIn(f'/apply/receipt/{applicant.reference}/', sent.body)
+
+    def test_falls_back_to_mother_email(self):
+        applicant = make_applicant(self.session, self.school_class, reference='APPFEE-MAIL2', paid=True)
+        applicant.mother_email = 'mother@example.com'
+        applicant.save(update_fields=['mother_email'])
+
+        result = send_payment_confirmation_email(applicant)
+
+        self.assertTrue(result)
+        self.assertEqual(mail.outbox[0].to, ['mother@example.com'])
+
+    def test_no_email_on_file_skips_silently(self):
+        applicant = make_applicant(self.session, self.school_class, reference='APPFEE-MAIL3', paid=True)
+
+        result = send_payment_confirmation_email(applicant)
+
+        self.assertFalse(result)
+        self.assertEqual(len(mail.outbox), 0)
+
+
+class SyncAdmissionPaymentsCommandTests(TestCase):
+    def setUp(self):
+        self.session = make_session()
+        self.school_class = make_school_class()
+
+    @patch('admissions.management.commands.sync_admission_payments.zainpay_service.list_account_transactions')
+    def test_newly_credited_applicant_gets_confirmation_email(self, mock_list):
+        applicant = make_applicant(self.session, self.school_class, reference='APPFEE-CRON1', paid=False)
+        applicant.father_email = 'father@example.com'
+        applicant.save(update_fields=['father_email'])
+        mock_list.return_value = [
+            {'transactionType': 'deposit', 'transactionRef': 'APPFEE-CRON1', 'amount': 500000},
+        ]
+
+        call_command('sync_admission_payments', stdout=StringIO())
+
+        applicant.refresh_from_db()
+        self.assertTrue(applicant.application_fee_paid)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, ['father@example.com'])
+
+    @patch('admissions.management.commands.sync_admission_payments.zainpay_service.list_account_transactions')
+    def test_already_paid_applicant_is_not_re_emailed(self, mock_list):
+        applicant = make_applicant(self.session, self.school_class, reference='APPFEE-CRON2', paid=True)
+        applicant.father_email = 'father@example.com'
+        applicant.amount_paid = Decimal('5000.00')
+        applicant.save(update_fields=['father_email', 'amount_paid'])
+        mock_list.return_value = [
+            {'transactionType': 'deposit', 'transactionRef': 'APPFEE-CRON2', 'amount': 500000},
+        ]
+
+        call_command('sync_admission_payments', stdout=StringIO())
+
+        self.assertEqual(len(mail.outbox), 0)

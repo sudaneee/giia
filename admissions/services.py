@@ -1,10 +1,15 @@
+import logging
 from decimal import ROUND_CEILING, Decimal
 
 from django.conf import settings
+from django.core.mail import send_mail
+from django.urls import reverse
 
 from wallet.services import zainpay_service
 
 from .models import Applicant
+
+logger = logging.getLogger(__name__)
 
 # Zainpay's transfer-checkout charge: 1.5% + NGN50 per transaction.
 ZAINPAY_FEE_PERCENTAGE = Decimal('0.015')
@@ -68,3 +73,40 @@ def confirm_application_payment(reference):
     applicant.amount_paid = amount
     applicant.save(update_fields=['application_fee_paid', 'amount_paid'])
     return True
+
+
+def send_payment_confirmation_email(applicant):
+    """
+    Emails the parent a link to their application preview/receipt. Called
+    from sync_admission_payments once it confirms a payment - best-effort,
+    since a bad email address or a down mail server shouldn't stop the
+    cronjob from finishing its reconciliation pass over the rest.
+    """
+    to_email = applicant.father_email or applicant.mother_email
+    if not to_email:
+        logger.info('No email on file for applicant %s - skipping confirmation email', applicant.app_number)
+        return False
+
+    receipt_url = settings.SITE_BASE_URL + reverse(
+        'admissions:application_receipt', args=[applicant.reference],
+    )
+
+    try:
+        send_mail(
+            subject=f'GIIA Application {applicant.app_number} - Payment Confirmed',
+            message=(
+                f"Dear {applicant.father_name or applicant.mother_name},\n\n"
+                f"We have received your application fee payment for "
+                f"{applicant.first_name} {applicant.last_name} "
+                f"(Application No: {applicant.app_number}).\n\n"
+                f"You can view or print your application here:\n{receipt_url}\n\n"
+                "Great Insight Int'l Academy Zaria"
+            ),
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[to_email],
+            fail_silently=False,
+        )
+        return True
+    except Exception:
+        logger.exception('Failed to send payment confirmation email for applicant %s', applicant.app_number)
+        return False

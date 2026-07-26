@@ -74,11 +74,17 @@ def zainpay_deposit_webhook(request):
     zainbox_code = data.get('zainboxCode')
     if zainbox_code != settings.ZAINPAY_WALLET_ZAINBOX_CODE:
         if zainbox_code == settings.ZAINPAY_SCHOOL_ZAINBOX_CODE:
-            from admissions.services import confirm_application_payment
+            from admissions.models import Applicant
+            from admissions.services import confirm_application_payment, send_payment_confirmation_email
             txn_ref = data.get('txnRef')
-            if txn_ref and confirm_application_payment(txn_ref):
-                logger.info('Zainpay webhook: confirmed application fee payment for %s', txn_ref)
-                return JsonResponse({'status': 'success'}, status=200)
+            if txn_ref:
+                applicant = Applicant.objects.filter(reference=txn_ref).first()
+                already_paid = bool(applicant and applicant.application_fee_paid)
+                if confirm_application_payment(txn_ref):
+                    logger.info('Zainpay webhook: confirmed application fee payment for %s', txn_ref)
+                    if not already_paid:
+                        send_payment_confirmation_email(Applicant.objects.get(reference=txn_ref))
+                    return JsonResponse({'status': 'success'}, status=200)
         logger.info(
             'Zainpay webhook: deposit.success on zainbox %s is not the wallet '
             'zainbox and did not match an application fee, ignoring',
