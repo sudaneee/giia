@@ -32,6 +32,10 @@ urlpatterns = [
     path('students/generate-admission-letter/<int:student_id>/', views.generate_admission_letter, name='generate_admission_letter'),  # URL for generating admission letters
     path('students/admitted/', views.admitted_students, name='admitted_students'),  # New URL for public view
 
+    # Online admission application review
+    path('applicants/', views.applicant_list, name='applicant_list'),
+    path('applicants/<int:applicant_id>/', views.applicant_detail, name='applicant_detail'),
+
     # Subject URLs
     path('subjects/', views.subject_list, name='subject_list'),
     path('subjects/create/', views.subject_create, name='subject_create'),

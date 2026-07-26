@@ -23,10 +23,13 @@ def zainpay_deposit_webhook(request):
       - deposit.success on the wallet Zainbox: a parent completed a Zainpay
         Checkout top-up - look up the WalletFundingRequest by txnRef to find
         which wallet and how much, then credit it.
-      - deposit.success on the school Zainbox: just the wallet-to-school fee
-        payment transfer landing on the other side - no wallet action
+      - deposit.success on the school Zainbox: either the wallet-to-school
+        fee payment transfer landing on the other side (no wallet action
         needed, pay_school_fees_from_wallet already debited the ledger
-        synchronously off the transfer API's own response.
+        synchronously off the transfer API's own response), or an online
+        admission application fee - try to match it against an Applicant via
+        admissions.services (local import, so wallet has no module-level
+        dependency on the admissions app) and mark it paid if found.
       - transfer.success / transfer.failed: logged only, for the same reason
         - the transfer leg is driven synchronously, not by this event.
     Always returns 200 on the happy path so Zainpay doesn't endlessly retry -
@@ -70,9 +73,15 @@ def zainpay_deposit_webhook(request):
 
     zainbox_code = data.get('zainboxCode')
     if zainbox_code != settings.ZAINPAY_WALLET_ZAINBOX_CODE:
+        if zainbox_code == settings.ZAINPAY_SCHOOL_ZAINBOX_CODE:
+            from admissions.services import confirm_application_payment
+            txn_ref = data.get('txnRef')
+            if txn_ref and confirm_application_payment(txn_ref):
+                logger.info('Zainpay webhook: confirmed application fee payment for %s', txn_ref)
+                return JsonResponse({'status': 'success'}, status=200)
         logger.info(
             'Zainpay webhook: deposit.success on zainbox %s is not the wallet '
-            'zainbox, ignoring (this is the school zainbox receiving a fee payment)',
+            'zainbox and did not match an application fee, ignoring',
             zainbox_code,
         )
         return JsonResponse({'status': 'ignored'}, status=200)

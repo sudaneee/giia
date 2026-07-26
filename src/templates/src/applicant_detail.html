@@ -1,0 +1,90 @@
+{% extends "src/partials/base.html" %}
+
+{% block content %}
+<div class="main-content mt-1">
+    <div class="card mb-3">
+        <div class="card-header">
+            <h4>{{ applicant.app_number }} - {{ applicant.first_name }} {{ applicant.last_name }}</h4>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <h5>Pupil</h5>
+                    <p><strong>Date of Birth:</strong> {{ applicant.date_of_birth }}</p>
+                    <p><strong>Place of Birth:</strong> {{ applicant.place_of_birth }}</p>
+                    <p><strong>Gender:</strong> {{ applicant.gender }}</p>
+                    <p><strong>Native Language:</strong> {{ applicant.native_language }}</p>
+                    <p><strong>Blood Group / Genotype:</strong> {{ applicant.blood_group }} / {{ applicant.genotype }}</p>
+                    <p><strong>Ailment:</strong> {% if applicant.has_ailment %}{{ applicant.ailment_details }}{% else %}None{% endif %}</p>
+                    <p><strong>Address:</strong> {{ applicant.residential_address }}</p>
+                    <p><strong>Desired Class:</strong> {{ applicant.desired_class }}</p>
+                    {% if applicant.photo %}<img src="{{ applicant.photo.url }}" style="max-width:150px;" alt="Passport photo">{% endif %}
+                </div>
+                <div class="col-md-6">
+                    <h5>Father/Guardian</h5>
+                    <p>{{ applicant.father_name }} - {{ applicant.father_phone }} - {{ applicant.father_email }}</p>
+                    <p>{{ applicant.father_address }}</p>
+                    <p>{{ applicant.father_occupation }}, {{ applicant.father_qualification }}</p>
+
+                    <h5>Mother</h5>
+                    <p>{{ applicant.mother_name }} - {{ applicant.mother_phone }} - {{ applicant.mother_email }}</p>
+                    <p>{{ applicant.mother_qualification }}</p>
+
+                    <h5>Declaration</h5>
+                    <p>{{ applicant.declaration_name }} ({% if applicant.declaration_agreed %}agreed{% else %}not agreed{% endif %})</p>
+
+                    <h5>Payment</h5>
+                    <p>Reference: {{ applicant.reference }}<br>
+                       Paid: {% if applicant.application_fee_paid %}Yes, ₦{{ applicant.amount_paid }}{% else %}No{% endif %}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-3">
+        <div class="card-header"><h5>For Official Use Only</h5></div>
+        <div class="card-body">
+            <p><strong>Status:</strong> {{ applicant.get_status_display }}</p>
+
+            {% if applicant.linked_student %}
+                <p>Converted to student: <a href="{% url 'update_student' applicant.linked_student.id %}">{{ applicant.linked_student }}</a> - see the <a href="{% url 'not_admitted_students' %}">Not Admitted Students</a> queue to finish admitting.</p>
+            {% else %}
+                <form method="POST" class="mb-3">
+                    {% csrf_token %}
+                    <div class="form-row">
+                        <div class="form-group col-md-4">
+                            <label>Interview Date</label>
+                            <input type="date" name="interview_date" class="form-control" value="{{ applicant.interview_date|date:'Y-m-d' }}">
+                        </div>
+                        <div class="form-group col-md-4">
+                            <label>Interviewer Name</label>
+                            <input type="text" name="interviewer_name" class="form-control" value="{{ applicant.interviewer_name }}">
+                        </div>
+                        <div class="form-group col-md-4">
+                            <label>Recommended Class</label>
+                            <select name="recommended_class" class="form-control">
+                                <option value="">-- same as desired class --</option>
+                                {% for sc in school_classes %}
+                                    <option value="{{ sc.id }}" {% if applicant.recommended_class_id == sc.id %}selected{% endif %}>{{ sc }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <button type="submit" name="record_interview" value="1" class="btn btn-secondary">Record Interview</button>
+                </form>
+
+                <form method="POST" class="d-inline">
+                    {% csrf_token %}
+                    <button type="submit" name="approve" value="1" class="btn btn-success" onclick="return confirm('Create a Student record for this applicant?');">Approve &amp; Create Student</button>
+                </form>
+                <form method="POST" class="d-inline">
+                    {% csrf_token %}
+                    <button type="submit" name="reject" value="1" class="btn btn-danger" onclick="return confirm('Reject this application?');">Reject</button>
+                </form>
+            {% endif %}
+        </div>
+    </div>
+
+    <a href="{% url 'applicant_list' %}" class="btn btn-outline-secondary">Back to list</a>
+</div>
+{% endblock content %}

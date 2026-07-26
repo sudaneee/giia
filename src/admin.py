@@ -23,6 +23,12 @@ class SchoolClassAdmin(admin.ModelAdmin):
     search_fields = ('name', 'level')
     list_filter = ('level', 'arm')
 
+
+@admin.register(Section)
+class SectionAdmin(admin.ModelAdmin):
+    list_display = ('name', 'description')
+    search_fields = ('name',)
+
 @admin.register(Student)
 class StudentAdmin(admin.ModelAdmin):
     list_display = ('admission_number', 'first_name', 'last_name', 'enrolled_class', 'status')

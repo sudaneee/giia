@@ -11,6 +11,13 @@ def seed_site_context_fixtures():
     """
     GeneralInformation.objects.create(
         phone_number='000', email='school@example.com', preamble='x', address='x',
+        # website/base.html and header.html unconditionally do
+        # {{data.logo.url}}/{{data.footer_logo.url}} - an unset ImageField
+        # raises ValueError on .url access (not just a missing file, since
+        # Django only checks the field has a name assigned, never that the
+        # file exists on disk).
+        logo='pics/placeholder.png',
+        footer_logo='pics/placeholder.png',
     )
     for title in ['about1', 'choose1', 'car5', 'result-checker', 'grading-system', 'about header bg']:
         Picture.objects.create(title=title, image='pics/placeholder.png')

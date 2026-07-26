@@ -1,0 +1,190 @@
+{% extends 'website/base.html' %}
+{% load static %}
+{% block content %}
+<div class="page-wrapper">
+
+    <!-- Main Header-->
+    {% include 'website/header.html' %}
+
+    <!--Page Title-->
+    <section class="page-title">
+        <div class="auto-container">
+            <h2>Online Application Form</h2>
+        </div>
+    </section>
+
+    <!--Breadcrumb-->
+    <div class="breadcrumb-outer">
+        <div class="auto-container">
+            <ul class="bread-crumb text-center">
+                <li><a href="{% url 'home' %}">Home</a> <span class="fa fa-angle-right"></span></li>
+                <li>Apply Now</li>
+            </ul>
+        </div>
+    </div>
+    <!--End Page Title-->
+
+    <section class="contact-page-section">
+        <div class="auto-container">
+
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+
+            {% if not normal_openings and not tahfeez_openings %}
+                <p>Applications are not currently open. Please check back later or contact the school office.</p>
+            {% else %}
+            <form method="POST" enctype="multipart/form-data" class="contact-form">
+                {% csrf_token %}
+
+                <div class="sec-title"><h2>Class Applying For</h2></div>
+                <div class="row clearfix">
+                    {% if normal_openings %}
+                    <div class="form-group col-md-6 col-sm-12">
+                        <label><strong>Normal School</strong></label><br>
+                        {% for opening in normal_openings %}
+                            <div>
+                                <input type="radio" name="desired_class" value="{{ opening.school_class_id }}" id="class-{{ opening.school_class_id }}" required>
+                                <label for="class-{{ opening.school_class_id }}">
+                                    {{ opening.school_class }}
+                                    {% if opening.capacity %} ({{ opening.paid_applicant_count }} of {{ opening.capacity }} slots taken){% endif %}
+                                </label>
+                            </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    {% if tahfeez_openings %}
+                    <div class="form-group col-md-6 col-sm-12">
+                        <label><strong>Tahfeez</strong></label><br>
+                        {% for opening in tahfeez_openings %}
+                            <div>
+                                <input type="radio" name="desired_class" value="{{ opening.school_class_id }}" id="class-{{ opening.school_class_id }}" required>
+                                <label for="class-{{ opening.school_class_id }}">{{ opening.school_class.name }}</label>
+                            </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+
+                <div class="sec-title"><h2>Pupil's Personal Information</h2></div>
+                <div class="row clearfix">
+                    <div class="form-group col-md-6 col-sm-12">
+                        <input type="text" name="first_name" placeholder="First Name" required>
+                    </div>
+                    <div class="form-group col-md-6 col-sm-12">
+                        <input type="text" name="last_name" placeholder="Last Name" required>
+                    </div>
+                    <div class="form-group col-md-12 col-sm-12">
+                        <textarea name="residential_address" placeholder="Residential Address" required></textarea>
+                    </div>
+                    <div class="form-group col-md-6 col-sm-12">
+                        <label>Date of Birth</label>
+                        <input type="date" name="date_of_birth" required>
+                    </div>
+                    <div class="form-group col-md-6 col-sm-12">
+                        <input type="text" name="place_of_birth" placeholder="Place of Birth">
+                    </div>
+                    <div class="form-group col-md-6 col-sm-12">
+                        <label>Gender</label>
+                        <select name="gender" required>
+                            <option value="">Select</option>
+                            <option value="Male">Male</option>
+                            <option value="Female">Female</option>
+                        </select>
+                    </div>
+                    <div class="form-group col-md-6 col-sm-12">
+                        <input type="text" name="native_language" placeholder="Native Language">
+                    </div>
+                    <div class="form-group col-md-6 col-sm-12">
+                        <label>Blood Group</label>
+                        <select name="blood_group">
+                            <option value="">Select</option>
+                            <option>A+</option><option>A-</option><option>B+</option><option>B-</option>
+                            <option>AB+</option><option>AB-</option><option>O+</option><option>O-</option>
+                        </select>
+                    </div>
+                    <div class="form-group col-md-6 col-sm-12">
+                        <label>Genotype</label>
+                        <select name="genotype">
+                            <option value="">Select</option>
+                            <option>AA</option><option>AS</option><option>SS</option><option>AC</option><option>SC</option>
+                        </select>
+                    </div>
+                    <div class="form-group col-md-12 col-sm-12">
+                        <label>Does the student suffer from any ailment(s)?</label><br>
+                        <input type="radio" name="has_ailment" value="yes" id="ailment-yes"> <label for="ailment-yes">Yes</label>
+                        <input type="radio" name="has_ailment" value="no" id="ailment-no" checked> <label for="ailment-no">No</label>
+                    </div>
+                    <div class="form-group col-md-12 col-sm-12">
+                        <textarea name="ailment_details" placeholder="If yes, please specify"></textarea>
+                    </div>
+                    <div class="form-group col-md-6 col-sm-12">
+                        <label>Recent Passport Photograph</label>
+                        <input type="file" name="photo" accept="image/*">
+                    </div>
+                </div>
+
+                <div class="sec-title"><h2>Father/Guardian Information</h2></div>
+                <div class="row clearfix">
+                    <div class="form-group col-md-6 col-sm-12">
+                        <input type="text" name="father_name" placeholder="Name of Father/Guardian" required>
+                    </div>
+                    <div class="form-group col-md-6 col-sm-12">
+                        <input type="text" name="father_phone" placeholder="Mobile No. (WhatsApp No.)" required>
+                    </div>
+                    <div class="form-group col-md-12 col-sm-12">
+                        <textarea name="father_address" placeholder="Address"></textarea>
+                    </div>
+                    <div class="form-group col-md-6 col-sm-12">
+                        <input type="text" name="father_occupation" placeholder="Occupation">
+                    </div>
+                    <div class="form-group col-md-6 col-sm-12">
+                        <input type="text" name="father_qualification" placeholder="Highest Educational Qualification">
+                    </div>
+                    <div class="form-group col-md-6 col-sm-12">
+                        <input type="email" name="father_email" placeholder="E-mail Address">
+                    </div>
+                </div>
+
+                <div class="sec-title"><h2>Mother's Information</h2></div>
+                <div class="row clearfix">
+                    <div class="form-group col-md-6 col-sm-12">
+                        <input type="text" name="mother_name" placeholder="Name of Mother">
+                    </div>
+                    <div class="form-group col-md-6 col-sm-12">
+                        <input type="text" name="mother_phone" placeholder="Mobile No. (WhatsApp No.)">
+                    </div>
+                    <div class="form-group col-md-6 col-sm-12">
+                        <input type="text" name="mother_qualification" placeholder="Highest Educational Qualification">
+                    </div>
+                    <div class="form-group col-md-6 col-sm-12">
+                        <input type="email" name="mother_email" placeholder="E-mail Address">
+                    </div>
+                </div>
+
+                <div class="sec-title"><h2>Declaration</h2></div>
+                <div class="row clearfix">
+                    <div class="form-group col-md-12 col-sm-12">
+                        <input type="text" name="declaration_name" placeholder="Your full name (parent/guardian)" required>
+                    </div>
+                    <div class="form-group col-md-12 col-sm-12">
+                        <input type="checkbox" name="declaration_agreed" id="declaration_agreed" required>
+                        <label for="declaration_agreed">I declare that all the information given above is true and correct, and I undertake to abide by all school rules and regulations.</label>
+                    </div>
+                    <div class="form-group col-md-12 col-sm-12">
+                        <p>A non-refundable application fee of &#8358;{{ application_fee }} is payable to submit this application, via secure bank transfer.</p>
+                        <button type="submit" class="theme-btn btn-style-one">Proceed to Pay &amp; Submit</button>
+                    </div>
+                </div>
+            </form>
+            {% endif %}
+        </div>
+    </section>
+
+    <!--Main Footer-->
+    {% include 'website/footer.html' %}
+
+</div>
+{% endblock content %}

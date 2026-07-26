@@ -1,0 +1,49 @@
+{% extends "src/partials/base.html" %}
+
+{% block content %}
+<div class="main-content mt-1">
+    <div class="card">
+        <div class="card-header">
+            <h4>Online Applications</h4>
+        </div>
+        <div class="card-body">
+            <div class="mb-3">
+                <a href="{% url 'applicant_list' %}" class="btn btn-sm btn-outline-secondary {% if not status_filter %}active{% endif %}">All</a>
+                {% for value, label in status_choices %}
+                    <a href="?status={{ value }}" class="btn btn-sm btn-outline-secondary {% if status_filter == value %}active{% endif %}">{{ label }}</a>
+                {% endfor %}
+            </div>
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>App No.</th>
+                        <th>Name</th>
+                        <th>Desired Class</th>
+                        <th>Session</th>
+                        <th>Status</th>
+                        <th>Submitted</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for applicant in applicants %}
+                    <tr>
+                        <td>{{ applicant.app_number }}</td>
+                        <td>{{ applicant.first_name }} {{ applicant.last_name }}</td>
+                        <td>{{ applicant.desired_class }}</td>
+                        <td>{{ applicant.session }}</td>
+                        <td>{{ applicant.get_status_display }}</td>
+                        <td>{{ applicant.created_at|date:"Y-m-d H:i" }}</td>
+                        <td><a href="{% url 'applicant_detail' applicant.id %}" class="btn btn-sm btn-info">Review</a></td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7">No paid applications yet.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock content %}

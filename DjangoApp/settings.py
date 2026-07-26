@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     'src',
     'website',
     'wallet',
+    'admissions',
 ]
 
 MIDDLEWARE = [
@@ -185,9 +186,15 @@ ZAINPAY_WALLET_ACCOUNT_NUMBER = os.getenv("ZAINPAY_WALLET_ACCOUNT_NUMBER", "4812
 ZAINPAY_WALLET_BANK_CODE = os.getenv("ZAINPAY_WALLET_BANK_CODE", "090976")
 
 # Zainbox 2: the school's own Zainbox. Paying fees from a wallet transfers
-# funds here from the wallet Zainbox above.
+# funds here from the wallet Zainbox above. Its own zainboxCode (distinct
+# from the account/bank code above) is only needed when checking out
+# directly into this box, e.g. the online admission application fee.
 ZAINPAY_SCHOOL_SETTLEMENT_ACCOUNT_NUMBER = os.getenv("ZAINPAY_SCHOOL_SETTLEMENT_ACCOUNT_NUMBER", "4812350098")
 ZAINPAY_SCHOOL_SETTLEMENT_BANK_CODE = os.getenv("ZAINPAY_SCHOOL_SETTLEMENT_BANK_CODE", "090976")
+ZAINPAY_SCHOOL_ZAINBOX_CODE = os.getenv("ZAINPAY_SCHOOL_ZAINBOX_CODE", "89400_HSsbCKey2Luz8jaqhqOH")
+
+# Online admission application fee, charged straight into the school Zainbox.
+APPLICATION_FEE_AMOUNT = Decimal(os.getenv("APPLICATION_FEE_AMOUNT", "5000.00"))
 
 SITE_BASE_URL = os.getenv("SITE_BASE_URL", "http://localhost:8000")
 # Used only for the upfront "can this wallet afford this payment" UI check,

@@ -25,6 +25,7 @@ urlpatterns = [
     path('', include('website.urls')),
     path('school/', include('src.urls')),
     path('parent/', include('wallet.urls')),
+    path('apply/', include('admissions.urls')),
     path('wallet/', RedirectView.as_view(pattern_name='wallet:login'), name='wallet_shortcut'),
 ]
 

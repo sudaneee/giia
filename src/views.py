@@ -514,6 +514,141 @@ def not_admitted_students(request):
     return render(request, 'src/not_admitted_students.html', {'students': not_admitted_students})
 
 
+@login_required(login_url='login')
+def applicant_list(request):
+    """
+    Staff review queue for online admission applications (paid applications
+    only - an abandoned/unpaid checkout never shows up here). Mirrors
+    not_admitted_students' filter-by-GET-param style.
+    """
+    from admissions.models import Applicant
+
+    applicants = Applicant.objects.filter(application_fee_paid=True).select_related(
+        'desired_class', 'recommended_class', 'session',
+    ).order_by('-created_at')
+
+    status_filter = request.GET.get('status', '')
+    if status_filter in dict(Applicant.STATUS_CHOICES):
+        applicants = applicants.filter(status=status_filter)
+
+    return render(request, 'src/applicant_list.html', {
+        'applicants': applicants,
+        'status_filter': status_filter,
+        'status_choices': Applicant.STATUS_CHOICES,
+    })
+
+
+@login_required(login_url='login')
+def applicant_detail(request, applicant_id):
+    """
+    Records the paper form's "FOR OFFICIAL USE ONLY" interview/recommendation
+    step, and on approval creates the Guardian(s) + Student
+    (admission_status='not_admitted', enrolled_class already set) -
+    deliberately not admitted here, so the existing not_admitted_students
+    queue is what actually flips the status, generates the admission
+    number, and sets admitted_at.
+    """
+    from admissions.models import Applicant
+
+    applicant = get_object_or_404(Applicant, id=applicant_id)
+
+    if request.method == 'POST':
+        if 'record_interview' in request.POST:
+            applicant.interview_date = request.POST.get('interview_date') or None
+            applicant.interviewer_name = request.POST.get('interviewer_name', '').strip()
+            recommended_class_id = request.POST.get('recommended_class')
+            applicant.recommended_class = (
+                SchoolClass.objects.filter(id=recommended_class_id).first() if recommended_class_id else None
+            )
+            applicant.status = 'interviewed'
+            applicant.save()
+            messages.success(request, 'Interview recorded.')
+            return redirect('applicant_detail', applicant_id=applicant.id)
+
+        elif 'approve' in request.POST:
+            if applicant.linked_student:
+                messages.error(request, 'This applicant has already been converted to a student.')
+                return redirect('applicant_detail', applicant_id=applicant.id)
+
+            father_guardian = None
+            if applicant.father_name:
+                name_parts = applicant.father_name.split(' ', 1)
+                father_guardian = Guardian.objects.create(
+                    first_name=name_parts[0],
+                    last_name=name_parts[1] if len(name_parts) > 1 else applicant.father_name,
+                    phone_number=applicant.father_phone,
+                    email=applicant.father_email or None,
+                    relationship='Father',
+                    address=applicant.father_address,
+                    occupation=applicant.father_occupation,
+                    qualification=applicant.father_qualification,
+                )
+
+            mother_guardian = None
+            if applicant.mother_name:
+                name_parts = applicant.mother_name.split(' ', 1)
+                mother_guardian = Guardian.objects.create(
+                    first_name=name_parts[0],
+                    last_name=name_parts[1] if len(name_parts) > 1 else applicant.mother_name,
+                    phone_number=applicant.mother_phone,
+                    email=applicant.mother_email or None,
+                    relationship='Mother',
+                    qualification=applicant.mother_qualification,
+                )
+
+            student = Student(
+                first_name=applicant.first_name,
+                last_name=applicant.last_name,
+                date_of_birth=applicant.date_of_birth,
+                place_of_birth=applicant.place_of_birth,
+                gender=applicant.gender,
+                native_language=applicant.native_language,
+                blood_group=applicant.blood_group,
+                genotype=applicant.genotype,
+                has_ailment=applicant.has_ailment,
+                ailment_details=applicant.ailment_details,
+                address=applicant.residential_address,
+                phone_number=applicant.father_phone or applicant.mother_phone,
+                email=applicant.father_email or applicant.mother_email,
+                photo=applicant.photo,
+                # The existing not_admitted_students "admit selected" action
+                # requires enrolled_class to already be set (it blocks
+                # admitting a student with none) - it doesn't assign one
+                # itself, so this has to happen here.
+                enrolled_class=applicant.recommended_class or applicant.desired_class,
+                admission_status='not_admitted',
+            )
+            student.save()
+
+            if father_guardian:
+                student.guardians.add(father_guardian)
+            if mother_guardian:
+                student.guardians.add(mother_guardian)
+
+            applicant.linked_student = student
+            applicant.status = 'approved'
+            applicant.decided_by = request.user.get_full_name() or request.user.username
+            applicant.decision_date = date.today()
+            applicant.save()
+
+            messages.success(
+                request,
+                f'{student.first_name} {student.last_name} created - now awaiting admission via the Not Admitted Students queue.',
+            )
+            return redirect('not_admitted_students')
+
+        elif 'reject' in request.POST:
+            applicant.status = 'rejected'
+            applicant.decided_by = request.user.get_full_name() or request.user.username
+            applicant.decision_date = date.today()
+            applicant.save()
+            messages.success(request, 'Application rejected.')
+            return redirect('applicant_list')
+
+    return render(request, 'src/applicant_detail.html', {
+        'applicant': applicant,
+        'school_classes': SchoolClass.objects.all(),
+    })
 
 
 # src/views.py

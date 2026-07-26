@@ -21,16 +21,14 @@ def _headers():
     }
 
 
-def initialize_checkout(parent_account, amount, txn_ref, callback_url):
+def initialize_checkout(email, mobile_number, amount, txn_ref, callback_url, zainbox_code):
     """
-    Starts a Zainpay hosted checkout session for a wallet top-up, restricted
-    to bank transfer only (no card). Every parent's top-up lands in the same
-    pooled wallet Zainbox - there's no per-parent virtual account anymore.
-    Returns the redirect URL the parent should be sent to; raises
-    ZainpayCheckoutError on any failure.
+    Starts a Zainpay hosted checkout session, restricted to bank transfer
+    only (no card). Generic across whichever Zainbox the money should land
+    in - the wallet-funding flow passes the wallet Zainbox, the admissions
+    application-fee flow passes the school Zainbox. Returns the redirect URL
+    the payer should be sent to; raises ZainpayCheckoutError on any failure.
     """
-    user = parent_account.user
-
     # A plain string, confirmed against a known-working Zainpay integration
     # elsewhere. A JSON number was rejected outright ("expected a string"),
     # and a forced "500.00" was itself rejected as Invalid_amount - whole
@@ -45,9 +43,9 @@ def initialize_checkout(parent_account, amount, txn_ref, callback_url):
     payload = {
         "amount": amount_str,
         "txnRef": txn_ref,
-        "mobileNumber": parent_account.phone_number,
-        "zainboxCode": settings.ZAINPAY_WALLET_ZAINBOX_CODE,
-        "emailAddress": user.email,
+        "mobileNumber": mobile_number,
+        "zainboxCode": zainbox_code,
+        "emailAddress": email,
         "callBackUrl": callback_url,
         "paymentChannels": ["bank_transfer"],
     }

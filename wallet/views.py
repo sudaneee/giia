@@ -185,8 +185,12 @@ def wallet_fund_initiate(request):
 
         try:
             redirect_url = zainpay_service.initialize_checkout(
-                parent_account, amount, reference,
+                email=request.user.email,
+                mobile_number=parent_account.phone_number,
+                amount=amount,
+                txn_ref=reference,
                 callback_url=request.build_absolute_uri(reverse('wallet:wallet_fund_callback')),
+                zainbox_code=settings.ZAINPAY_WALLET_ZAINBOX_CODE,
             )
         except ZainpayCheckoutError as e:
             messages.error(request, f'Could not start wallet funding: {e}')

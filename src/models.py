@@ -23,6 +23,9 @@ class Guardian(models.Model):
     phone_number = models.CharField(max_length=15)
     email = models.EmailField(blank=True, null=True)
     relationship = models.CharField(max_length=50)  # e.g., Mother, Father, etc.
+    address = models.TextField(blank=True, null=True)
+    occupation = models.CharField(max_length=100, blank=True, null=True)
+    qualification = models.CharField(max_length=100, blank=True, null=True)
 
     def __str__(self):
         return f"{self.first_name} {self.last_name}"
@@ -67,7 +70,13 @@ class Student(models.Model):
     first_name = models.CharField(max_length=50)
     last_name = models.CharField(max_length=50)
     date_of_birth = models.DateField(null=True, blank=True)
+    place_of_birth = models.CharField(max_length=100, blank=True, null=True)
     gender = models.CharField(max_length=200, null=True, blank=True)
+    native_language = models.CharField(max_length=50, blank=True, null=True)
+    blood_group = models.CharField(max_length=10, blank=True, null=True)
+    genotype = models.CharField(max_length=10, blank=True, null=True)
+    has_ailment = models.BooleanField(default=False)
+    ailment_details = models.TextField(blank=True, null=True)
     address = models.TextField(null=True, blank=True)
     phone_number = models.CharField(max_length=15, blank=True, null=True)
     email = models.EmailField(blank=True, null=True)

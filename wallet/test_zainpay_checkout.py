@@ -6,6 +6,7 @@ from io import StringIO
 from unittest.mock import MagicMock, patch
 
 import requests
+from django.conf import settings
 from django.contrib.auth.models import User
 from django.core.management import call_command
 from django.test import Client, TestCase, override_settings
@@ -48,7 +49,12 @@ class InitializeCheckoutTests(TestCase):
         })
 
         url = zainpay_service.initialize_checkout(
-            self.parent_account, Decimal('5000.00'), 'WALLETFUND-1', 'https://example.com/callback/',
+            email=self.parent_account.user.email,
+            mobile_number=self.parent_account.phone_number,
+            amount=Decimal('5000.00'),
+            txn_ref='WALLETFUND-1',
+            callback_url='https://example.com/callback/',
+            zainbox_code='76812_yJ8B7wyLV38ypP2Noqgc',
         )
 
         self.assertEqual(url, 'https://dev.zainpay.ng/merchant/redirect-payment?e=abc123')
@@ -73,7 +79,12 @@ class InitializeCheckoutTests(TestCase):
         })
 
         zainpay_service.initialize_checkout(
-            self.parent_account, Decimal('767.75'), 'WALLETFUND-1B', 'https://example.com/callback/',
+            email=self.parent_account.user.email,
+            mobile_number=self.parent_account.phone_number,
+            amount=Decimal('767.75'),
+            txn_ref='WALLETFUND-1B',
+            callback_url='https://example.com/callback/',
+            zainbox_code='76812_yJ8B7wyLV38ypP2Noqgc',
         )
 
         sent = mock_post.call_args.kwargs['json']
@@ -85,14 +96,24 @@ class InitializeCheckoutTests(TestCase):
 
         with self.assertRaises(ZainpayCheckoutError):
             zainpay_service.initialize_checkout(
-                self.parent_account, Decimal('5000.00'), 'WALLETFUND-2', 'https://example.com/callback/',
+                email=self.parent_account.user.email,
+                mobile_number=self.parent_account.phone_number,
+                amount=Decimal('5000.00'),
+                txn_ref='WALLETFUND-2',
+                callback_url='https://example.com/callback/',
+                zainbox_code='76812_yJ8B7wyLV38ypP2Noqgc',
             )
 
     @patch('wallet.services.zainpay_service.requests.post', side_effect=requests.exceptions.ConnectionError('timed out'))
     def test_raises_on_network_failure(self, mock_post):
         with self.assertRaises(ZainpayCheckoutError):
             zainpay_service.initialize_checkout(
-                self.parent_account, Decimal('5000.00'), 'WALLETFUND-3', 'https://example.com/callback/',
+                email=self.parent_account.user.email,
+                mobile_number=self.parent_account.phone_number,
+                amount=Decimal('5000.00'),
+                txn_ref='WALLETFUND-3',
+                callback_url='https://example.com/callback/',
+                zainbox_code='76812_yJ8B7wyLV38ypP2Noqgc',
             )
 
 
@@ -178,10 +199,12 @@ class WalletFundInitiateZainpayTests(TestCase):
         funding_request = WalletFundingRequest.objects.get(wallet=self.wallet)
         self.assertEqual(funding_request.amount, Decimal('5000.00'))
         mock_initialize.assert_called_once()
-        call_args = mock_initialize.call_args[0]
-        self.assertEqual(call_args[0], self.parent_account)
-        self.assertEqual(call_args[1], Decimal('5000.00'))
-        self.assertEqual(call_args[2], funding_request.reference)
+        call_kwargs = mock_initialize.call_args.kwargs
+        self.assertEqual(call_kwargs['email'], self.parent_account.user.email)
+        self.assertEqual(call_kwargs['mobile_number'], self.parent_account.phone_number)
+        self.assertEqual(call_kwargs['amount'], Decimal('5000.00'))
+        self.assertEqual(call_kwargs['txn_ref'], funding_request.reference)
+        self.assertEqual(call_kwargs['zainbox_code'], settings.ZAINPAY_WALLET_ZAINBOX_CODE)
 
     @patch('wallet.services.zainpay_service.initialize_checkout')
     def test_zero_amount_never_calls_zainpay(self, mock_initialize):
