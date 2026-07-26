@@ -141,6 +141,7 @@ class ApplyCallbackTests(TestCase):
         response = self.client.get('/apply/callback/?status=success&txnRef=APPFEE-CB1', follow=True)
 
         self.assertEqual(response.status_code, 200)
+        self.assertRedirects(response, '/apply/receipt/APPFEE-CB1/')
         applicant.refresh_from_db()
         self.assertTrue(applicant.application_fee_paid)
         self.assertEqual(applicant.amount_paid, Decimal('5000.00'))
@@ -209,3 +210,36 @@ class SchoolZainboxWebhookRoutingTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         mock_list.assert_not_called()
+
+
+class ApplicationReceiptViewTests(TestCase):
+    def setUp(self):
+        from wallet.test_support import seed_site_context_fixtures
+        seed_site_context_fixtures()
+        self.session = make_session()
+        self.school_class = make_school_class()
+        self.client = Client()
+
+    def test_renders_for_paid_applicant(self):
+        applicant = make_applicant(self.session, self.school_class, reference='APPFEE-RCPT1', paid=True)
+        applicant.amount_paid = Decimal('5000.00')
+        applicant.save(update_fields=['amount_paid'])
+
+        response = self.client.get('/apply/receipt/APPFEE-RCPT1/')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, applicant.app_number)
+        self.assertContains(response, 'Amina')
+        self.assertContains(response, 'Bello Musa')
+
+    def test_404_for_unpaid_applicant(self):
+        make_applicant(self.session, self.school_class, reference='APPFEE-RCPT2', paid=False)
+
+        response = self.client.get('/apply/receipt/APPFEE-RCPT2/')
+
+        self.assertEqual(response.status_code, 404)
+
+    def test_404_for_unknown_reference(self):
+        response = self.client.get('/apply/receipt/does-not-exist/')
+
+        self.assertEqual(response.status_code, 404)

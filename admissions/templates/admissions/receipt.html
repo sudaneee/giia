@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Application Form | Great Insight Academy</title>
+    <style>
+        :root {
+            --navy: #0f2a47;
+            --royal-blue: #2c5aa0;
+            --light-gray: #f8f9fa;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', sans-serif;
+        }
+
+        body {
+            background: #f5f5f5;
+            padding: 40px 20px;
+        }
+
+        .receipt-container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .receipt {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+            padding: 50px;
+        }
+
+        .header-section {
+            text-align: center;
+            margin-bottom: 40px;
+            padding-bottom: 30px;
+            border-bottom: 2px solid #eee;
+            position: relative;
+        }
+
+        .school-logo {
+            max-width: 100px;
+            margin-bottom: 15px;
+        }
+
+        .school-name {
+            color: var(--navy);
+            font-size: 1.8rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+
+        .receipt-title {
+            color: #666;
+            font-size: 1.2rem;
+            margin-bottom: 20px;
+        }
+
+        .payment-badge {
+            display: inline-block;
+            background: #28a745;
+            color: white;
+            padding: 8px 20px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            margin-bottom: 15px;
+        }
+
+        .reference-number {
+            background: var(--light-gray);
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 1.1rem;
+            color: var(--navy);
+            display: inline-block;
+        }
+
+        .passport-photo {
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 100px;
+            height: 120px;
+            object-fit: cover;
+            border: 1px solid #ccc;
+        }
+
+        .section-title {
+            color: var(--navy);
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin: 30px 0 15px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #eee;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .details-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 20px 30px;
+            margin-bottom: 20px;
+        }
+
+        .detail-item h3 {
+            color: #666;
+            font-size: 0.8rem;
+            margin-bottom: 4px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .detail-item p {
+            color: var(--navy);
+            font-size: 1.05rem;
+            font-weight: 500;
+        }
+
+        .declaration-box {
+            background: var(--light-gray);
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 20px;
+            font-size: 0.95rem;
+            color: #444;
+        }
+
+        .footer-section {
+            margin-top: 50px;
+            padding-top: 30px;
+            border-top: 2px solid #eee;
+            text-align: center;
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .actions {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-top: 40px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .btn-primary {
+            background: var(--royal-blue);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--navy);
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        @media print {
+            body {
+                background: white;
+                padding: 0;
+            }
+
+            .actions {
+                display: none;
+            }
+
+            .receipt {
+                box-shadow: none;
+                padding: 20px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .receipt {
+                padding: 30px 20px;
+            }
+
+            .passport-photo {
+                position: static;
+                margin-bottom: 15px;
+            }
+
+            .actions {
+                flex-direction: column;
+            }
+
+            .btn {
+                width: 100%;
+                text-align: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="receipt-container">
+        <div class="receipt">
+            <div class="header-section">
+                {% if applicant.photo %}<img src="{{ applicant.photo.url }}" alt="Passport photo" class="passport-photo">{% endif %}
+                {% if data.logo %}<img src="{{ data.logo.url }}" alt="School Logo" class="school-logo">{% endif %}
+                <h1 class="school-name">Great Insight Int'l Academy Zaria</h1>
+                <h2 class="receipt-title">ADMISSION APPLICATION FORM</h2>
+                <div class="payment-badge">&#10003; Application Fee Paid</div><br>
+                <div class="reference-number">App No: {{ applicant.app_number }}</div>
+            </div>
+
+            <div class="details-grid">
+                <div class="detail-item">
+                    <h3>Payment Reference</h3>
+                    <p>{{ applicant.reference }}</p>
+                </div>
+                <div class="detail-item">
+                    <h3>Amount Paid</h3>
+                    <p>&#8358;{{ applicant.amount_paid|floatformat:2 }}</p>
+                </div>
+                <div class="detail-item">
+                    <h3>Date Submitted</h3>
+                    <p>{{ applicant.created_at|date:"F d, Y" }}</p>
+                </div>
+                <div class="detail-item">
+                    <h3>Applying For</h3>
+                    <p>{{ applicant.desired_class }} ({{ applicant.session }})</p>
+                </div>
+            </div>
+
+            <h3 class="section-title">Pupil's Personal Information</h3>
+            <div class="details-grid">
+                <div class="detail-item">
+                    <h3>Name</h3>
+                    <p>{{ applicant.first_name }} {{ applicant.last_name }}</p>
+                </div>
+                <div class="detail-item">
+                    <h3>Date of Birth</h3>
+                    <p>{{ applicant.date_of_birth|date:"F d, Y" }}</p>
+                </div>
+                <div class="detail-item">
+                    <h3>Place of Birth</h3>
+                    <p>{{ applicant.place_of_birth|default:"-" }}</p>
+                </div>
+                <div class="detail-item">
+                    <h3>Gender</h3>
+                    <p>{{ applicant.gender }}</p>
+                </div>
+                <div class="detail-item">
+                    <h3>Native Language</h3>
+                    <p>{{ applicant.native_language|default:"-" }}</p>
+                </div>
+                <div class="detail-item">
+                    <h3>Blood Group / Genotype</h3>
+                    <p>{{ applicant.blood_group|default:"-" }} / {{ applicant.genotype|default:"-" }}</p>
+                </div>
+                <div class="detail-item">
+                    <h3>Ailment(s)</h3>
+                    <p>{% if applicant.has_ailment %}{{ applicant.ailment_details }}{% else %}None{% endif %}</p>
+                </div>
+                <div class="detail-item">
+                    <h3>Residential Address</h3>
+                    <p>{{ applicant.residential_address }}</p>
+                </div>
+            </div>
+
+            <h3 class="section-title">Father/Guardian Information</h3>
+            <div class="details-grid">
+                <div class="detail-item">
+                    <h3>Name</h3>
+                    <p>{{ applicant.father_name }}</p>
+                </div>
+                <div class="detail-item">
+                    <h3>Mobile No.</h3>
+                    <p>{{ applicant.father_phone }}</p>
+                </div>
+                <div class="detail-item">
+                    <h3>E-mail</h3>
+                    <p>{{ applicant.father_email|default:"-" }}</p>
+                </div>
+                <div class="detail-item">
+                    <h3>Occupation</h3>
+                    <p>{{ applicant.father_occupation|default:"-" }}</p>
+                </div>
+                <div class="detail-item">
+                    <h3>Highest Qualification</h3>
+                    <p>{{ applicant.father_qualification|default:"-" }}</p>
+                </div>
+                <div class="detail-item">
+                    <h3>Address</h3>
+                    <p>{{ applicant.father_address|default:"-" }}</p>
+                </div>
+            </div>
+
+            {% if applicant.mother_name %}
+            <h3 class="section-title">Mother's Information</h3>
+            <div class="details-grid">
+                <div class="detail-item">
+                    <h3>Name</h3>
+                    <p>{{ applicant.mother_name }}</p>
+                </div>
+                <div class="detail-item">
+                    <h3>Mobile No.</h3>
+                    <p>{{ applicant.mother_phone|default:"-" }}</p>
+                </div>
+                <div class="detail-item">
+                    <h3>E-mail</h3>
+                    <p>{{ applicant.mother_email|default:"-" }}</p>
+                </div>
+                <div class="detail-item">
+                    <h3>Highest Qualification</h3>
+                    <p>{{ applicant.mother_qualification|default:"-" }}</p>
+                </div>
+            </div>
+            {% endif %}
+
+            <h3 class="section-title">Declaration</h3>
+            <div class="declaration-box">
+                <p>I, <strong>{{ applicant.declaration_name }}</strong>, declared that all the information given above is true and correct, and undertook to abide by all school rules and regulations.</p>
+            </div>
+
+            <div class="footer-section">
+                <p><strong>Great Insight Int'l Academy Zaria</strong></p>
+                <p>{{ data.phone_number }} | {{ data.email }}</p>
+                <p style="margin-top: 15px; font-size: 0.8rem;">
+                    This is a computer-generated preview of your submitted application. Please keep your application
+                    number and payment reference for future correspondence with the school office.
+                </p>
+            </div>
+        </div>
+
+        <div class="actions">
+            <button onclick="window.print()" class="btn btn-primary">&#128424; Print / Save as PDF</button>
+            <a href="{% url 'admissions:apply' %}" class="btn btn-secondary">Back to Application Form</a>
+        </div>
+    </div>
+</body>
+</html>

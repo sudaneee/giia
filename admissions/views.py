@@ -4,7 +4,7 @@ from uuid import uuid4
 
 from django.conf import settings
 from django.contrib import messages
-from django.shortcuts import redirect, render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.decorators.csrf import csrf_exempt
 
@@ -167,10 +167,21 @@ def apply_callback(request):
         return redirect('admissions:apply')
 
     if confirm_application_payment(txn_ref):
-        applicant = Applicant.objects.filter(reference=txn_ref).first()
-        app_number = applicant.app_number if applicant else ''
-        messages.success(request, f'Application submitted successfully! Your application number is {app_number}.')
-    else:
-        messages.success(request, "Payment received! We'll confirm and finalize your application shortly.")
+        return redirect('admissions:application_receipt', reference=txn_ref)
 
+    messages.success(request, "Payment received! We'll confirm and finalize your application shortly.")
     return redirect('admissions:apply')
+
+
+def application_receipt(request, reference):
+    """
+    Printable confirmation page shown right after a successful application
+    payment (and revisitable any time after via this same URL, e.g. to
+    reprint). Public, like the rest of this flow - gated on knowing the
+    Zainpay reference (a random-looking token, not the sequential app_number)
+    rather than a login, since applicants never have an account at this
+    stage. Only ever shows a paid application - an abandoned/unpaid one
+    isn't confirmed yet and has nothing to preview.
+    """
+    applicant = get_object_or_404(Applicant, reference=reference, application_fee_paid=True)
+    return render(request, 'admissions/receipt.html', {'applicant': applicant})
