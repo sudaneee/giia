@@ -256,7 +256,7 @@ def wallet_admin_pay_fees(request, parent_id):
 
     total_amount = sum(item['amount'] for item in fee_selections)
     required_balance = total_amount
-    if settings.WALLET_FUNDING_PROVIDER == 'zainpay':
+    if settings.WALLET_FUNDING_PROVIDER == 'zainpay' and settings.ZAINPAY_LIVE_TRANSFER_ENABLED:
         required_balance += settings.ZAINPAY_TRANSFER_FEE_ESTIMATE
     can_pay = bool(fee_selections) and wallet.balance >= required_balance
     unique_student_ids = list(dict.fromkeys(item['student'].id for item in fee_selections))

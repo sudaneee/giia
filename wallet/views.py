@@ -489,7 +489,7 @@ def pay_fees(request):
     # is just the matching UX pre-check so the button isn't shown as enabled
     # only to fail with InsufficientFundsError on click.
     required_balance = total_amount
-    if settings.WALLET_FUNDING_PROVIDER == 'zainpay':
+    if settings.WALLET_FUNDING_PROVIDER == 'zainpay' and settings.ZAINPAY_LIVE_TRANSFER_ENABLED:
         required_balance += settings.ZAINPAY_TRANSFER_FEE_ESTIMATE
     can_pay_from_wallet = bool(fee_selections) and wallet.balance >= required_balance
 

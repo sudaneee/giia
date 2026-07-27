@@ -204,6 +204,53 @@ class PayFromWalletServicePaystackFallbackTests(TestCase):
         self.assertEqual(wallet_payment.payments.count(), 1)
 
 
+@override_settings(ZAINPAY_LIVE_TRANSFER_ENABLED=False)
+class PayFromWalletLiveTransferPausedTests(TestCase):
+    """
+    ZAINPAY_LIVE_TRANSFER_ENABLED=False pauses the real Zainpay
+    Zainbox-to-Zainbox transfer without touching WALLET_FUNDING_PROVIDER
+    (wallet funding itself stays on Zainpay Checkout) - fee payments become
+    pure ledger bookkeeping instead, same as the paystack fallback above.
+    """
+    def setUp(self):
+        self.fixture = make_fee_fixture()
+        self.parent_account = make_parent_account('transfer-paused@example.com')
+        ParentStudentLink.objects.create(parent_account=self.parent_account, student=self.fixture['student'])
+        self.wallet = self.parent_account.wallet
+
+    @patch('wallet.services.wallet_service.zainpay_service.transfer_wallet_to_school')
+    def test_never_calls_zainpay_and_debits_exact_amount(self, mock_transfer):
+        credit_wallet(self.wallet.id, Decimal('100000.00'), 'paused-fund-1', 'Funding', 'zainpay_callback_verified')
+
+        wallet_payment = wallet_service.pay_school_fees_from_wallet(
+            self.parent_account,
+            [{'student': self.fixture['student'], 'amount': Decimal('50000.00'), 'fee_structure': self.fixture['fee_structure']}],
+            self.fixture['session'], self.fixture['term'],
+        )
+
+        mock_transfer.assert_not_called()
+        self.wallet.refresh_from_db()
+        self.assertEqual(self.wallet.balance, Decimal('100000.00') - Decimal('50000.00'))
+        self.assertEqual(wallet_payment.payments.count(), 1)
+
+    @patch('wallet.services.wallet_service.zainpay_service.transfer_wallet_to_school')
+    def test_insufficient_balance_check_ignores_transfer_fee_estimate(self, mock_transfer):
+        # With no real transfer happening, the wallet shouldn't need the
+        # extra ZAINPAY_TRANSFER_FEE_ESTIMATE buffer on top of the fee itself.
+        credit_wallet(self.wallet.id, Decimal('50000.00'), 'paused-fund-2', 'Funding', 'zainpay_callback_verified')
+
+        wallet_payment = wallet_service.pay_school_fees_from_wallet(
+            self.parent_account,
+            [{'student': self.fixture['student'], 'amount': Decimal('50000.00'), 'fee_structure': self.fixture['fee_structure']}],
+            self.fixture['session'], self.fixture['term'],
+        )
+
+        mock_transfer.assert_not_called()
+        self.wallet.refresh_from_db()
+        self.assertEqual(self.wallet.balance, Decimal('0.00'))
+        self.assertEqual(wallet_payment.payments.count(), 1)
+
+
 class PayFeesViewTests(TestCase):
     def setUp(self):
         seed_site_context_fixtures()

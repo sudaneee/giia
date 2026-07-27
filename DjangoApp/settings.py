@@ -178,6 +178,13 @@ ZAINPAY_BASE_URL = os.getenv("ZAINPAY_BASE_URL", "https://sandbox.zainpay.ng")
 # where the real money actually sits).
 WALLET_FUNDING_PROVIDER = os.getenv("WALLET_FUNDING_PROVIDER", "zainpay")
 
+# Independent of WALLET_FUNDING_PROVIDER above: even while wallet funding
+# stays on Zainpay, this separately gates whether paying school fees *from*
+# a wallet does a real Zainbox-to-Zainbox transfer to the school, or just
+# internal ledger bookkeeping (like the paystack path always does). Flip
+# back to "True" to resume real transfers - nothing else needs to change.
+ZAINPAY_LIVE_TRANSFER_ENABLED = os.getenv("ZAINPAY_LIVE_TRANSFER_ENABLED", "True") == "True"
+
 # Zainbox 1: every parent's wallet top-up lands in this single pooled Zainbox
 # (no per-parent virtual accounts anymore - Zainpay's checkout page collects
 # from any channel and deposits straight into this account).

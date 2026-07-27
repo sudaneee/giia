@@ -180,16 +180,20 @@ def pay_school_fees_from_wallet(parent_account, fee_selections, session, term):
     Other Fees tabs. The caller must have already validated that each
     student belongs to this parent and that each amount is real.
 
-    When settings.WALLET_FUNDING_PROVIDER == 'zainpay' (the current default),
-    wallet funds are pooled in a single Zainpay Zainbox rather than sitting
-    in the school's own settlement account, so paying fees is a real money
-    movement: a Zainbox-to-Zainbox transfer to the school's Zainbox *before*
-    writing anything to our ledger. Only on a confirmed transfer do we debit
-    the wallet - if it fails, nothing is written, so the ledger never
-    disagrees with what Zainpay actually did. When the provider is
-    'paystack', wallet funds already sit in the school's own Paystack
-    settlement account (deposits go straight there), so this is pure
-    internal bookkeeping with no external call.
+    When settings.WALLET_FUNDING_PROVIDER == 'zainpay' (the current default)
+    AND settings.ZAINPAY_LIVE_TRANSFER_ENABLED is True, wallet funds are
+    pooled in a single Zainpay Zainbox rather than sitting in the school's
+    own settlement account, so paying fees is a real money movement: a
+    Zainbox-to-Zainbox transfer to the school's Zainbox *before* writing
+    anything to our ledger. Only on a confirmed transfer do we debit the
+    wallet - if it fails, nothing is written, so the ledger never disagrees
+    with what Zainpay actually did.
+
+    ZAINPAY_LIVE_TRANSFER_ENABLED=False pauses that real transfer without
+    touching wallet funding at all - fees are then just internal ledger
+    bookkeeping, same as when the provider is 'paystack' (wallet funds
+    already sit in the school's own Paystack settlement account, so no
+    external call is needed there either).
     """
     # Fetch fresh rather than trust parent_account.wallet - Django caches that
     # reverse OneToOne lookup on the instance, so a caller that accessed it
@@ -207,7 +211,7 @@ def pay_school_fees_from_wallet(parent_account, fee_selections, session, term):
     narration = f"Fee payment - {session} {term}"
     transfer_data = None
 
-    if settings.WALLET_FUNDING_PROVIDER == 'zainpay':
+    if settings.WALLET_FUNDING_PROVIDER == 'zainpay' and settings.ZAINPAY_LIVE_TRANSFER_ENABLED:
         # Fail fast before calling Zainpay at all if the wallet clearly can't
         # cover the fee plus the estimated transfer charge. This is just a UX
         # short-circuit - the real, authoritative check is debit_wallet()'s
