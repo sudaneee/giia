@@ -87,7 +87,7 @@ def send_payment_confirmation_email(applicant):
         logger.info('No email on file for applicant %s - skipping confirmation email', applicant.app_number)
         return False
 
-    receipt_url = settings.SITE_BASE_URL + reverse(
+    receipt_url = settings.SITE_BASE_URL.rstrip('/') + reverse(
         'admissions:application_receipt', args=[applicant.reference],
     )
 

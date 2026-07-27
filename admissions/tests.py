@@ -342,6 +342,17 @@ class SendPaymentConfirmationEmailTests(TestCase):
         self.assertFalse(result)
         self.assertEqual(len(mail.outbox), 0)
 
+    @override_settings(SITE_BASE_URL='https://giia.com.ng/')
+    def test_no_double_slash_when_site_base_url_has_trailing_slash(self):
+        applicant = make_applicant(self.session, self.school_class, reference='APPFEE-MAIL4', paid=True)
+        applicant.father_email = 'father@example.com'
+        applicant.save(update_fields=['father_email'])
+
+        send_payment_confirmation_email(applicant)
+
+        self.assertIn(f'https://giia.com.ng/apply/receipt/{applicant.reference}/', mail.outbox[0].body)
+        self.assertNotIn('.ng//apply', mail.outbox[0].body)
+
 
 class SyncAdmissionPaymentsCommandTests(TestCase):
     def setUp(self):
