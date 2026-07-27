@@ -48,7 +48,7 @@
                             <div>
                                 <input type="radio" name="desired_class" value="{{ opening.school_class_id }}" id="class-{{ opening.school_class_id }}" required>
                                 <label for="class-{{ opening.school_class_id }}">
-                                    {{ opening.school_class }}
+                                    {{ opening.school_class.name }}
                                     {% if opening.capacity %} ({{ opening.paid_applicant_count }} of {{ opening.capacity }} slots taken){% endif %}
                                 </label>
                             </div>

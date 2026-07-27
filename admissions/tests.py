@@ -21,9 +21,9 @@ def make_session():
     )
 
 
-def make_school_class(name='KINDERGARTEN BOYS', section_name='KINDERGARTEN'):
+def make_school_class(name='KINDERGARTEN BOYS', section_name='KINDERGARTEN', arm='A'):
     section, _ = Section.objects.get_or_create(name=section_name)
-    return SchoolClass.objects.create(name=name, level='Nil', arm='A', section=section)
+    return SchoolClass.objects.create(name=name, level='Nil', arm=arm, section=section)
 
 
 def make_applicant(session, school_class, reference='APPFEE-TEST1', paid=False):
@@ -100,6 +100,17 @@ class ApplyViewTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'KINDERGARTEN BOYS')
         self.assertNotContains(response, 'KINDERGARTEN GIRLS')
+
+    def test_class_label_does_not_include_arm_letter(self):
+        # Only the arm ('A'/'B'/etc) should ever be hidden from applicants -
+        # the class name itself must still render normally.
+        arm_b_class = make_school_class('KINDERGARTEN ARMTEST', 'KINDERGARTEN', arm='B')
+        AdmissionOpening.objects.create(session=self.session, school_class=arm_b_class, capacity=30)
+
+        response = self.client.get('/apply/')
+
+        self.assertContains(response, 'KINDERGARTEN ARMTEST')
+        self.assertNotContains(response, str(arm_b_class))
 
     def _valid_payload(self, desired_class_id):
         return {
@@ -388,3 +399,43 @@ class SyncAdmissionPaymentsCommandTests(TestCase):
         call_command('sync_admission_payments', stdout=StringIO())
 
         self.assertEqual(len(mail.outbox), 0)
+
+
+class CloseNonPrimaryArmAdmissionOpeningsCommandTests(TestCase):
+    def setUp(self):
+        self.session = make_session()
+
+    def test_closes_non_a_arm_openings_leaves_a_open(self):
+        arm_a = make_school_class('KINDERGARTEN GIRLS', 'KINDERGARTEN', arm='A')
+        arm_b = make_school_class('KINDERGARTEN GIRLS', 'KINDERGARTEN', arm='B')
+        opening_a = AdmissionOpening.objects.create(session=self.session, school_class=arm_a, capacity=30)
+        opening_b = AdmissionOpening.objects.create(session=self.session, school_class=arm_b, capacity=30)
+
+        call_command('close_non_primary_arm_admission_openings', stdout=StringIO())
+
+        opening_a.refresh_from_db()
+        opening_b.refresh_from_db()
+        self.assertTrue(opening_a.is_open)
+        self.assertFalse(opening_b.is_open)
+
+    def test_leaves_other_sessions_untouched(self):
+        other_session = Session.objects.create(
+            name='2025/2026', start_date='2025-09-01', end_date='2026-07-31', current=False,
+        )
+        arm_b_other_session = make_school_class('KINDERGARTEN BOYS', 'KINDERGARTEN', arm='B')
+        opening = AdmissionOpening.objects.create(session=other_session, school_class=arm_b_other_session, capacity=30)
+
+        call_command('close_non_primary_arm_admission_openings', stdout=StringIO())
+
+        opening.refresh_from_db()
+        self.assertTrue(opening.is_open)
+
+    def test_safe_to_run_twice(self):
+        arm_b = make_school_class('KINDERGARTEN GIRLS', 'KINDERGARTEN', arm='B')
+        opening_b = AdmissionOpening.objects.create(session=self.session, school_class=arm_b, capacity=30)
+
+        call_command('close_non_primary_arm_admission_openings', stdout=StringIO())
+        call_command('close_non_primary_arm_admission_openings', stdout=StringIO())
+
+        opening_b.refresh_from_db()
+        self.assertFalse(opening_b.is_open)
