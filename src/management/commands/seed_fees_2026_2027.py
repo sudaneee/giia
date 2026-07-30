@@ -42,11 +42,12 @@ class Command(BaseCommand):
             for name in ["KINDERGARTEN", "RECEPTION", "BASIC 1-6", "JSS 1-3"]
         }
 
-        # "new_first": what a NEW-INTAKE student pays only in First Term
-        # (Learning Materials + Uniform, bought once - not repeated in later
-        # terms, unlike the 2025/2026 policy this replaces). "base": every
-        # other combination - returning students in any term, and new-intake
-        # students from Second Term onward.
+        # "new_first": what a NEW-INTAKE student pays in First Term (Learning
+        # Materials + Uniform, bought once - not repeated in later terms).
+        # A RETURNING student's First Term fee is the same minus Uniform
+        # only (per the circular, Learning Materials still applies to
+        # everyone in First Term - Uniform is the one new-intake-only cost).
+        # "base": Second/Third Term for anyone, new or returning.
         fee_data = {
             "KINDERGARTEN": {
                 "new_first": {"Tuition": "20748.00", "Learning Materials": "15200.00", "Feeding": "20800.00", "Uniform": "13000.00"},
@@ -78,8 +79,12 @@ class Command(BaseCommand):
             for term_group in ["first", "second", "third"]:
                 for student_type in ["new", "returning"]:
                     for transport in [True, False]:
-                        is_new_first_term = student_type == "new" and term_group == "first"
-                        components = dict(data["new_first"] if is_new_first_term else data["base"])
+                        if term_group == "first":
+                            components = dict(data["new_first"])
+                            if student_type == "returning":
+                                components.pop("Uniform", None)
+                        else:
+                            components = dict(data["base"])
                         if transport:
                             components["Transport"] = data["transport"]
 
