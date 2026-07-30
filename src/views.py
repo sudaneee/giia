@@ -5662,7 +5662,11 @@ from django.core.paginator import Paginator
 def unified_payment(request):
     """Unified payment entry point for both school and other fees"""
     from website.models import Picture
-    
+
+    if not settings.UNIFIED_PAYMENT_ENABLED:
+        messages.error(request, 'Direct online payment is temporarily unavailable. Please use the parent wallet portal instead.')
+        return redirect('home')
+
     context = {
         'sessions': Session.objects.filter(current=True),
         'other_fees': OtherFeeStructure.objects.filter(active=True),
@@ -5942,12 +5946,15 @@ def calculate_other_fees_api(data):
 @require_http_methods(["POST"])
 def initialize_paystack_unified(request):
     """Initialize Paystack transaction with COMPLETE student information in metadata"""
-    
+
     import json
     import traceback
     from decimal import Decimal
     from django.http import JsonResponse
-    
+
+    if not settings.UNIFIED_PAYMENT_ENABLED:
+        return JsonResponse({'error': 'Direct online payment is temporarily unavailable. Please use the parent wallet portal instead.'}, status=503)
+
     try:
         payment_data_str = request.POST.get('payment_data', '{}')
         

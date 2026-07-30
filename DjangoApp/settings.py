@@ -205,6 +205,11 @@ APPLICATION_FEE_AMOUNT = Decimal(os.getenv("APPLICATION_FEE_AMOUNT", "5000.00"))
 
 SITE_BASE_URL = os.getenv("SITE_BASE_URL", "http://localhost:8000")
 
+# Temporary kill switch for the standalone public "unified payment" (direct
+# Paystack, no login) flow at /pay/ - defaulted off for now. Set
+# UNIFIED_PAYMENT_ENABLED=True in .env to re-enable, no other changes needed.
+UNIFIED_PAYMENT_ENABLED = os.getenv("UNIFIED_PAYMENT_ENABLED", "False") == "True"
+
 # Gmail SMTP, used for the admission-payment-confirmation email sent out by
 # the sync_admission_payments cronjob. Credentials come from .env only - an
 # app password, never the real account password.

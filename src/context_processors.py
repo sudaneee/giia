@@ -1,5 +1,6 @@
 
 from website.models import GeneralInformation, Carousel, Picture, Paragraph, Course, Staff, Blog, Journal
+from django.conf import settings
 from django.contrib.auth.models import User
 # from portal.models import *
 
@@ -45,5 +46,6 @@ def data_processor(request):
   
         'page_title': page_title,
         'journals': journals,
+        'unified_payment_enabled': settings.UNIFIED_PAYMENT_ENABLED,
 
     }

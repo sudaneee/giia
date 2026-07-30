@@ -441,7 +441,9 @@
         <div class="actions">
             <button onclick="window.print()" class="btn btn-primary">🖨️ Print Receipt</button>
             <a href="{% url 'parent_dashboard' %}" class="btn btn-secondary">📊 Parent Dashboard</a>
+            {% if unified_payment_enabled %}
             <a href="{% url 'unified_payment' %}" class="btn btn-success">💰 Make Another Payment</a>
+            {% endif %}
         </div>
     </div>
 </body>

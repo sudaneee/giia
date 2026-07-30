@@ -27,6 +27,7 @@
     </div>
   </div>
 
+  {% if unified_payment_enabled %}
   <div class="card mb-3">
     <div class="card-body">
       <div class="d-flex align-items-center mb-2">
@@ -37,6 +38,7 @@
       <a href="{% url 'unified_payment' %}" class="btn btn-outline-primary btn-block">Go to Paystack Payment</a>
     </div>
   </div>
+  {% endif %}
 
   <div class="card mb-3">
     <div class="card-body">
