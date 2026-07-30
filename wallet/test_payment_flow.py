@@ -15,7 +15,7 @@ from src.models import (
     Student,
     Term,
 )
-from wallet.models import ParentAccount, ParentStudentLink, Wallet, WalletPayment, WalletTransaction
+from wallet.models import DeferredZainpayTransfer, ParentAccount, ParentStudentLink, Wallet, WalletPayment, WalletTransaction
 from wallet.services import fee_service, wallet_service
 from wallet.services.exceptions import InsufficientFundsError, ZainpayTransferError
 from wallet.services.wallet_service import credit_wallet
@@ -249,6 +249,71 @@ class PayFromWalletLiveTransferPausedTests(TestCase):
         self.wallet.refresh_from_db()
         self.assertEqual(self.wallet.balance, Decimal('0.00'))
         self.assertEqual(wallet_payment.payments.count(), 1)
+
+
+class PayFromWalletInsufficientZainboxBalanceTests(TestCase):
+    """
+    The wallet Zainbox's real balance can lag the internal ledger (e.g. real
+    money left it outside this app's tracking). When the real transfer fails
+    specifically because of that, and the parent's own wallet balance
+    clearly covers the fee, the payment must still succeed - deferred for
+    later settlement via retry_deferred_zainpay_transfers - rather than
+    blocking a payment the ledger says is affordable.
+    """
+    def setUp(self):
+        self.fixture = make_fee_fixture()
+        self.parent_account = make_parent_account('zainbox-short@example.com')
+        ParentStudentLink.objects.create(parent_account=self.parent_account, student=self.fixture['student'])
+        self.wallet = self.parent_account.wallet
+
+    @patch('wallet.services.wallet_service.zainpay_service.transfer_wallet_to_school')
+    def test_insufficient_zainbox_balance_still_completes_payment(self, mock_transfer):
+        credit_wallet(self.wallet.id, Decimal('100000.00'), 'short-fund-1', 'Funding', 'zainpay_callback_verified')
+        mock_transfer.side_effect = ZainpayTransferError('Insufficient balance in source account')
+
+        wallet_payment = wallet_service.pay_school_fees_from_wallet(
+            self.parent_account,
+            [{'student': self.fixture['student'], 'amount': Decimal('50000.00'), 'fee_structure': self.fixture['fee_structure']}],
+            self.fixture['session'], self.fixture['term'],
+        )
+
+        self.wallet.refresh_from_db()
+        self.assertEqual(self.wallet.balance, Decimal('100000.00') - Decimal('50000.00'))
+        self.assertEqual(wallet_payment.payments.count(), 1)
+
+    @patch('wallet.services.wallet_service.zainpay_service.transfer_wallet_to_school')
+    def test_creates_deferred_transfer_record(self, mock_transfer):
+        credit_wallet(self.wallet.id, Decimal('100000.00'), 'short-fund-2', 'Funding', 'zainpay_callback_verified')
+        mock_transfer.side_effect = ZainpayTransferError('insufficient funds')
+
+        wallet_payment = wallet_service.pay_school_fees_from_wallet(
+            self.parent_account,
+            [{'student': self.fixture['student'], 'amount': Decimal('50000.00'), 'fee_structure': self.fixture['fee_structure']}],
+            self.fixture['session'], self.fixture['term'],
+        )
+
+        deferred = DeferredZainpayTransfer.objects.get(wallet_payment=wallet_payment)
+        self.assertEqual(deferred.amount, Decimal('50000.00'))
+        self.assertFalse(deferred.completed)
+        self.assertIn('insufficient', deferred.failure_reason.lower())
+
+    @patch('wallet.services.wallet_service.zainpay_service.transfer_wallet_to_school')
+    def test_other_transfer_failures_still_block_payment(self, mock_transfer):
+        # Only insufficient-balance failures are deferred - anything else
+        # (bad account, network error, etc) must still fail loudly.
+        credit_wallet(self.wallet.id, Decimal('100000.00'), 'short-fund-3', 'Funding', 'zainpay_callback_verified')
+        mock_transfer.side_effect = ZainpayTransferError('destination bank not responding')
+
+        with self.assertRaises(ZainpayTransferError):
+            wallet_service.pay_school_fees_from_wallet(
+                self.parent_account,
+                [{'student': self.fixture['student'], 'amount': Decimal('50000.00'), 'fee_structure': self.fixture['fee_structure']}],
+                self.fixture['session'], self.fixture['term'],
+            )
+
+        self.wallet.refresh_from_db()
+        self.assertEqual(self.wallet.balance, Decimal('100000.00'))
+        self.assertEqual(DeferredZainpayTransfer.objects.count(), 0)
 
 
 class PayFeesViewTests(TestCase):

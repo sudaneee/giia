@@ -155,3 +155,31 @@ class WalletPayment(models.Model):
 
     def __str__(self):
         return f"WalletPayment #{self.id} - {self.wallet_transaction.wallet.parent_account} - {self.session} {self.term}"
+
+
+class DeferredZainpayTransfer(models.Model):
+    """
+    Created when a wallet fee payment is let through (the internal ledger
+    had enough balance) but the real Zainpay Zainbox-to-Zainbox transfer
+    failed because the wallet Zainbox itself doesn't have enough real money
+    right now. The parent's payment already succeeded internally - this is
+    the record of real money still owed to the school Zainbox, settled
+    later by the retry_deferred_zainpay_transfers command once the wallet
+    Zainbox has been topped up.
+    """
+    wallet_payment = models.OneToOneField(
+        WalletPayment,
+        on_delete=models.CASCADE,
+        related_name='deferred_transfer',
+    )
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    txn_ref = models.CharField(max_length=100, unique=True)
+    narration = models.CharField(max_length=255)
+    failure_reason = models.TextField(blank=True)
+    completed = models.BooleanField(default=False)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        status = 'completed' if self.completed else 'pending'
+        return f"DeferredZainpayTransfer {self.txn_ref} - ₦{self.amount} ({status})"

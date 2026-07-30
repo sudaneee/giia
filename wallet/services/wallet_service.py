@@ -11,15 +11,19 @@ from django.db.models import F
 from django.db.transaction import TransactionManagementError
 from django.utils import timezone
 
-from wallet.models import Wallet, WalletFundingRequest, WalletPayment, WalletTransaction
+from wallet.models import DeferredZainpayTransfer, Wallet, WalletFundingRequest, WalletPayment, WalletTransaction
 
 from . import zainpay_service
-from .exceptions import InsufficientFundsError, WalletInactiveError
+from .exceptions import InsufficientFundsError, WalletInactiveError, ZainpayTransferError
 from .payment_service import create_payment_record
 
 logger = logging.getLogger(__name__)
 
 MAX_LOCK_RETRIES = 5
+
+
+def _is_insufficient_balance_reason(message):
+    return 'insufficient' in (message or '').lower()
 
 
 def _retry_on_lock(func):
@@ -185,9 +189,19 @@ def pay_school_fees_from_wallet(parent_account, fee_selections, session, term):
     pooled in a single Zainpay Zainbox rather than sitting in the school's
     own settlement account, so paying fees is a real money movement: a
     Zainbox-to-Zainbox transfer to the school's Zainbox *before* writing
-    anything to our ledger. Only on a confirmed transfer do we debit the
-    wallet - if it fails, nothing is written, so the ledger never disagrees
-    with what Zainpay actually did.
+    anything to our ledger.
+
+    If that real transfer fails specifically because the wallet Zainbox
+    itself doesn't have enough real funds (its balance can lag the internal
+    ledger, e.g. money left it outside this app's tracking), the payment is
+    NOT blocked: the parent's internal ledger balance is what's
+    authoritative for them, so the payment still goes through as pure
+    bookkeeping, and a DeferredZainpayTransfer row records the real money
+    still owed to the school Zainbox - settled later by running
+    retry_deferred_zainpay_transfers once the wallet Zainbox has been
+    topped up. Any OTHER transfer failure (bad account, network error, etc)
+    still raises and blocks the payment as before - only an insufficient-
+    balance failure is treated as deferrable.
 
     ZAINPAY_LIVE_TRANSFER_ENABLED=False pauses that real transfer without
     touching wallet funding at all - fees are then just internal ledger
@@ -210,6 +224,7 @@ def pay_school_fees_from_wallet(parent_account, fee_selections, session, term):
     txn_ref = str(uuid4())
     narration = f"Fee payment - {session} {term}"
     transfer_data = None
+    deferred_failure_reason = None
 
     if settings.WALLET_FUNDING_PROVIDER == 'zainpay' and settings.ZAINPAY_LIVE_TRANSFER_ENABLED:
         # Fail fast before calling Zainpay at all if the wallet clearly can't
@@ -219,13 +234,31 @@ def pay_school_fees_from_wallet(parent_account, fee_selections, session, term):
         if wallet.balance < total_fee_amount + settings.ZAINPAY_TRANSFER_FEE_ESTIMATE:
             raise InsufficientFundsError('Insufficient wallet balance for this payment.')
 
-        transfer_data = zainpay_service.transfer_wallet_to_school(total_fee_amount, txn_ref, narration)
+        try:
+            transfer_data = zainpay_service.transfer_wallet_to_school(total_fee_amount, txn_ref, narration)
+        except ZainpayTransferError as e:
+            if not _is_insufficient_balance_reason(str(e)):
+                raise
+            # The wallet Zainbox itself is short of real funds, but the
+            # parent's internal ledger balance (checked above) is fine - let
+            # the payment through as bookkeeping and record the real
+            # transfer as owed, rather than blocking a payment the parent's
+            # own wallet balance clearly covers.
+            logger.warning(
+                'Zainpay transfer %s deferred - wallet Zainbox reported insufficient balance: %s',
+                txn_ref, e,
+            )
+            deferred_failure_reason = str(e)
+            transfer_data = None
 
-        # Zainpay's transfer response returns totalTxnAmount in KOBO (same
-        # direction as the request). Divide by 100 to get naira for our ledger.
-        # Fall back to total_fee_amount (naira) only if the field is absent.
-        raw_kobo = transfer_data.get('totalTxnAmount')
-        actual_debit_amount = Decimal(str(raw_kobo)) / 100 if raw_kobo is not None else total_fee_amount
+        if transfer_data is not None:
+            # Zainpay's transfer response returns totalTxnAmount in KOBO (same
+            # direction as the request). Divide by 100 to get naira for our
+            # ledger. Fall back to total_fee_amount (naira) only if absent.
+            raw_kobo = transfer_data.get('totalTxnAmount')
+            actual_debit_amount = Decimal(str(raw_kobo)) / 100 if raw_kobo is not None else total_fee_amount
+        else:
+            actual_debit_amount = total_fee_amount
     else:
         if wallet.balance < total_fee_amount:
             raise InsufficientFundsError('Insufficient wallet balance for this payment.')
@@ -263,6 +296,15 @@ def pay_school_fees_from_wallet(parent_account, fee_selections, session, term):
                 wallet_transaction=wallet_txn, session=session, term=term,
             )
             wallet_payment.payments.set(payments)
+
+            if deferred_failure_reason is not None:
+                DeferredZainpayTransfer.objects.create(
+                    wallet_payment=wallet_payment,
+                    amount=total_fee_amount,
+                    txn_ref=txn_ref,
+                    narration=narration,
+                    failure_reason=deferred_failure_reason,
+                )
     except Exception:
         if transfer_data is not None:
             # The real Zainpay transfer already succeeded by this point - the
