@@ -73,7 +73,9 @@ def _build_school_fee_selections(parent_account, session, term, student_ids, stu
 
 
 def _build_other_fee_selections(parent_account, session, term, student_ids, fee_ids):
-    other_fees = OtherFeeStructure.objects.filter(id__in=_safe_int_list(fee_ids), active=True)
+    other_fees = OtherFeeStructure.objects.filter(
+        id__in=_safe_int_list(fee_ids), active=True, session=session, term=term,
+    )
     fee_selections = []
     for student_id in _safe_int_list(student_ids):
         student = _linked_student_or_none(parent_account, student_id)
@@ -209,7 +211,12 @@ def wallet_admin_make_payment(request, parent_id):
     transport = _clean_transport(request)
 
     links = parent_account.student_links.select_related('student', 'student__enrolled_class').all()
-    other_fee_structures = OtherFeeStructure.objects.filter(active=True) if fee_type == 'other_fees' else OtherFeeStructure.objects.none()
+    if fee_type == 'other_fees' and selected_session and selected_term:
+        other_fee_structures = OtherFeeStructure.objects.filter(
+            active=True, session=selected_session, term=selected_term,
+        )
+    else:
+        other_fee_structures = OtherFeeStructure.objects.none()
 
     return render(request, 'src/wallet_admin_make_payment.html', {
         'parent_account': parent_account,
