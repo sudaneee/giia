@@ -5892,33 +5892,39 @@ def calculate_other_fees_api(data):
         
         # Get other fees
         other_fees = OtherFeeStructure.objects.filter(id__in=fee_ids, active=True)
-        
+
         if other_fees.count() == 0:
             return JsonResponse({'error': f'No active fees found with IDs: {fee_ids}'}, status=404)
-        
-        # Calculate totals
-        total_per_student = sum(float(fee.amount) for fee in other_fees)
-        grand_total = total_per_student * students.count()
-        
-        # Build breakdown
+
+        # Build breakdown - each fee's price can depend on how many of the
+        # selected students have already been charged it (multi_child_discount_percent),
+        # so totals are accumulated from the actual per-student amounts rather
+        # than a flat per-student figure multiplied by student count.
+        child_index_by_fee = {}
         breakdown = []
+        grand_total = Decimal('0')
         for student in students:
             student_fees = []
+            student_total = Decimal('0')
             for fee in other_fees:
-                result = calculate_other_fee_outstanding(student, fee, session, term)
+                child_index = child_index_by_fee.get(fee.id, 0)
+                child_index_by_fee[fee.id] = child_index + 1
+                result = calculate_other_fee_outstanding(student, fee, session, term, child_index)
                 student_fees.append({
                     'id': result['fee_id'],
                     'name': result['name'],
                     'amount': float(result['amount'])
                 })
-            
+                student_total += result['amount']
+
+            grand_total += student_total
             breakdown.append({
                 'student_id': student.id,
                 'admission_number': student.admission_number,
                 'name': f"{student.first_name} {student.last_name}",
                 'class': str(student.enrolled_class) if student.enrolled_class else 'Not Assigned',
                 'fees': student_fees,
-                'total': float(total_per_student),
+                'total': float(student_total),
             })
         
         response_data = {

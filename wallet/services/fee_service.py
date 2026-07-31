@@ -66,14 +66,24 @@ def calculate_school_fee_outstanding(student, session, term, term_group, student
     return _compute_outstanding_for_fee_structure(student, fee, session, term)
 
 
-def calculate_other_fee_outstanding(student, other_fee, session, term):
+def calculate_other_fee_outstanding(student, other_fee, session, term, child_index=0):
     """
     Computes one student's amount due for a single OtherFeeStructure. The
     existing other-fees flow charges the flat fee amount with no deduction
-    for prior payments, so this is currently a direct passthrough.
+    for prior payments.
+
+    child_index is this student's position (0-based) among the children the
+    parent is paying this same fee for in one payment. When the fee has a
+    multi_child_discount_percent set, the first child (index 0) pays full
+    price and every later child gets that percentage off.
     """
+    amount = other_fee.amount
+    if child_index > 0 and other_fee.multi_child_discount_percent:
+        discount = other_fee.multi_child_discount_percent / Decimal('100')
+        amount = (amount * (Decimal('1') - discount)).quantize(Decimal('0.01'))
+
     return {
         'fee_id': other_fee.id,
         'name': other_fee.name,
-        'amount': other_fee.amount,
+        'amount': amount,
     }

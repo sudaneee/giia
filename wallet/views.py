@@ -390,13 +390,16 @@ def _build_other_fee_selections(parent_account, session, term, student_ids, fee_
     )
 
     fee_selections = []
+    child_index_by_fee = {}
     for student_id in _safe_int_list(student_ids):
         student = _linked_student_or_none(parent_account, student_id)
         if not student:
             continue
 
         for other_fee in other_fees:
-            result = fee_service.calculate_other_fee_outstanding(student, other_fee, session, term)
+            child_index = child_index_by_fee.get(other_fee.id, 0)
+            child_index_by_fee[other_fee.id] = child_index + 1
+            result = fee_service.calculate_other_fee_outstanding(student, other_fee, session, term, child_index)
             fee_selections.append({
                 'student': student,
                 'amount': result['amount'],

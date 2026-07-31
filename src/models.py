@@ -716,6 +716,15 @@ class OtherFeeStructure(models.Model):
     active = models.BooleanField(default=True)
     description = models.TextField(blank=True)
 
+    multi_child_discount_percent = models.DecimalField(
+        max_digits=5, decimal_places=2, default=0,
+        help_text=(
+            "When a parent pays this fee for more than one child in the same "
+            "payment, every child after the first gets this percentage off. "
+            "0 means no discount."
+        ),
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
