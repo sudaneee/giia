@@ -7,6 +7,9 @@ urlpatterns = [
     # Wallet Admin (superuser only)
     path('wallet-admin/', wallet_admin_views.wallet_admin_list, name='wallet_admin_list'),
     path('wallet-admin/create/', wallet_admin_views.wallet_admin_create, name='wallet_admin_create'),
+    path('wallet-admin/promo-codes/', wallet_admin_views.wallet_admin_promo_codes, name='wallet_admin_promo_codes'),
+    path('wallet-admin/promo-codes/<int:promo_id>/toggle/', wallet_admin_views.wallet_admin_promo_code_toggle, name='wallet_admin_promo_code_toggle'),
+    path('wallet-admin/promo-codes/<int:promo_id>/delete/', wallet_admin_views.wallet_admin_promo_code_delete, name='wallet_admin_promo_code_delete'),
     path('wallet-admin/<int:parent_id>/', wallet_admin_views.wallet_admin_detail, name='wallet_admin_detail'),
     path('wallet-admin/<int:parent_id>/children/add/', wallet_admin_views.wallet_admin_add_child, name='wallet_admin_add_child'),
     path('wallet-admin/<int:parent_id>/children/<int:link_id>/remove/', wallet_admin_views.wallet_admin_remove_child, name='wallet_admin_remove_child'),

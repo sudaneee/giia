@@ -6,7 +6,7 @@ from django.contrib.auth.models import User
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
-from src.models import OtherFeeStructure, Session, Student, Term
+from src.models import OtherFeeStructure, PromoCode, Session, Student, Term
 from wallet.forms import AddChildForm, ParentRegistrationForm
 from wallet.models import ParentAccount, ParentStudentLink, WalletPayment
 from wallet.services import fee_service, wallet_service
@@ -329,5 +329,43 @@ def wallet_admin_confirm_payment(request, parent_id):
         messages.error(request, 'Insufficient wallet balance.')
     except (ZainpayTransferError, WalletInactiveError, ValueError) as e:
         messages.error(request, f'Payment failed: {e}')
+
+
+@superadmin_required
+def wallet_admin_promo_codes(request):
+    if request.method == 'POST':
+        code = request.POST.get('code', '').strip()
+        description = request.POST.get('description', '').strip()
+        if not code:
+            messages.error(request, 'Please enter a code.')
+        elif PromoCode.objects.filter(code__iexact=code).exists():
+            messages.error(request, f'A promo code "{code}" already exists.')
+        else:
+            PromoCode.objects.create(code=code, description=description, active=True)
+            messages.success(request, f'Promo code "{code}" created.')
+        return redirect('wallet_admin_promo_codes')
+
+    promo_codes = PromoCode.objects.order_by('-created_at')
+    return render(request, 'src/wallet_admin_promo_codes.html', {'promo_codes': promo_codes})
+
+
+@superadmin_required
+@require_POST
+def wallet_admin_promo_code_toggle(request, promo_id):
+    promo_code = get_object_or_404(PromoCode, id=promo_id)
+    promo_code.active = not promo_code.active
+    promo_code.save()
+    messages.success(request, f'"{promo_code.code}" is now {"active" if promo_code.active else "inactive"}.')
+    return redirect('wallet_admin_promo_codes')
+
+
+@superadmin_required
+@require_POST
+def wallet_admin_promo_code_delete(request, promo_id):
+    promo_code = get_object_or_404(PromoCode, id=promo_id)
+    code = promo_code.code
+    promo_code.delete()
+    messages.success(request, f'Promo code "{code}" deleted.')
+    return redirect('wallet_admin_promo_codes')
 
     return redirect('wallet_admin_detail', parent_id=parent_id)
