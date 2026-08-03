@@ -66,7 +66,17 @@ def calculate_school_fee_outstanding(student, session, term, term_group, student
     return _compute_outstanding_for_fee_structure(student, fee, session, term)
 
 
-def calculate_other_fee_outstanding(student, other_fee, session, term, child_index=0):
+def is_valid_staff_promo_code(code):
+    """Checks code against active PromoCode rows. Blank/None is never valid."""
+    from src.models import PromoCode
+
+    code = (code or '').strip()
+    if not code:
+        return False
+    return PromoCode.objects.filter(code__iexact=code, active=True).exists()
+
+
+def calculate_other_fee_outstanding(student, other_fee, session, term, child_index=0, staff_discount_applies=False):
     """
     Computes one student's amount due for a single OtherFeeStructure. The
     existing other-fees flow charges the flat fee amount with no deduction
@@ -76,9 +86,16 @@ def calculate_other_fee_outstanding(student, other_fee, session, term, child_ind
     parent is paying this same fee for in one payment. When the fee has a
     multi_child_discount_percent set, the first child (index 0) pays full
     price and every later child gets that percentage off.
+
+    staff_discount_applies is True when the payer supplied a valid active
+    PromoCode. It overrides (does not stack with) the multi-child discount:
+    every child, including the first, gets other_fee.staff_discount_percent off.
     """
     amount = other_fee.amount
-    if child_index > 0 and other_fee.multi_child_discount_percent:
+    if staff_discount_applies and other_fee.staff_discount_percent:
+        discount = other_fee.staff_discount_percent / Decimal('100')
+        amount = (amount * (Decimal('1') - discount)).quantize(Decimal('0.01'))
+    elif child_index > 0 and other_fee.multi_child_discount_percent:
         discount = other_fee.multi_child_discount_percent / Decimal('100')
         amount = (amount * (Decimal('1') - discount)).quantize(Decimal('0.01'))
 

@@ -725,10 +725,35 @@ class OtherFeeStructure(models.Model):
         ),
     )
 
+    staff_discount_percent = models.DecimalField(
+        max_digits=5, decimal_places=2, default=0,
+        help_text=(
+            "Discount applied to every child (including the first) when the "
+            "payer enters a valid active PromoCode. Overrides "
+            "multi_child_discount_percent rather than stacking with it. "
+            "0 means no staff discount for this fee."
+        ),
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return f"{self.name} - ₦{self.amount}"
+
+
+class PromoCode(models.Model):
+    """
+    A shared code payers can enter at checkout to unlock each OtherFeeStructure's
+    staff_discount_percent - there's no staff flag on parent wallet accounts, so
+    this code stands in for one.
+    """
+    code = models.CharField(max_length=50, unique=True)
+    description = models.CharField(max_length=255, blank=True)
+    active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.code
 
 
 

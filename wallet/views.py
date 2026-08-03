@@ -378,7 +378,7 @@ def _build_school_fee_selections(parent_account, session, term, student_ids, stu
     return fee_selections
 
 
-def _build_other_fee_selections(parent_account, session, term, student_ids, fee_ids):
+def _build_other_fee_selections(parent_account, session, term, student_ids, fee_ids, promo_code=None):
     """
     One fee_selections entry per (student, other_fee) pair - e.g. selecting
     two children and two fees produces four entries. Drops any fee_id that
@@ -388,6 +388,7 @@ def _build_other_fee_selections(parent_account, session, term, student_ids, fee_
     other_fees = OtherFeeStructure.objects.filter(
         id__in=_safe_int_list(fee_ids), active=True, session=session, term=term,
     )
+    staff_discount_applies = fee_service.is_valid_staff_promo_code(promo_code)
 
     fee_selections = []
     child_index_by_fee = {}
@@ -399,7 +400,9 @@ def _build_other_fee_selections(parent_account, session, term, student_ids, fee_
         for other_fee in other_fees:
             child_index = child_index_by_fee.get(other_fee.id, 0)
             child_index_by_fee[other_fee.id] = child_index + 1
-            result = fee_service.calculate_other_fee_outstanding(student, other_fee, session, term, child_index)
+            result = fee_service.calculate_other_fee_outstanding(
+                student, other_fee, session, term, child_index, staff_discount_applies,
+            )
             fee_selections.append({
                 'student': student,
                 'amount': result['amount'],
@@ -477,13 +480,15 @@ def pay_fees(request):
     student_type = _clean_student_type(request)
     transport = _clean_transport(request)
 
+    promo_code = request.GET.get('promo_code', '').strip()
+
     if fee_type == 'school_fees':
         fee_selections = _build_school_fee_selections(
             parent_account, session, term, student_ids, student_type, transport,
         )
     else:
         fee_ids = request.GET.getlist('fee_id')
-        fee_selections = _build_other_fee_selections(parent_account, session, term, student_ids, fee_ids)
+        fee_selections = _build_other_fee_selections(parent_account, session, term, student_ids, fee_ids, promo_code)
 
     total_amount = sum(item['amount'] for item in fee_selections)
 
@@ -515,6 +520,8 @@ def pay_fees(request):
         'can_pay_from_wallet': can_pay_from_wallet,
         'student_ids': student_ids,
         'fee_ids': request.GET.getlist('fee_id') if fee_type == 'other_fees' else [],
+        'promo_code': promo_code,
+        'staff_discount_applied': fee_type == 'other_fees' and fee_service.is_valid_staff_promo_code(promo_code),
     })
 
 
@@ -539,7 +546,8 @@ def confirm_wallet_payment(request):
         )
     else:
         fee_ids = request.POST.getlist('fee_id')
-        fee_selections = _build_other_fee_selections(parent_account, session, term, student_ids, fee_ids)
+        promo_code = request.POST.get('promo_code', '').strip()
+        fee_selections = _build_other_fee_selections(parent_account, session, term, student_ids, fee_ids, promo_code)
 
     if not fee_selections:
         messages.error(request, 'Nothing to pay.')

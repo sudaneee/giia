@@ -10,6 +10,7 @@ admin.site.register(TahfeezResult)
 admin.site.register(MidTermResult)
 admin.site.register(PartPaymentApproval)
 admin.site.register(OtherFeeStructure)
+admin.site.register(PromoCode)
 
 @admin.register(Guardian)
 class GuardianAdmin(admin.ModelAdmin):
