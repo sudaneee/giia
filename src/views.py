@@ -5662,20 +5662,24 @@ from django.core.paginator import Paginator
 def unified_payment(request):
     """Unified payment entry point for school fees, Tahfeez fees, and other fees"""
     from website.models import Picture
-    from wallet.services.fee_service import split_other_fee_structures
+    from wallet.services.fee_service import split_special_other_fees
 
     if not settings.UNIFIED_PAYMENT_ENABLED:
         messages.error(request, 'Direct online payment is temporarily unavailable. Please use the parent wallet portal instead.')
         return redirect('home')
 
-    # The Tahfeez fee is just another OtherFeeStructure row, split out here so
-    # it gets its own tab instead of sitting in the general Other Fees list.
-    tahfeez_fees, other_fees = split_other_fee_structures(OtherFeeStructure.objects.filter(active=True))
+    # Tahfeez and Transportation are just OtherFeeStructure rows, split out
+    # here so Tahfeez gets its own tab (with Transportation offered there as
+    # a toggle) instead of either sitting in the general Other Fees list.
+    tahfeez_fees, transportation_fees, other_fees = split_special_other_fees(
+        OtherFeeStructure.objects.filter(active=True)
+    )
 
     context = {
         'sessions': Session.objects.filter(current=True),
         'other_fees': other_fees,
         'tahfeez_fees': tahfeez_fees,
+        'transportation_fees': transportation_fees,
         'payment_types': [
             {'value': 'school_fees', 'label': 'School Fees (Tuition & Mandatory Fees)'},
             {'value': 'tahfeez_fees', 'label': 'Tahfeez Fees'},
@@ -5754,9 +5758,11 @@ def calculate_fees_api(request):
     data = json.loads(request.body)
     
     fee_type = data.get('fee_type', 'school_fees')
-    
+
     if fee_type == 'school_fees':
         return calculate_school_fees_api(data)
+    elif fee_type == 'tahfeez_fees':
+        return calculate_tahfeez_fees_api(data)
     else:
         return calculate_other_fees_api(data)
 
@@ -5955,6 +5961,41 @@ def calculate_other_fees_api(data):
         print(f"Exception: {str(e)}")
         traceback.print_exc()
         return JsonResponse({'error': str(e)}, status=500)
+
+
+def calculate_tahfeez_fees_api(data):
+    """
+    Calculate Tahfeez fees for a session/term. Unlike calculate_other_fees_api,
+    the payer never picks fee_ids by checkbox here - every active Tahfeez fee
+    for the session/term is resolved automatically, plus every active
+    Transportation fee when the payer opts in via the transport toggle. Once
+    resolved, the rest of the calculation (breakdown, discounts, totals) is
+    identical to Other Fees, so it's delegated to calculate_other_fees_api.
+    """
+    from wallet.services.fee_service import resolve_tahfeez_fee_ids
+
+    session_id = data.get('session_id')
+    term_id = data.get('term_id')
+
+    if not session_id:
+        return JsonResponse({'error': 'Session is required'}, status=400)
+    if not term_id:
+        return JsonResponse({'error': 'Term is required'}, status=400)
+
+    session = Session.objects.filter(id=session_id).first()
+    term = Term.objects.filter(id=term_id).first()
+    if not session:
+        return JsonResponse({'error': 'Session not found'}, status=404)
+    if not term:
+        return JsonResponse({'error': 'Term not found'}, status=404)
+
+    transport = bool(data.get('transport'))
+    fee_ids = resolve_tahfeez_fee_ids(session, term, transport)
+    if not fee_ids:
+        return JsonResponse({'error': 'No active Tahfeez fee found for this session/term'}, status=404)
+
+    return calculate_other_fees_api({**data, 'fee_ids': fee_ids})
+
 
 @require_http_methods(["POST"])
 def initialize_paystack_unified(request):

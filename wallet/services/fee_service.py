@@ -2,7 +2,7 @@ from decimal import Decimal
 
 from django.db.models import Sum
 
-from src.models import FeeStructure, FeeWaiverApproval, Payment
+from src.models import FeeStructure, FeeWaiverApproval, OtherFeeStructure, Payment
 
 
 def _compute_outstanding_for_fee_structure(student, fee, session, term):
@@ -77,16 +77,50 @@ def is_tahfeez_fee(other_fee):
     return 'tahfeez' in (other_fee.name or '').lower()
 
 
-def split_other_fee_structures(other_fee_structures):
+def is_transportation_fee(other_fee):
+    """
+    Identifies the Transportation fee among OtherFeeStructure rows (e.g.
+    "TRANSPORTATION") the same way is_tahfeez_fee does - by name. Pulled out
+    of the general Other Fees list because it's offered as a With/No
+    Transportation toggle on the Tahfeez tab instead.
+    """
+    return 'transport' in (other_fee.name or '').lower()
+
+
+def split_special_other_fees(other_fee_structures):
     """
     Splits an iterable/queryset of OtherFeeStructure rows into
-    (tahfeez_fees, non_tahfeez_fees) lists, preserving order.
+    (tahfeez_fees, transportation_fees, other_fees), preserving order.
+    Tahfeez and Transportation are surfaced on their own tab/toggle
+    everywhere fees are paid, so neither belongs in the general Other Fees
+    list.
     """
     tahfeez_fees = []
-    non_tahfeez_fees = []
+    transportation_fees = []
+    other_fees = []
     for fee in other_fee_structures:
-        (tahfeez_fees if is_tahfeez_fee(fee) else non_tahfeez_fees).append(fee)
-    return tahfeez_fees, non_tahfeez_fees
+        if is_tahfeez_fee(fee):
+            tahfeez_fees.append(fee)
+        elif is_transportation_fee(fee):
+            transportation_fees.append(fee)
+        else:
+            other_fees.append(fee)
+    return tahfeez_fees, transportation_fees, other_fees
+
+
+def resolve_tahfeez_fee_ids(session, term, transport):
+    """
+    The Tahfeez tab doesn't make the payer pick fees by checkbox - it
+    automatically charges every active Tahfeez fee for the given
+    session/term, plus every active Transportation fee when the payer opts
+    into transport via the With/No Transportation toggle.
+    """
+    term_other_fees = OtherFeeStructure.objects.filter(active=True, session=session, term=term)
+    tahfeez_fees, transportation_fees, _ = split_special_other_fees(term_other_fees)
+    fee_ids = [fee.id for fee in tahfeez_fees]
+    if transport:
+        fee_ids += [fee.id for fee in transportation_fees]
+    return fee_ids
 
 
 def is_valid_staff_promo_code(code):

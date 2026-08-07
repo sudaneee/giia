@@ -95,9 +95,55 @@
             </div>
           </div>
         </div>
+      {% elif fee_type == 'tahfeez_fees' %}
+        <div class="card mb-3">
+          <div class="card-header"><i class="bi bi-book mr-2"></i>Tahfeez Fees</div>
+          <div class="card-body">
+            {% if other_fee_structures %}
+              {% for fee in other_fee_structures %}
+                <div class="choice-card d-block mb-2" style="cursor:default;">
+                  <strong>{{ fee.name }}</strong> <span class="text-muted">(₦{{ fee.amount|floatformat:2|intcomma }})</span>
+                  {% if fee.description %}<div class="text-muted small ml-4">{{ fee.description }}</div>{% endif %}
+                </div>
+              {% endfor %}
+              <p class="text-muted small mb-0">Automatically included for the selected session and term.</p>
+            {% else %}
+              <p class="text-muted mb-0">No Tahfeez fee is active for this session/term.</p>
+            {% endif %}
+          </div>
+        </div>
+
+        {% if transportation_fee_structures %}
+          <div class="card mb-3">
+            <div class="card-header"><i class="bi bi-bus-front mr-2"></i>Transportation</div>
+            <div class="card-body">
+              <div class="row">
+                <div class="col-6">
+                  <label class="choice-card d-block mb-0 {% if transport %}checked{% endif %}">
+                    <input type="radio" name="transport" value="true" {% if transport %}checked{% endif %} onchange="this.closest('form').querySelectorAll('[name=transport]').forEach(r=>r.closest('.choice-card').classList.toggle('checked', r.checked))">With Transportation
+                  </label>
+                </div>
+                <div class="col-6">
+                  <label class="choice-card d-block mb-0 {% if not transport %}checked{% endif %}">
+                    <input type="radio" name="transport" value="false" {% if not transport %}checked{% endif %} onchange="this.closest('form').querySelectorAll('[name=transport]').forEach(r=>r.closest('.choice-card').classList.toggle('checked', r.checked))">No Transportation
+                  </label>
+                </div>
+              </div>
+              <p class="text-muted small mb-0 mt-2">
+                {% for fee in transportation_fee_structures %}{{ fee.name }} (₦{{ fee.amount|floatformat:2|intcomma }}){% if not forloop.last %}, {% endif %}{% endfor %}
+                added when "With Transportation" is selected.
+              </p>
+            </div>
+          </div>
+        {% endif %}
+
+        <div class="form-group mb-3">
+          <label class="small mb-1 text-muted">Promo Code (optional)</label>
+          <input type="text" name="promo_code" class="form-control" placeholder="Staff discount code">
+        </div>
       {% else %}
         <div class="card mb-3">
-          <div class="card-header"><i class="bi bi-bag mr-2"></i>{% if fee_type == 'tahfeez_fees' %}Tahfeez Fees{% else %}Select Fees{% endif %}</div>
+          <div class="card-header"><i class="bi bi-bag mr-2"></i>Select Fees</div>
           <div class="card-body">
             {% if other_fee_structures %}
               {% for fee in other_fee_structures %}
@@ -108,7 +154,7 @@
                 </label>
               {% endfor %}
             {% else %}
-              <p class="text-muted mb-0">{% if fee_type == 'tahfeez_fees' %}No Tahfeez fee is active for this session/term.{% else %}No other fees are active right now.{% endif %}</p>
+              <p class="text-muted mb-0">No other fees are active right now.</p>
             {% endif %}
           </div>
         </div>

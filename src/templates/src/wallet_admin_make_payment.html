@@ -92,9 +92,54 @@
                   </div>
                 </div>
               </div>
+            {% elif fee_type == 'tahfeez_fees' %}
+              <div class="form-group">
+                <label>Tahfeez Fees</label>
+                {% for fee in other_fee_structures %}
+                  <div class="border rounded p-2 mb-2">
+                    <strong>{{ fee.name }}</strong> — ₦{{ fee.amount|floatformat:2 }}
+                  </div>
+                {% empty %}
+                  <p class="text-muted small">No Tahfeez fee is active for this session/term.</p>
+                {% endfor %}
+                {% if other_fee_structures %}
+                  <p class="text-muted small mb-0">Automatically included for the selected session and term.</p>
+                {% endif %}
+              </div>
+
+              {% if transportation_fee_structures %}
+                <div class="form-group">
+                  <label>Transportation</label>
+                  <div class="form-row">
+                    <div class="col-6">
+                      <div class="border rounded p-2 text-center" style="cursor:pointer;">
+                        <label class="mb-0 w-100" style="cursor:pointer;">
+                          <input type="radio" name="transport" value="false" {% if not transport %}checked{% endif %}> No Transportation
+                        </label>
+                      </div>
+                    </div>
+                    <div class="col-6">
+                      <div class="border rounded p-2 text-center" style="cursor:pointer;">
+                        <label class="mb-0 w-100" style="cursor:pointer;">
+                          <input type="radio" name="transport" value="true" {% if transport %}checked{% endif %}> With Transportation
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                  <p class="text-muted small mb-0 mt-2">
+                    {% for fee in transportation_fee_structures %}{{ fee.name }} (₦{{ fee.amount|floatformat:2 }}){% if not forloop.last %}, {% endif %}{% endfor %}
+                    added when "With Transportation" is selected.
+                  </p>
+                </div>
+              {% endif %}
+
+              <div class="form-group">
+                <label>Promo Code (optional)</label>
+                <input type="text" name="promo_code" class="form-control" placeholder="Staff discount code">
+              </div>
             {% else %}
               <div class="form-group">
-                <label>{% if fee_type == 'tahfeez_fees' %}Tahfeez Fees{% else %}Select Fees{% endif %}</label>
+                <label>Select Fees</label>
                 {% for fee in other_fee_structures %}
                   <div class="form-check border rounded p-2 mb-2">
                     <input class="form-check-input" type="checkbox" name="fee_id" value="{{ fee.id }}" id="f{{ fee.id }}">
@@ -103,7 +148,7 @@
                     </label>
                   </div>
                 {% empty %}
-                  <p class="text-muted small">{% if fee_type == 'tahfeez_fees' %}No Tahfeez fee is active for this session/term.{% else %}No active other fees.{% endif %}</p>
+                  <p class="text-muted small">No active other fees.</p>
                 {% endfor %}
               </div>
               <div class="form-group">

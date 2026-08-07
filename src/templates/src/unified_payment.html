@@ -574,11 +574,10 @@
                     </div>
 
                     <div class="form-group">
-                        <label class="form-label">Select Fees to Pay <span class="required">*</span></label>
+                        <label class="form-label">Tahfeez Fee</label>
                         <div class="other-fees-list">
                             {% for fee in tahfeez_fees %}
-                            <label class="fee-checkbox">
-                                <input type="checkbox" value="{{ fee.id }}" data-amount="{{ fee.amount }}">
+                            <div class="fee-checkbox">
                                 <div>
                                     <strong>{{ fee.name }}</strong>
                                     <span style="color: var(--dark-gray);"> (₦{{ fee.amount|floatformat:2 }})</span>
@@ -586,12 +585,33 @@
                                     <div class="helper-text">{{ fee.description }}</div>
                                     {% endif %}
                                 </div>
-                            </label>
+                            </div>
                             {% empty %}
                             <p class="helper-text">No Tahfeez fee is active at this time.</p>
                             {% endfor %}
                         </div>
+                        <div class="helper-text">Automatically included for the session and term selected above.</div>
                     </div>
+
+                    {% if transportation_fees %}
+                    <div class="form-group">
+                        <label class="form-label">Transportation</label>
+                        <div class="options-group">
+                            <label class="option">
+                                <input type="radio" name="tahfeez_transport" value="false" checked>
+                                No Transportation
+                            </label>
+                            <label class="option">
+                                <input type="radio" name="tahfeez_transport" value="true">
+                                With Transportation
+                            </label>
+                        </div>
+                        <div class="helper-text">
+                            {% for fee in transportation_fees %}{{ fee.name }} (₦{{ fee.amount|floatformat:2 }}){% if not forloop.last %}, {% endif %}{% endfor %}
+                            added when "With Transportation" is selected.
+                        </div>
+                    </div>
+                    {% endif %}
 
                     <div class="form-group">
                         <label class="form-label">Payment Method <span class="required">*</span></label>
@@ -874,10 +894,12 @@
             const admissionNumbersRaw = document.getElementById('tahfeezAdmissionNumbers').value;
             const sessionId = document.getElementById('tahfeezSessionSelect').value;
             const termId = document.getElementById('tahfeezTermSelect').value;
-            const selectedFees = Array.from(document.querySelectorAll('#tahfeezFeesForm input[type="checkbox"]:checked'))
-                .map(cb => parseInt(cb.value));
+            const transportInput = document.querySelector('input[name="tahfeez_transport"]:checked');
+            const transport = transportInput ? transportInput.value === 'true' : false;
 
-            // Validation
+            // Validation - no fee checkboxes here, the Tahfeez fee for the
+            // selected session/term (plus Transportation if opted into) is
+            // resolved server-side.
             if (!email) {
                 showError('Please enter parent email');
                 return;
@@ -895,11 +917,6 @@
 
             if (!termId) {
                 showError('Please select term');
-                return;
-            }
-
-            if (selectedFees.length === 0) {
-                showError('Please select at least one fee to pay');
                 return;
             }
 
@@ -922,7 +939,7 @@
                         admission_numbers: admissionNumbers,
                         session_id: parseInt(sessionId),
                         term_id: parseInt(termId),
-                        fee_ids: selectedFees
+                        transport: transport
                     })
                 });
 

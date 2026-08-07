@@ -59,6 +59,9 @@
           {% if fee_type == 'school_fees' %}
             <input type="hidden" name="student_type" value="{{ student_type }}">
             <input type="hidden" name="transport" value="{{ transport|yesno:'true,false' }}">
+          {% elif fee_type == 'tahfeez_fees' %}
+            <input type="hidden" name="transport" value="{{ transport|yesno:'true,false' }}">
+            <input type="hidden" name="promo_code" value="{{ promo_code }}">
           {% else %}
             {% for fee_id in fee_ids %}
               <input type="hidden" name="fee_id" value="{{ fee_id }}">

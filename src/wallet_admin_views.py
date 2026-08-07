@@ -217,12 +217,18 @@ def wallet_admin_make_payment(request, parent_id):
     transport = _clean_transport(request)
 
     links = parent_account.student_links.select_related('student', 'student__enrolled_class').all()
-    if fee_type in ('tahfeez_fees', 'other_fees') and selected_session and selected_term:
+    if selected_session and selected_term:
         term_other_fees = OtherFeeStructure.objects.filter(
             active=True, session=selected_session, term=selected_term,
         )
-        tahfeez_fees, non_tahfeez_fees = fee_service.split_other_fee_structures(term_other_fees)
-        other_fee_structures = tahfeez_fees if fee_type == 'tahfeez_fees' else non_tahfeez_fees
+        tahfeez_fees, transportation_fees, non_special_fees = fee_service.split_special_other_fees(term_other_fees)
+    else:
+        tahfeez_fees, transportation_fees, non_special_fees = [], [], []
+
+    if fee_type == 'tahfeez_fees':
+        other_fee_structures = tahfeez_fees
+    elif fee_type == 'other_fees':
+        other_fee_structures = non_special_fees
     else:
         other_fee_structures = []
 
@@ -236,6 +242,7 @@ def wallet_admin_make_payment(request, parent_id):
         'student_type': student_type,
         'transport': transport,
         'other_fee_structures': other_fee_structures,
+        'transportation_fee_structures': transportation_fees,
         'links': links,
     })
 
@@ -267,6 +274,12 @@ def wallet_admin_pay_fees(request, parent_id):
 
     if fee_type == 'school_fees':
         fee_selections = _build_school_fee_selections(parent_account, session, term, student_ids, student_type, transport)
+    elif fee_type == 'tahfeez_fees':
+        # No fee_id checkboxes on this tab - every active Tahfeez fee for the
+        # session/term is charged automatically, plus Transportation when the
+        # payer opts in via the transport toggle.
+        fee_ids = fee_service.resolve_tahfeez_fee_ids(session, term, transport)
+        fee_selections = _build_other_fee_selections(parent_account, session, term, student_ids, fee_ids, promo_code)
     else:
         fee_ids = request.GET.getlist('fee_id')
         fee_selections = _build_other_fee_selections(parent_account, session, term, student_ids, fee_ids, promo_code)
@@ -291,7 +304,9 @@ def wallet_admin_pay_fees(request, parent_id):
         'wallet': wallet,
         'can_pay': can_pay,
         'student_ids': student_ids,
-        'fee_ids': request.GET.getlist('fee_id') if fee_type != 'school_fees' else [],
+        # Tahfeez's fee_ids are resolved server-side from session/term/transport,
+        # never from posted checkboxes, so there's nothing to echo back here.
+        'fee_ids': request.GET.getlist('fee_id') if fee_type == 'other_fees' else [],
         'promo_code': promo_code,
         # Only claim the discount landed if it actually changed a price - a
         # valid code against a fee with staff_discount_percent still at 0
@@ -319,6 +334,11 @@ def wallet_admin_confirm_payment(request, parent_id):
         student_type = _clean_student_type(request)
         transport = _clean_transport(request)
         fee_selections = _build_school_fee_selections(parent_account, session, term, student_ids, student_type, transport)
+    elif fee_type == 'tahfeez_fees':
+        transport = _clean_transport(request)
+        promo_code = request.POST.get('promo_code', '').strip()
+        fee_ids = fee_service.resolve_tahfeez_fee_ids(session, term, transport)
+        fee_selections = _build_other_fee_selections(parent_account, session, term, student_ids, fee_ids, promo_code)
     else:
         fee_ids = request.POST.getlist('fee_id')
         promo_code = request.POST.get('promo_code', '').strip()
