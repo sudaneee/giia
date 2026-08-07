@@ -426,7 +426,7 @@ def make_payment(request):
     sessions = Session.objects.all().order_by('-id')
 
     fee_type = request.GET.get('fee_type', 'school_fees')
-    if fee_type not in ('school_fees', 'other_fees'):
+    if fee_type not in ('school_fees', 'tahfeez_fees', 'other_fees'):
         fee_type = 'school_fees'
 
     session_id = request.GET.get('session_id')
@@ -444,12 +444,14 @@ def make_payment(request):
     transport = _clean_transport(request)
 
     links = parent_account.student_links.select_related('student', 'student__enrolled_class').all()
-    if fee_type == 'other_fees' and selected_session and selected_term:
-        other_fee_structures = OtherFeeStructure.objects.filter(
+    if fee_type in ('tahfeez_fees', 'other_fees') and selected_session and selected_term:
+        term_other_fees = OtherFeeStructure.objects.filter(
             active=True, session=selected_session, term=selected_term,
         )
+        tahfeez_fees, non_tahfeez_fees = fee_service.split_other_fee_structures(term_other_fees)
+        other_fee_structures = tahfeez_fees if fee_type == 'tahfeez_fees' else non_tahfeez_fees
     else:
-        other_fee_structures = OtherFeeStructure.objects.none()
+        other_fee_structures = []
 
     return render(request, 'wallet/make_payment.html', {
         'sessions': sessions,
@@ -470,7 +472,7 @@ def pay_fees(request):
     wallet = parent_account.wallet
 
     fee_type = request.GET.get('fee_type', 'school_fees')
-    if fee_type not in ('school_fees', 'other_fees'):
+    if fee_type not in ('school_fees', 'tahfeez_fees', 'other_fees'):
         fee_type = 'school_fees'
 
     session = get_object_or_404(Session, id=request.GET.get('session_id'))
@@ -519,9 +521,14 @@ def pay_fees(request):
         'wallet': wallet,
         'can_pay_from_wallet': can_pay_from_wallet,
         'student_ids': student_ids,
-        'fee_ids': request.GET.getlist('fee_id') if fee_type == 'other_fees' else [],
+        'fee_ids': request.GET.getlist('fee_id') if fee_type != 'school_fees' else [],
         'promo_code': promo_code,
-        'staff_discount_applied': fee_type == 'other_fees' and fee_service.is_valid_staff_promo_code(promo_code),
+        # Only claim the discount landed if it actually changed a price - a
+        # valid code against a fee with staff_discount_percent still at 0
+        # is a no-op, and saying "applied" then would be misleading.
+        'staff_discount_applied': fee_type != 'school_fees' and any(
+            item.get('other_fee') and item['other_fee'].staff_discount_percent for item in fee_selections
+        ) and fee_service.is_valid_staff_promo_code(promo_code),
     })
 
 
@@ -531,7 +538,7 @@ def confirm_wallet_payment(request):
     parent_account = request.user.parent_account
 
     fee_type = request.POST.get('fee_type', 'school_fees')
-    if fee_type not in ('school_fees', 'other_fees'):
+    if fee_type not in ('school_fees', 'tahfeez_fees', 'other_fees'):
         fee_type = 'school_fees'
 
     session = get_object_or_404(Session, id=request.POST.get('session_id'))

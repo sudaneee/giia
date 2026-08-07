@@ -66,6 +66,29 @@ def calculate_school_fee_outstanding(student, session, term, term_group, student
     return _compute_outstanding_for_fee_structure(student, fee, session, term)
 
 
+def is_tahfeez_fee(other_fee):
+    """
+    Identifies the Tahfeez fee among OtherFeeStructure rows so it can be
+    split into its own payment tab everywhere fees are paid, instead of
+    sitting in the general Other Fees list. Matched by name (case-insensitive
+    substring) rather than a dedicated flag, so renaming the fee to something
+    without "tahfeez" in it will silently drop it back into Other Fees.
+    """
+    return 'tahfeez' in (other_fee.name or '').lower()
+
+
+def split_other_fee_structures(other_fee_structures):
+    """
+    Splits an iterable/queryset of OtherFeeStructure rows into
+    (tahfeez_fees, non_tahfeez_fees) lists, preserving order.
+    """
+    tahfeez_fees = []
+    non_tahfeez_fees = []
+    for fee in other_fee_structures:
+        (tahfeez_fees if is_tahfeez_fee(fee) else non_tahfeez_fees).append(fee)
+    return tahfeez_fees, non_tahfeez_fees
+
+
 def is_valid_staff_promo_code(code):
     """Checks code against active PromoCode rows. Blank/None is never valid."""
     from src.models import PromoCode

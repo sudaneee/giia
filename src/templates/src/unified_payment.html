@@ -388,7 +388,8 @@
         <div class="payment-card">
             <!-- Payment Type Tabs -->
             <div class="tabs">
-                <button class="tab active" data-type="school_fees">🎓 School Fees</button>
+                <button class="tab active" data-type="school_fees">🎓 Regular School Fees</button>
+                <button class="tab" data-type="tahfeez_fees">📖 Tahfeez Fees</button>
                 <button class="tab" data-type="other_fees">📚 Other Fees</button>
             </div>
 
@@ -537,6 +538,83 @@
                 </form>
             </div>
 
+            <!-- Tahfeez Fees Form -->
+            <div id="tahfeezFeesForm" class="hidden">
+                <form id="tahfeezFeesEntryForm">
+                    {% csrf_token %}
+
+                    <div class="form-group">
+                        <label class="form-label">Parent Email <span class="required">*</span></label>
+                        <input type="email" id="tahfeezParentEmail" class="form-input" placeholder="you@example.com" required>
+                        <div class="helper-text">Payment receipt will be sent to this email</div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Admission Numbers <span class="required">*</span></label>
+                        <textarea id="tahfeezAdmissionNumbers" class="form-textarea" placeholder="GIIA-2024-103, GIIA-2024-104" required></textarea>
+                        <div class="helper-text">Enter one or more admission numbers separated by commas</div>
+                        <div class="format-example">Example: GIIA-2024-103, GIIA-2024-104</div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Academic Session <span class="required">*</span></label>
+                        <select id="tahfeezSessionSelect" class="form-select" required>
+                            <option value="">Select Session</option>
+                            {% for session in sessions %}
+                            <option value="{{ session.id }}">{{ session.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Term <span class="required">*</span></label>
+                        <select id="tahfeezTermSelect" class="form-select" disabled required>
+                            <option value="">Select Session First</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Select Fees to Pay <span class="required">*</span></label>
+                        <div class="other-fees-list">
+                            {% for fee in tahfeez_fees %}
+                            <label class="fee-checkbox">
+                                <input type="checkbox" value="{{ fee.id }}" data-amount="{{ fee.amount }}">
+                                <div>
+                                    <strong>{{ fee.name }}</strong>
+                                    <span style="color: var(--dark-gray);"> (₦{{ fee.amount|floatformat:2 }})</span>
+                                    {% if fee.description %}
+                                    <div class="helper-text">{{ fee.description }}</div>
+                                    {% endif %}
+                                </div>
+                            </label>
+                            {% empty %}
+                            <p class="helper-text">No Tahfeez fee is active at this time.</p>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Payment Method <span class="required">*</span></label>
+                        <div class="options-group">
+                            <label class="option">
+                                <input type="radio" name="tahfeez_payment_method" value="card" checked>
+                                Pay with Card
+                                <span class="helper-text">(0.7% capped at ₦1,500)</span>
+                            </label>
+                            <label class="option">
+                                <input type="radio" name="tahfeez_payment_method" value="transfer">
+                                Bank Transfer / USSD
+                                <span class="helper-text">(₦300 flat)</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <button type="button" class="btn btn-primary" onclick="calculateTahfeezFees()">
+                        💰 Calculate Total
+                    </button>
+                </form>
+            </div>
+
         </div>
 
         <!-- Breakdown Section (Hidden initially) -->
@@ -584,17 +662,13 @@
             tab.addEventListener('click', function() {
                 document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
                 this.classList.add('active');
-                
+
                 currentFeeType = this.dataset.type;
-                
-                if (currentFeeType === 'school_fees') {
-                    document.getElementById('schoolFeesForm').classList.remove('hidden');
-                    document.getElementById('otherFeesForm').classList.add('hidden');
-                } else {
-                    document.getElementById('schoolFeesForm').classList.add('hidden');
-                    document.getElementById('otherFeesForm').classList.remove('hidden');
-                }
-                
+
+                document.getElementById('schoolFeesForm').classList.toggle('hidden', currentFeeType !== 'school_fees');
+                document.getElementById('tahfeezFeesForm').classList.toggle('hidden', currentFeeType !== 'tahfeez_fees');
+                document.getElementById('otherFeesForm').classList.toggle('hidden', currentFeeType !== 'other_fees');
+
                 // Hide breakdown when switching tabs
                 document.getElementById('breakdownSection').classList.add('hidden');
             });
@@ -793,8 +867,84 @@
             } finally {
                 hideLoading();
             }
-        }    
-                
+        }
+
+        async function calculateTahfeezFees() {
+            const email = document.getElementById('tahfeezParentEmail').value;
+            const admissionNumbersRaw = document.getElementById('tahfeezAdmissionNumbers').value;
+            const sessionId = document.getElementById('tahfeezSessionSelect').value;
+            const termId = document.getElementById('tahfeezTermSelect').value;
+            const selectedFees = Array.from(document.querySelectorAll('#tahfeezFeesForm input[type="checkbox"]:checked'))
+                .map(cb => parseInt(cb.value));
+
+            // Validation
+            if (!email) {
+                showError('Please enter parent email');
+                return;
+            }
+
+            if (!admissionNumbersRaw) {
+                showError('Please enter admission numbers');
+                return;
+            }
+
+            if (!sessionId) {
+                showError('Please select academic session');
+                return;
+            }
+
+            if (!termId) {
+                showError('Please select term');
+                return;
+            }
+
+            if (selectedFees.length === 0) {
+                showError('Please select at least one fee to pay');
+                return;
+            }
+
+            const admissionNumbers = admissionNumbersRaw.split(',').map(s => s.trim()).filter(s => s);
+
+            showLoading();
+
+            try {
+                const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+                const response = await fetch('/school/pay/api/calculate-fees/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken,
+                    },
+                    body: JSON.stringify({
+                        fee_type: 'tahfeez_fees',
+                        email: email,
+                        admission_numbers: admissionNumbers,
+                        session_id: parseInt(sessionId),
+                        term_id: parseInt(termId),
+                        fee_ids: selectedFees
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    currentBreakdown = data;
+                    currentGrandTotal = data.grand_total;
+                    currentSessionId = parseInt(sessionId);
+                    currentTermId = parseInt(termId);
+                    displayBreakdown(data, 'tahfeez_fees');
+                } else {
+                    showError(data.error || 'Error calculating fees');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showError('Network error. Please try again.');
+            } finally {
+                hideLoading();
+            }
+        }
+
         function displayBreakdown(data, type = 'school_fees') {
             const breakdownContent = document.getElementById('breakdownContent');
             let html = '';
@@ -883,6 +1033,8 @@
             let email = '';
             if (currentFeeType === 'school_fees') {
                 email = document.getElementById('parentEmail').value;
+            } else if (currentFeeType === 'tahfeez_fees') {
+                email = document.getElementById('tahfeezParentEmail').value;
             } else {
                 email = document.getElementById('otherParentEmail').value;
             }
@@ -979,6 +1131,39 @@
                 const response = await fetch(`/school/pay/api/session-terms/?session_id=${sessionId}`);
                 const data = await response.json();
                 
+                if (data.terms && data.terms.length > 0) {
+                    termSelect.innerHTML = '<option value="">Select Term</option>';
+                    data.terms.forEach(term => {
+                        termSelect.innerHTML += `<option value="${term.id}" data-term-group="${term.term_group}">${term.name}</option>`;
+                    });
+                    termSelect.disabled = false;
+                } else {
+                    termSelect.innerHTML = '<option value="">No terms found</option>';
+                }
+            } catch (error) {
+                console.error('Error loading terms:', error);
+                termSelect.innerHTML = '<option value="">Error loading terms</option>';
+            }
+        });
+
+        // Load terms when session changes (Tahfeez Fees)
+        document.getElementById('tahfeezSessionSelect').addEventListener('change', async function() {
+            const sessionId = this.value;
+            const termSelect = document.getElementById('tahfeezTermSelect');
+
+            if (!sessionId) {
+                termSelect.disabled = true;
+                termSelect.innerHTML = '<option value="">Select Session First</option>';
+                return;
+            }
+
+            termSelect.disabled = true;
+            termSelect.innerHTML = '<option value="">Loading...</option>';
+
+            try {
+                const response = await fetch(`/school/pay/api/session-terms/?session_id=${sessionId}`);
+                const data = await response.json();
+
                 if (data.terms && data.terms.length > 0) {
                     termSelect.innerHTML = '<option value="">Select Term</option>';
                     data.terms.forEach(term => {

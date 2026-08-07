@@ -11,7 +11,9 @@
       <!-- Fee type tabs -->
       <div class="mb-3">
         <a href="?fee_type=school_fees{% if selected_session %}&session_id={{ selected_session.id }}{% endif %}{% if selected_term %}&term_id={{ selected_term.id }}{% endif %}"
-           class="btn btn-sm {% if fee_type == 'school_fees' %}btn-primary{% else %}btn-outline-primary{% endif %} mr-1">School Fees</a>
+           class="btn btn-sm {% if fee_type == 'school_fees' %}btn-primary{% else %}btn-outline-primary{% endif %} mr-1">Regular School Fees</a>
+        <a href="?fee_type=tahfeez_fees{% if selected_session %}&session_id={{ selected_session.id }}{% endif %}{% if selected_term %}&term_id={{ selected_term.id }}{% endif %}"
+           class="btn btn-sm {% if fee_type == 'tahfeez_fees' %}btn-primary{% else %}btn-outline-primary{% endif %} mr-1">Tahfeez Fees</a>
         <a href="?fee_type=other_fees{% if selected_session %}&session_id={{ selected_session.id }}{% endif %}{% if selected_term %}&term_id={{ selected_term.id }}{% endif %}"
            class="btn btn-sm {% if fee_type == 'other_fees' %}btn-primary{% else %}btn-outline-primary{% endif %}">Other Fees</a>
       </div>
@@ -92,7 +94,7 @@
               </div>
             {% else %}
               <div class="form-group">
-                <label>Select Fees</label>
+                <label>{% if fee_type == 'tahfeez_fees' %}Tahfeez Fees{% else %}Select Fees{% endif %}</label>
                 {% for fee in other_fee_structures %}
                   <div class="form-check border rounded p-2 mb-2">
                     <input class="form-check-input" type="checkbox" name="fee_id" value="{{ fee.id }}" id="f{{ fee.id }}">
@@ -101,7 +103,7 @@
                     </label>
                   </div>
                 {% empty %}
-                  <p class="text-muted small">No active other fees.</p>
+                  <p class="text-muted small">{% if fee_type == 'tahfeez_fees' %}No Tahfeez fee is active for this session/term.{% else %}No active other fees.{% endif %}</p>
                 {% endfor %}
               </div>
               <div class="form-group">

@@ -5660,18 +5660,25 @@ from django.core.paginator import Paginator
 
 
 def unified_payment(request):
-    """Unified payment entry point for both school and other fees"""
+    """Unified payment entry point for school fees, Tahfeez fees, and other fees"""
     from website.models import Picture
+    from wallet.services.fee_service import split_other_fee_structures
 
     if not settings.UNIFIED_PAYMENT_ENABLED:
         messages.error(request, 'Direct online payment is temporarily unavailable. Please use the parent wallet portal instead.')
         return redirect('home')
 
+    # The Tahfeez fee is just another OtherFeeStructure row, split out here so
+    # it gets its own tab instead of sitting in the general Other Fees list.
+    tahfeez_fees, other_fees = split_other_fee_structures(OtherFeeStructure.objects.filter(active=True))
+
     context = {
         'sessions': Session.objects.filter(current=True),
-        'other_fees': OtherFeeStructure.objects.filter(active=True),
+        'other_fees': other_fees,
+        'tahfeez_fees': tahfeez_fees,
         'payment_types': [
             {'value': 'school_fees', 'label': 'School Fees (Tuition & Mandatory Fees)'},
+            {'value': 'tahfeez_fees', 'label': 'Tahfeez Fees'},
             {'value': 'other_fees', 'label': 'Other Fees (Uniform, Transport, etc.)'}
         ],
         'student_types': [

@@ -19,7 +19,9 @@
 
 <div class="pill-tabs">
   <a href="?fee_type=school_fees{% if selected_session %}&session_id={{ selected_session.id }}{% endif %}{% if selected_term %}&term_id={{ selected_term.id }}{% endif %}"
-     class="{% if fee_type == 'school_fees' %}active{% endif %}"><i class="bi bi-mortarboard mr-1"></i>School Fees</a>
+     class="{% if fee_type == 'school_fees' %}active{% endif %}"><i class="bi bi-mortarboard mr-1"></i>Regular School Fees</a>
+  <a href="?fee_type=tahfeez_fees{% if selected_session %}&session_id={{ selected_session.id }}{% endif %}{% if selected_term %}&term_id={{ selected_term.id }}{% endif %}"
+     class="{% if fee_type == 'tahfeez_fees' %}active{% endif %}"><i class="bi bi-book mr-1"></i>Tahfeez Fees</a>
   <a href="?fee_type=other_fees{% if selected_session %}&session_id={{ selected_session.id }}{% endif %}{% if selected_term %}&term_id={{ selected_term.id }}{% endif %}"
      class="{% if fee_type == 'other_fees' %}active{% endif %}"><i class="bi bi-bag mr-1"></i>Other Fees</a>
 </div>
@@ -95,7 +97,7 @@
         </div>
       {% else %}
         <div class="card mb-3">
-          <div class="card-header"><i class="bi bi-bag mr-2"></i>Select Fees</div>
+          <div class="card-header"><i class="bi bi-bag mr-2"></i>{% if fee_type == 'tahfeez_fees' %}Tahfeez Fees{% else %}Select Fees{% endif %}</div>
           <div class="card-body">
             {% if other_fee_structures %}
               {% for fee in other_fee_structures %}
@@ -106,7 +108,7 @@
                 </label>
               {% endfor %}
             {% else %}
-              <p class="text-muted mb-0">No other fees are active right now.</p>
+              <p class="text-muted mb-0">{% if fee_type == 'tahfeez_fees' %}No Tahfeez fee is active for this session/term.{% else %}No other fees are active right now.{% endif %}</p>
             {% endif %}
           </div>
         </div>

@@ -2,7 +2,7 @@
 {% load humanize %}
 {% block title %}Pay Fees{% endblock %}
 {% block content %}
-<h4 class="mb-1">{% if fee_type == 'school_fees' %}Pay School Fees{% else %}Pay Other Fees{% endif %}</h4>
+<h4 class="mb-1">{% if fee_type == 'school_fees' %}Pay School Fees{% elif fee_type == 'tahfeez_fees' %}Pay Tahfeez Fees{% else %}Pay Other Fees{% endif %}</h4>
 <p class="text-muted mb-3"><i class="bi bi-calendar3 mr-1"></i>{{ session.name }} - {{ term.name }}</p>
 {% if staff_discount_applied %}
   <p class="text-success small mb-3"><i class="bi bi-check-circle mr-1"></i>Staff discount applied.</p>
