@@ -3,8 +3,11 @@
 {% block content %}
 <div class="main-content mt-1">
     <div class="card">
-        <div class="card-header">
-            <h4>Online Applications</h4>
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h4 class="mb-0">Online Applications</h4>
+            <a href="{% url 'export_applicants_excel' %}{% if status_filter %}?status={{ status_filter }}{% endif %}" class="btn btn-sm btn-success">
+                <i class="fas fa-file-excel mr-1"></i> Download Excel
+            </a>
         </div>
         <div class="card-body">
             <div class="mb-3">

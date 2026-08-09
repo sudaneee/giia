@@ -539,6 +539,87 @@ def applicant_list(request):
 
 
 @login_required(login_url='login')
+def export_applicants_excel(request):
+    """
+    Exports the online-applications queue to an .xlsx workbook, honoring the
+    same filters as applicant_list (paid applications only, optionally
+    narrowed by ?status=) so "download" always matches what's on screen.
+    """
+    from admissions.models import Applicant
+    import pandas as pd
+    from django.http import HttpResponse
+    from io import BytesIO
+    from datetime import datetime
+
+    applicants = Applicant.objects.filter(application_fee_paid=True).select_related(
+        'desired_class', 'recommended_class', 'session', 'linked_student',
+    ).order_by('-created_at')
+
+    status_filter = request.GET.get('status', '')
+    if status_filter in dict(Applicant.STATUS_CHOICES):
+        applicants = applicants.filter(status=status_filter)
+
+    data = []
+    for applicant in applicants:
+        data.append({
+            'App Number': applicant.app_number or '',
+            'First Name': applicant.first_name,
+            'Last Name': applicant.last_name,
+            'Gender': applicant.get_gender_display() if applicant.gender else '',
+            'Date of Birth': applicant.date_of_birth.strftime('%Y-%m-%d') if applicant.date_of_birth else '',
+            'Desired Class': str(applicant.desired_class) if applicant.desired_class else '',
+            'Recommended Class': str(applicant.recommended_class) if applicant.recommended_class else '',
+            'Session': str(applicant.session) if applicant.session else '',
+            'Status': applicant.get_status_display(),
+            'Father Name': applicant.father_name,
+            'Father Phone': applicant.father_phone,
+            'Father Email': applicant.father_email,
+            'Mother Name': applicant.mother_name,
+            'Mother Phone': applicant.mother_phone,
+            'Mother Email': applicant.mother_email,
+            'Residential Address': applicant.residential_address,
+            'Amount Paid': float(applicant.amount_paid) if applicant.amount_paid is not None else '',
+            'Reference': applicant.reference,
+            'Interview Date': applicant.interview_date.strftime('%Y-%m-%d') if applicant.interview_date else '',
+            'Interviewer': applicant.interviewer_name,
+            'Decided By': applicant.decided_by,
+            'Decision Date': applicant.decision_date.strftime('%Y-%m-%d') if applicant.decision_date else '',
+            'Linked Student Admission No.': applicant.linked_student.admission_number if applicant.linked_student else '',
+            'Submitted': applicant.created_at.strftime('%Y-%m-%d %H:%M:%S') if applicant.created_at else '',
+        })
+
+    df = pd.DataFrame(data)
+
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, sheet_name='Applicants', index=False)
+
+        # Auto-adjust column widths
+        worksheet = writer.sheets['Applicants']
+        for column in worksheet.columns:
+            max_length = 0
+            column_letter = column[0].column_letter
+            for cell in column:
+                try:
+                    if len(str(cell.value)) > max_length:
+                        max_length = len(str(cell.value))
+                except:
+                    pass
+            adjusted_width = min(max_length + 2, 50)
+            worksheet.column_dimensions[column_letter].width = adjusted_width
+
+    output.seek(0)
+
+    filename = f"applicants_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+    response = HttpResponse(
+        output.read(),
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response
+
+
+@login_required(login_url='login')
 def applicant_detail(request, applicant_id):
     """
     Records the paper form's "FOR OFFICIAL USE ONLY" interview/recommendation

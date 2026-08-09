@@ -37,6 +37,7 @@ urlpatterns = [
 
     # Online admission application review
     path('applicants/', views.applicant_list, name='applicant_list'),
+    path('applicants/export/', views.export_applicants_excel, name='export_applicants_excel'),
     path('applicants/<int:applicant_id>/', views.applicant_detail, name='applicant_detail'),
 
     # Subject URLs
