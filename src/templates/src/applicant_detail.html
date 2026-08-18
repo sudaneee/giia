@@ -46,8 +46,13 @@
         <div class="card-body">
             <p><strong>Status:</strong> {{ applicant.get_status_display }}</p>
 
-            {% if applicant.linked_student %}
-                <p>Converted to student: <a href="{% url 'update_student' applicant.linked_student.id %}">{{ applicant.linked_student }}</a> - see the <a href="{% url 'not_admitted_students' %}">Not Admitted Students</a> queue to finish admitting.</p>
+            {% if applicant.linked_student.admission_status == 'admitted' %}
+                <p class="text-success">
+                    Admitted as <a href="{% url 'update_student' applicant.linked_student.id %}">{{ applicant.linked_student }}</a>
+                    - admission no. <strong>{{ applicant.linked_student.admission_number }}</strong>,
+                    class {{ applicant.linked_student.enrolled_class }}.
+                    <a href="{% url 'generate_admission_letter' applicant.linked_student.id %}" class="btn btn-sm btn-outline-primary ml-2">Admission Letter</a>
+                </p>
             {% else %}
                 <form method="POST" class="mb-3">
                     {% csrf_token %}
@@ -70,15 +75,8 @@
                             </select>
                         </div>
                     </div>
-                    <button type="submit" name="record_interview" value="1" class="btn btn-secondary">Record Interview</button>
-                </form>
-
-                <form method="POST" class="d-inline">
-                    {% csrf_token %}
-                    <button type="submit" name="approve" value="1" class="btn btn-success" onclick="return confirm('Create a Student record for this applicant?');">Approve &amp; Create Student</button>
-                </form>
-                <form method="POST" class="d-inline">
-                    {% csrf_token %}
+                    <button type="submit" name="record_interview" value="1" class="btn btn-secondary">Record Interview (optional)</button>
+                    <button type="submit" name="admit" value="1" class="btn btn-success" onclick="return confirm('Admit this applicant now? This creates the student record and admission number immediately.');">Admit</button>
                     <button type="submit" name="reject" value="1" class="btn btn-danger" onclick="return confirm('Reject this application?');">Reject</button>
                 </form>
             {% endif %}

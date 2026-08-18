@@ -517,24 +517,83 @@ def not_admitted_students(request):
 @login_required(login_url='login')
 def applicant_list(request):
     """
-    Staff review queue for online admission applications (paid applications
-    only - an abandoned/unpaid checkout never shows up here). Mirrors
-    not_admitted_students' filter-by-GET-param style.
+    Staff review + one-click admission queue for online admission
+    applications (paid applications only - an abandoned/unpaid checkout
+    never shows up here). Scoped to one session at a time (defaulting to the
+    current one) since applicants pile up across admission cycles; switch
+    via ?session=<id> to review a previous cycle. Once an applicant has been
+    admitted (admit_applicant sets linked_student.admission_status to
+    'admitted') they drop off this list for good - there's nothing left to
+    review.
     """
     from admissions.models import Applicant
+    from admissions.services import admit_applicant
+    from django.urls import reverse
 
-    applicants = Applicant.objects.filter(application_fee_paid=True).select_related(
-        'desired_class', 'recommended_class', 'session',
-    ).order_by('-created_at')
+    sessions = Session.objects.all().order_by('-start_date')
+    current_session = Session.objects.filter(current=True).first()
+    session_param = request.GET.get('session') or request.POST.get('session')
+    selected_session = (
+        Session.objects.filter(id=session_param).first() if session_param else current_session
+    )
+
+    if request.method == 'POST' and 'admit_selected' in request.POST:
+        applicant_ids = request.POST.getlist('applicant_ids')
+        admitted_count = 0
+        for applicant_id in applicant_ids:
+            applicant = Applicant.objects.filter(id=applicant_id, application_fee_paid=True).first()
+            if not applicant:
+                continue
+            class_id = request.POST.get(f'recommended_class_{applicant_id}')
+            recommended_class = (
+                SchoolClass.objects.filter(id=class_id).first() if class_id else applicant.desired_class
+            )
+            try:
+                admit_applicant(applicant, recommended_class, request.user)
+                admitted_count += 1
+            except ValueError as e:
+                messages.error(request, f'{applicant.first_name} {applicant.last_name}: {e}, skipped.')
+
+        if admitted_count:
+            messages.success(request, f'{admitted_count} applicant(s) admitted successfully.')
+
+        redirect_url = reverse('applicant_list')
+        if selected_session:
+            redirect_url += f'?session={selected_session.id}'
+        return redirect(redirect_url)
+
+    if request.method == 'POST' and 'reject_single' in request.POST:
+        applicant = get_object_or_404(Applicant, id=request.POST.get('applicant_id'))
+        applicant.status = 'rejected'
+        applicant.decided_by = request.user.get_full_name() or request.user.username
+        applicant.decision_date = date.today()
+        applicant.save()
+        messages.success(request, f'{applicant.first_name} {applicant.last_name} rejected.')
+        redirect_url = reverse('applicant_list')
+        if selected_session:
+            redirect_url += f'?session={selected_session.id}'
+        return redirect(redirect_url)
+
+    applicants = Applicant.objects.filter(application_fee_paid=True).exclude(
+        linked_student__admission_status='admitted',
+    ).select_related('desired_class', 'recommended_class', 'session', 'linked_student')
+
+    if selected_session:
+        applicants = applicants.filter(session=selected_session)
 
     status_filter = request.GET.get('status', '')
     if status_filter in dict(Applicant.STATUS_CHOICES):
         applicants = applicants.filter(status=status_filter)
 
+    applicants = applicants.order_by('-created_at')
+
     return render(request, 'src/applicant_list.html', {
         'applicants': applicants,
         'status_filter': status_filter,
         'status_choices': Applicant.STATUS_CHOICES,
+        'sessions': sessions,
+        'selected_session': selected_session,
+        'school_classes': SchoolClass.objects.all().select_related('section'),
     })
 
 
@@ -623,13 +682,14 @@ def export_applicants_excel(request):
 def applicant_detail(request, applicant_id):
     """
     Records the paper form's "FOR OFFICIAL USE ONLY" interview/recommendation
-    step, and on approval creates the Guardian(s) + Student
-    (admission_status='not_admitted', enrolled_class already set) -
-    deliberately not admitted here, so the existing not_admitted_students
-    queue is what actually flips the status, generates the admission
-    number, and sets admitted_at.
+    step, and admits in one step via admit_applicant (same helper the bulk
+    "Admit Selected" action on applicant_list uses) - creates the
+    Guardian(s) + Student, generates the admission number, and sets
+    admitted_at all at once instead of leaving a second Not Admitted
+    Students queue step to finish later.
     """
     from admissions.models import Applicant
+    from admissions.services import admit_applicant
 
     applicant = get_object_or_404(Applicant, id=applicant_id)
 
@@ -646,77 +706,24 @@ def applicant_detail(request, applicant_id):
             messages.success(request, 'Interview recorded.')
             return redirect('applicant_detail', applicant_id=applicant.id)
 
-        elif 'approve' in request.POST:
-            if applicant.linked_student:
-                messages.error(request, 'This applicant has already been converted to a student.')
-                return redirect('applicant_detail', applicant_id=applicant.id)
-
-            father_guardian = None
-            if applicant.father_name:
-                name_parts = applicant.father_name.split(' ', 1)
-                father_guardian = Guardian.objects.create(
-                    first_name=name_parts[0],
-                    last_name=name_parts[1] if len(name_parts) > 1 else applicant.father_name,
-                    phone_number=applicant.father_phone,
-                    email=applicant.father_email or None,
-                    relationship='Father',
-                    address=applicant.father_address,
-                    occupation=applicant.father_occupation,
-                    qualification=applicant.father_qualification,
+        elif 'admit' in request.POST:
+            class_id = request.POST.get('recommended_class')
+            if class_id:
+                recommended_class = SchoolClass.objects.filter(id=class_id).first()
+            else:
+                # No class picked on this submit (e.g. admitting straight
+                # after a prior "Record Interview" without touching the
+                # dropdown again) - honor whatever was recommended then.
+                recommended_class = applicant.recommended_class or applicant.desired_class
+            try:
+                student = admit_applicant(applicant, recommended_class, request.user)
+                messages.success(
+                    request,
+                    f'{student.first_name} {student.last_name} admitted - admission no. {student.admission_number}.',
                 )
-
-            mother_guardian = None
-            if applicant.mother_name:
-                name_parts = applicant.mother_name.split(' ', 1)
-                mother_guardian = Guardian.objects.create(
-                    first_name=name_parts[0],
-                    last_name=name_parts[1] if len(name_parts) > 1 else applicant.mother_name,
-                    phone_number=applicant.mother_phone,
-                    email=applicant.mother_email or None,
-                    relationship='Mother',
-                    qualification=applicant.mother_qualification,
-                )
-
-            student = Student(
-                first_name=applicant.first_name,
-                last_name=applicant.last_name,
-                date_of_birth=applicant.date_of_birth,
-                place_of_birth=applicant.place_of_birth,
-                gender=applicant.gender,
-                native_language=applicant.native_language,
-                blood_group=applicant.blood_group,
-                genotype=applicant.genotype,
-                has_ailment=applicant.has_ailment,
-                ailment_details=applicant.ailment_details,
-                address=applicant.residential_address,
-                phone_number=applicant.father_phone or applicant.mother_phone,
-                email=applicant.father_email or applicant.mother_email,
-                photo=applicant.photo,
-                # The existing not_admitted_students "admit selected" action
-                # requires enrolled_class to already be set (it blocks
-                # admitting a student with none) - it doesn't assign one
-                # itself, so this has to happen here.
-                enrolled_class=applicant.recommended_class or applicant.desired_class,
-                admission_status='not_admitted',
-            )
-            student.save()
-
-            if father_guardian:
-                student.guardians.add(father_guardian)
-            if mother_guardian:
-                student.guardians.add(mother_guardian)
-
-            applicant.linked_student = student
-            applicant.status = 'approved'
-            applicant.decided_by = request.user.get_full_name() or request.user.username
-            applicant.decision_date = date.today()
-            applicant.save()
-
-            messages.success(
-                request,
-                f'{student.first_name} {student.last_name} created - now awaiting admission via the Not Admitted Students queue.',
-            )
-            return redirect('not_admitted_students')
+            except ValueError as e:
+                messages.error(request, f'Could not admit: {e}.')
+            return redirect('applicant_detail', applicant_id=applicant.id)
 
         elif 'reject' in request.POST:
             applicant.status = 'rejected'
@@ -995,50 +1002,64 @@ def generate_admission_letter(request, student_id):
 
 
 def admitted_students(request):
-    # admitted_students = Student.objects.filter(admission_status='admitted')
-    
-    # Get the start of today
-    start_of_today = now().replace(hour=0, minute=0, second=0, microsecond=0)
-    
-    # Calculate the date range: start of today and two weeks back
-    two_weeks_ago = start_of_today - timedelta(weeks=2)
-    
-    # Filter admitted students within the date range
-    admitted_students = Student.objects.filter(
-        admission_status='admitted',
-        created_at__gte=two_weeks_ago
-    )
-    not_admitted_students = Student.objects.filter(admission_status='not_admitted')
+    """
+    Public parent-facing lookup, deliberately search-only rather than a
+    browsable list - it used to dump every recently-admitted child's name,
+    admission number and class to anyone hitting this URL with no login at
+    all. Now it only ever returns rows for a name/phone a visitor already
+    typed in, and only from the current admission session's admitted
+    students. A student counts as "this session" if either their online
+    application belongs to it, or (for students added/admitted outside the
+    online-application flow) they were admitted within its date range.
+    """
+    session = Session.objects.filter(current=True).first()
 
-    if request.method == 'POST':
-        # Check if the form is submitted for generating the admission letter
-        if 'generate_admission_letter' in request.POST:
-            student_id = request.POST.get('student_id')
-            source = request.POST.get('source')
+    query = request.GET.get('q', '').strip()
+    results = []
+    if query:
+        admitted_qs = Student.objects.filter(admission_status='admitted').select_related('enrolled_class')
+        if session:
+            admitted_qs = admitted_qs.filter(
+                Q(applicant__session=session) |
+                Q(admitted_at__date__gte=session.start_date, admitted_at__date__lte=session.end_date)
+            )
 
-            try:
-                student = Student.objects.get(id=student_id)
+        name_q = Q()
+        for word in query.split():
+            name_q &= (Q(first_name__icontains=word) | Q(last_name__icontains=word))
 
-                # Check if feedback already exists
-                how_you_find_us, created = HowYouFindUs.objects.get_or_create(student=student)
-                if not created:
-                    # If feedback already exists, skip updating and proceed to admission letter generation
-                    messages.info(request, 'You have already submitted feedback. Generating admission letter.')
-                    return redirect('generate_admission_letter', student_id=student_id)
+        results = admitted_qs.filter(
+            name_q | Q(phone_number__icontains=query) | Q(guardians__phone_number__icontains=query)
+        ).distinct().order_by('first_name', 'last_name')
 
-                # If no feedback exists, update with new source information
-                how_you_find_us.source = source
-                how_you_find_us.save()
+    if request.method == 'POST' and 'generate_admission_letter' in request.POST:
+        student_id = request.POST.get('student_id')
+        source = request.POST.get('source')
 
-                # Redirect to generate the admission letter
+        try:
+            student = Student.objects.get(id=student_id)
+
+            # Check if feedback already exists
+            how_you_find_us, created = HowYouFindUs.objects.get_or_create(student=student)
+            if not created:
+                # If feedback already exists, skip updating and proceed to admission letter generation
+                messages.info(request, 'You have already submitted feedback. Generating admission letter.')
                 return redirect('generate_admission_letter', student_id=student_id)
 
-            except Student.DoesNotExist:
-                messages.error(request, 'Student not found.')
+            # If no feedback exists, update with new source information
+            how_you_find_us.source = source
+            how_you_find_us.save()
+
+            # Redirect to generate the admission letter
+            return redirect('generate_admission_letter', student_id=student_id)
+
+        except Student.DoesNotExist:
+            messages.error(request, 'Student not found.')
 
     return render(request, 'src/admitted_students.html', {
-        'admitted_students': admitted_students,
-        'not_admitted_students': not_admitted_students,
+        'query': query,
+        'results': results,
+        'session': session,
     })
 
 

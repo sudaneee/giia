@@ -1,9 +1,11 @@
 import logging
+from datetime import date
 from decimal import ROUND_CEILING, Decimal
 
 from django.conf import settings
 from django.core.mail import send_mail
 from django.urls import reverse
+from django.utils import timezone
 
 from wallet.services import zainpay_service
 
@@ -110,3 +112,95 @@ def send_payment_confirmation_email(applicant):
     except Exception:
         logger.exception('Failed to send payment confirmation email for applicant %s', applicant.app_number)
         return False
+
+
+def admit_applicant(applicant, recommended_class, staff_user):
+    """
+    One-step version of the old review -> approve -> Not Admitted Students
+    queue -> admit pipeline: creates the Guardian(s) + Student on first call
+    (or reuses applicant.linked_student if a previous partial run already
+    created one - keeps this safe to call again on a legacy
+    approved-but-not-yet-admitted applicant), then admits immediately with a
+    generated admission number. Used by both the bulk "Admit Selected" action
+    on the applicant list and the single-applicant review page, so there's
+    one admission code path instead of two.
+
+    Raises ValueError (safe to show to the user as-is) instead of admitting
+    when there's nothing sensible to do.
+    """
+    if applicant.linked_student and applicant.linked_student.admission_status == 'admitted':
+        raise ValueError('already admitted')
+
+    if not recommended_class:
+        raise ValueError('no class selected')
+
+    from src.models import Guardian, Student
+
+    student = applicant.linked_student
+    if student is None:
+        father_guardian = None
+        if applicant.father_name:
+            name_parts = applicant.father_name.split(' ', 1)
+            father_guardian = Guardian.objects.create(
+                first_name=name_parts[0],
+                last_name=name_parts[1] if len(name_parts) > 1 else applicant.father_name,
+                phone_number=applicant.father_phone,
+                email=applicant.father_email or None,
+                relationship='Father',
+                address=applicant.father_address,
+                occupation=applicant.father_occupation,
+                qualification=applicant.father_qualification,
+            )
+
+        mother_guardian = None
+        if applicant.mother_name:
+            name_parts = applicant.mother_name.split(' ', 1)
+            mother_guardian = Guardian.objects.create(
+                first_name=name_parts[0],
+                last_name=name_parts[1] if len(name_parts) > 1 else applicant.mother_name,
+                phone_number=applicant.mother_phone,
+                email=applicant.mother_email or None,
+                relationship='Mother',
+                qualification=applicant.mother_qualification,
+            )
+
+        student = Student(
+            first_name=applicant.first_name,
+            last_name=applicant.last_name,
+            date_of_birth=applicant.date_of_birth,
+            place_of_birth=applicant.place_of_birth,
+            gender=applicant.gender,
+            native_language=applicant.native_language,
+            blood_group=applicant.blood_group,
+            genotype=applicant.genotype,
+            has_ailment=applicant.has_ailment,
+            ailment_details=applicant.ailment_details,
+            address=applicant.residential_address,
+            phone_number=applicant.father_phone or applicant.mother_phone,
+            email=applicant.father_email or applicant.mother_email,
+            photo=applicant.photo,
+        )
+        student.save()
+        if father_guardian:
+            student.guardians.add(father_guardian)
+        if mother_guardian:
+            student.guardians.add(mother_guardian)
+
+    student.enrolled_class = recommended_class
+    student.admission_status = 'admitted'
+    student.admitted_at = timezone.now()
+    student.save()
+    if not student.admission_number:
+        student.admission_number = f"GIIA-{student.admitted_at.year}-{student.id}"
+        student.save(update_fields=['admission_number'])
+
+    staff_name = staff_user.get_full_name() or staff_user.username
+    applicant.recommended_class = recommended_class
+    applicant.linked_student = student
+    applicant.status = 'approved'
+    applicant.interview_date = applicant.interview_date or date.today()
+    applicant.interviewer_name = applicant.interviewer_name or staff_name
+    applicant.decided_by = staff_name
+    applicant.decision_date = date.today()
+    applicant.save()
+    return student

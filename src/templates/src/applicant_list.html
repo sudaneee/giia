@@ -3,50 +3,105 @@
 {% block content %}
 <div class="main-content mt-1">
     <div class="card">
-        <div class="card-header d-flex justify-content-between align-items-center">
+        <div class="card-header d-flex justify-content-between align-items-center flex-wrap">
             <h4 class="mb-0">Online Applications</h4>
-            <a href="{% url 'export_applicants_excel' %}{% if status_filter %}?status={{ status_filter }}{% endif %}" class="btn btn-sm btn-success">
-                <i class="fas fa-file-excel mr-1"></i> Download Excel
-            </a>
+            <div>
+                <form method="GET" class="form-inline d-inline-block mr-2">
+                    {% if status_filter %}<input type="hidden" name="status" value="{{ status_filter }}">{% endif %}
+                    <label class="mr-2 mb-0">Session</label>
+                    <select name="session" class="form-control form-control-sm" onchange="this.form.submit()">
+                        {% for s in sessions %}
+                            <option value="{{ s.id }}" {% if selected_session.id == s.id %}selected{% endif %}>{{ s.name }}{% if s.current %} (current){% endif %}</option>
+                        {% endfor %}
+                    </select>
+                </form>
+                <a href="{% url 'export_applicants_excel' %}{% if status_filter %}?status={{ status_filter }}{% endif %}" class="btn btn-sm btn-success">
+                    <i class="fas fa-file-excel mr-1"></i> Download Excel
+                </a>
+            </div>
         </div>
         <div class="card-body">
             <div class="mb-3">
-                <a href="{% url 'applicant_list' %}" class="btn btn-sm btn-outline-secondary {% if not status_filter %}active{% endif %}">All</a>
+                <a href="?{% if selected_session %}session={{ selected_session.id }}{% endif %}" class="btn btn-sm btn-outline-secondary {% if not status_filter %}active{% endif %}">All</a>
                 {% for value, label in status_choices %}
-                    <a href="?status={{ value }}" class="btn btn-sm btn-outline-secondary {% if status_filter == value %}active{% endif %}">{{ label }}</a>
+                    <a href="?status={{ value }}{% if selected_session %}&session={{ selected_session.id }}{% endif %}" class="btn btn-sm btn-outline-secondary {% if status_filter == value %}active{% endif %}">{{ label }}</a>
                 {% endfor %}
             </div>
-            <table class="table table-striped">
-                <thead>
-                    <tr>
-                        <th>App No.</th>
-                        <th>Name</th>
-                        <th>Desired Class</th>
-                        <th>Session</th>
-                        <th>Status</th>
-                        <th>Submitted</th>
-                        <th></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for applicant in applicants %}
-                    <tr>
-                        <td>{{ applicant.app_number }}</td>
-                        <td>{{ applicant.first_name }} {{ applicant.last_name }}</td>
-                        <td>{{ applicant.desired_class }}</td>
-                        <td>{{ applicant.session }}</td>
-                        <td>{{ applicant.get_status_display }}</td>
-                        <td>{{ applicant.created_at|date:"Y-m-d H:i" }}</td>
-                        <td><a href="{% url 'applicant_detail' applicant.id %}" class="btn btn-sm btn-info">Review</a></td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="7">No paid applications yet.</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+
+            <p class="text-muted small">
+                Showing applicants not yet admitted{% if selected_session %} for <strong>{{ selected_session.name }}</strong>{% endif %}.
+                Tick the ones to admit, pick their class, then hit <strong>Admit Selected</strong> - this creates the student
+                record, generates the admission number, and admits them in one go.
+            </p>
+
+            <form method="POST" id="admit-form">
+                {% csrf_token %}
+                <input type="hidden" name="session" value="{{ selected_session.id }}">
+                <div class="table-responsive">
+                    <table class="table table-striped align-middle">
+                        <thead>
+                            <tr>
+                                <th><input type="checkbox" id="select-all"></th>
+                                <th>App No.</th>
+                                <th>Name</th>
+                                <th>Desired Class</th>
+                                <th>Class to Admit Into</th>
+                                <th>Status</th>
+                                <th>Submitted</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for applicant in applicants %}
+                            <tr>
+                                <td><input type="checkbox" name="applicant_ids" value="{{ applicant.id }}" class="applicant-check"></td>
+                                <td>{{ applicant.app_number }}</td>
+                                <td><a href="{% url 'applicant_detail' applicant.id %}">{{ applicant.first_name }} {{ applicant.last_name }}</a></td>
+                                <td>{{ applicant.desired_class }}</td>
+                                <td>
+                                    <select name="recommended_class_{{ applicant.id }}" class="form-control form-control-sm">
+                                        {% for sc in school_classes %}
+                                            <option value="{{ sc.id }}"
+                                                {% if applicant.recommended_class_id == sc.id %}selected
+                                                {% elif not applicant.recommended_class_id and sc.id == applicant.desired_class_id %}selected{% endif %}>
+                                                {{ sc }}
+                                            </option>
+                                        {% endfor %}
+                                    </select>
+                                </td>
+                                <td>{{ applicant.get_status_display }}</td>
+                                <td>{{ applicant.created_at|date:"Y-m-d H:i" }}</td>
+                                <td class="text-nowrap">
+                                    <a href="{% url 'applicant_detail' applicant.id %}" class="btn btn-sm btn-info">View</a>
+                                    <button type="submit" formnovalidate name="reject_single" value="1"
+                                            formaction="{% url 'applicant_list' %}"
+                                            class="btn btn-sm btn-outline-danger"
+                                            onclick="document.getElementById('reject-id').value='{{ applicant.id }}'; return confirm('Reject this application?');">
+                                        Reject
+                                    </button>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="8">No applicants awaiting admission{% if selected_session %} for {{ selected_session.name }}{% endif %}.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <input type="hidden" name="applicant_id" id="reject-id">
+                <button type="submit" name="admit_selected" value="1" class="btn btn-success"
+                        onclick="return confirm('Admit all selected applicants now?');">
+                    Admit Selected
+                </button>
+            </form>
         </div>
     </div>
 </div>
+
+<script>
+    document.getElementById('select-all').addEventListener('change', function () {
+        document.querySelectorAll('.applicant-check').forEach(function (cb) { cb.checked = this.checked; }.bind(this));
+    });
+</script>
 {% endblock content %}
