@@ -902,8 +902,6 @@ def generate_admission_letter(request, student_id):
         header_image_path = os.path.join(settings.MEDIA_ROOT, school_config.header_image.name)
         signature_image_path = os.path.join(settings.MEDIA_ROOT, school_config.signature_image.name)
 
-        admitted_date = student.admitted_at.strftime('%Y-%m-%d') if student.admitted_at else timezone.now().strftime('%Y-%m-%d')
-        
         # Debugging: Log the paths
         print(f"Header Image Path: {header_image_path}")
         print(f"Signature Image Path: {signature_image_path}")
@@ -922,25 +920,6 @@ def generate_admission_letter(request, student_id):
         # Add the school header image
         p.drawImage(header_image_path, x=1 * inch, y=height - 2.5 * inch, width=width - 2 * inch, height=2 * inch)
 
-        # Add Date, Admission No, Session
-        p.setFont("Helvetica-Bold", 12)
-        p.drawString(1 * inch, height - 3.4 * inch, f"Date: {admitted_date}")
-        p.drawString(1 * inch, height - 3.6 * inch, f"Admission No: {student.admission_number}")
-        p.drawString(1 * inch, height - 3.8 * inch, f"Admitted Class: {student.enrolled_class}")
-        p.drawString(1 * inch, height - 4.0 * inch, f"Session: 2025/2026")
-
-        # Add Provisional Admission Letter title
-        p.setFont("Helvetica-Bold", 14)
-        p.drawString(1 * inch, height - 4.2 * inch, "PROVISIONAL ADMISSION LETTER")
-
-        # Add the student's name
-        p.setFont("Helvetica", 12)
-        p.drawString(1 * inch, height - 4.6 * inch, f"Name: {student.first_name} {student.last_name}")
-
-        # Starting Y position for body text
-        y_position = height - 5.0 * inch  
-        line_height = 0.25 * inch  # spacing between lines
-
         # Function to wrap long text
         def draw_wrapped_string(canvas_obj, x, y, text, max_width, font_name="Helvetica", font_size=12):
             from reportlab.pdfbase.pdfmetrics import stringWidth
@@ -958,34 +937,65 @@ def generate_admission_letter(request, student_id):
                 y -= line_height
             return y
 
-        # Body text lines
-        body_lines = [
-            "1. We are pleased to inform you that, due to your success in the interview, "
-            "you have been offered a provisional admission into the Great Insight International Academy, Zaria.",
+        def ordinal(n):
+            if 11 <= n % 100 <= 13:
+                suffix = 'th'
+            else:
+                suffix = {1: 'st', 2: 'nd', 3: 'rd'}.get(n % 10, 'th')
+            return f"{n}{suffix}"
 
-            "2. You are expected to report to the school on or before two weeks from the date of admission "
-            "accompanied by the following. You're expected to report to the school on Monday, Tuesday or "
-            "Wednesday (24th, 25th or 26th of August, 2026) respectively for documentation and payment of "
-            "school fees:",
+        line_height = 0.25 * inch
 
-            "i. A copy of admission letter",
-            "ii. Birth certificate",
-            "iii. Two recent passport sized photographs",
-            "iv. A copy of blood group and genotype test results from a recognized government hospital",
-            "v. A copy of transfer letter/evidence of last term school fees from previous school attended",
+        current_session = Session.objects.filter(current=True).first()
+        session_name = current_session.name if current_session else '2026/2027'
+        letter_date = student.admitted_at if student.admitted_at else timezone.now()
+        formatted_date = f"{ordinal(letter_date.day)} {letter_date.strftime('%B %Y')}"
+        registration_deadline = "31st August 2026"
 
-            "Failure to comply will result in forfeiture of your admission.",
+        # Date, top right
+        p.setFont("Helvetica", 11)
+        p.drawRightString(width - 1 * inch, height - 2.9 * inch, formatted_date)
 
-            "3. Be informed that transportation is subject to availability of space in the bus on the proposed route"
+        # Title
+        p.setFont("Helvetica-Bold", 13)
+        p.drawCentredString(width / 2, height - 3.3 * inch, f"OFFER OF ADMISSION - SESSION {session_name}")
+
+        # Salutation
+        p.setFont("Helvetica", 12)
+        p.drawString(1 * inch, height - 3.7 * inch, "Dear Parent / Guardian,")
+
+        # Body paragraphs, exactly matching the school's approved offer-letter wording
+        body_paragraphs = [
+            f"Following the placement assessment and interview, I am pleased to offer "
+            f"{student.first_name} {student.last_name} a place at Great Insight International Academy "
+            f"in {student.enrolled_class or 'the recommended class'} for the {session_name} academic session.",
+
+            f"To accept this offer, please complete the following on or before {registration_deadline}:",
+
+            "1. Report to the school on weekdays any time from 10am to 4pm to complete documentation and "
+            "settle school fees.",
+
+            "2. Present the following for verification: A copy of this admission letter, birth certificate, "
+            "two recent passport photographs, blood group and genotype results from a recognized government "
+            "hospital, and a transfer letter or evidence of last term's fees paid at the previous school.",
+
+            f"This offer lapses if registration is not completed by {registration_deadline}, and the place "
+            "will be released to a waitlisted applicant.",
+
+            "Please note that provision of school transportation cannot be guaranteed and will depend on "
+            "seat availability on the relevant bus route.",
+
+            "We look forward to welcoming your family to GIIA.",
         ]
 
-        # Draw each line with wrapping
+        y_position = height - 4.1 * inch
         p.setFont("Helvetica", 12)
-        for line in body_lines:
-            y_position = draw_wrapped_string(p, 1 * inch, y_position, line, max_width=width - 2*inch)
+        for paragraph in body_paragraphs:
+            y_position = draw_wrapped_string(p, 1 * inch, y_position, paragraph, max_width=width - 2 * inch)
+            y_position -= line_height * 0.5
 
-        # Leave space before signature
-        y_position -= 0.8 * inch
+        p.drawString(1 * inch, y_position, "Yours faithfully,")
+        y_position -= 0.9 * inch
 
         # Add the signature image
         p.drawImage(signature_image_path, x=1 * inch, y=y_position, width=2 * inch, height=1 * inch)

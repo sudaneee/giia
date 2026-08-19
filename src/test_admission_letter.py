@@ -50,9 +50,12 @@ class AdmissionLetterTests(TestCase):
         self.assertIn('Tuition', page2_text)
         self.assertIn('Total', page2_text)
 
-        page1_text = reader.pages[0].extract_text()
-        self.assertIn('24th, 25th or 26th of August, 2026', page1_text)
-        self.assertNotIn('Evidence of payment', page1_text)
+        page1_text = reader.pages[0].extract_text().replace('\n', ' ')
+        self.assertIn('OFFER OF ADMISSION', page1_text)
+        self.assertIn('2026/2027', page1_text)
+        self.assertIn('Amina Bello', page1_text)
+        self.assertIn('31st August 2026', page1_text)
+        self.assertIn('Yours faithfully', page1_text)
 
     def test_admission_letter_without_fee_structure_shows_fallback(self):
         response = self.client.get(f'/school/students/generate-admission-letter/{self.student.id}/')
