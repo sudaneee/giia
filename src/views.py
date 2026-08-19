@@ -1023,24 +1023,30 @@ def generate_admission_letter(request, student_id):
         # The whole "Yours faithfully" + signature image + name/title block
         # needs to land together - if there isn't room for all of it above
         # the bottom margin, start a fresh page rather than let it spill off.
-        # (0.9in gap to the image, then the name/title sit 0.6in below the
-        # image's own anchor point - the image's 1in height extends upward
-        # from there, not further down, so it doesn't add to this.)
-        SIGNATURE_BLOCK_HEIGHT = 0.9 * inch + 0.6 * inch
+        #
+        # drawImage's y is the image's BOTTOM-left corner, so a 1in-tall
+        # image needs its bottom placed a full 1in *plus* a clear gap below
+        # the "Yours faithfully," baseline - otherwise the image's top edge
+        # lands back above that baseline and draws right over the text
+        # (which is exactly what a too-small gap here was doing).
+        SIGNATURE_IMAGE_HEIGHT = 1 * inch
+        GAP_BELOW_TEXT_TO_IMAGE = 0.3 * inch
+        GAP_BELOW_IMAGE_TO_NAME = 0.25 * inch
+        SIGNATURE_BLOCK_HEIGHT = GAP_BELOW_TEXT_TO_IMAGE + SIGNATURE_IMAGE_HEIGHT + GAP_BELOW_IMAGE_TO_NAME + line_height
         if y_position - SIGNATURE_BLOCK_HEIGHT < BOTTOM_MARGIN:
             p.showPage()
             p.setFont("Helvetica", 12)
             y_position = height - 1 * inch
 
         p.drawString(1 * inch, y_position, "Yours faithfully,")
-        y_position -= 0.9 * inch
+        y_position -= (GAP_BELOW_TEXT_TO_IMAGE + SIGNATURE_IMAGE_HEIGHT)
 
         # Add the signature image
-        p.drawImage(signature_image_path, x=1 * inch, y=y_position, width=2 * inch, height=1 * inch)
+        p.drawImage(signature_image_path, x=1 * inch, y=y_position, width=2 * inch, height=SIGNATURE_IMAGE_HEIGHT)
 
         # Signature text below the signature image
-        p.drawString(1 * inch, y_position - 0.4 * inch, "Ustz. Aliyu Ibrahim Yerima")
-        p.drawString(1 * inch, y_position - 0.6 * inch, "Head of School")
+        p.drawString(1 * inch, y_position - GAP_BELOW_IMAGE_TO_NAME, "Ustz. Aliyu Ibrahim Yerima")
+        p.drawString(1 * inch, y_position - GAP_BELOW_IMAGE_TO_NAME - line_height, "Head of School")
 
         # Save and return the PDF
         p.showPage()
