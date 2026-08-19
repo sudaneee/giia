@@ -876,8 +876,12 @@ def generate_admission_letter(request, student_id):
     # Fetch student details
     student = get_object_or_404(Student, id=student_id)
 
-    # Fetch school configuration (assuming only one configuration is needed)
-    school_config = SchoolConfig.objects.first()
+    # Most recently uploaded school configuration - matches
+    # download_single_result_pdf/download_all_results_pdf, which also use
+    # .last() rather than .first(). There are multiple SchoolConfig rows in
+    # the wild (header/signature re-uploaded over time), so .first() was
+    # serving a stale 2024 header image instead of the current one.
+    school_config = SchoolConfig.objects.last()
 
     if not school_config:
         messages.error(request, 'School configuration is missing. Please upload header and signature images.')
@@ -960,14 +964,15 @@ def generate_admission_letter(request, student_id):
             "you have been offered a provisional admission into the Great Insight International Academy, Zaria.",
 
             "2. You are expected to report to the school on or before two weeks from the date of admission "
-            "accompanied by the following:",
+            "accompanied by the following. You're expected to report to the school on Monday, Tuesday or "
+            "Wednesday (24th, 25th or 26th of August, 2026) respectively for documentation and payment of "
+            "school fees:",
 
-            "i. Evidence of payment",
-            "ii. A copy of admission letter",
-            "iii. Birth certificate",
-            "iv. Two recent passport sized photographs",
-            "v. A copy of blood group and genotype test results from a recognized government hospital",
-            "vi. A copy of transfer letter/evidence of last term school fees from previous school attended",
+            "i. A copy of admission letter",
+            "ii. Birth certificate",
+            "iii. Two recent passport sized photographs",
+            "iv. A copy of blood group and genotype test results from a recognized government hospital",
+            "v. A copy of transfer letter/evidence of last term school fees from previous school attended",
 
             "Failure to comply will result in forfeiture of your admission.",
 
@@ -988,6 +993,48 @@ def generate_admission_letter(request, student_id):
         # Signature text below the signature image
         p.drawString(1 * inch, y_position - 0.4 * inch, "Ustz. Aliyu Ibrahim Yerima")
         p.drawString(1 * inch, y_position - 0.6 * inch, "Head of School")
+
+        # --- Page 2: Fees breakdown ---
+        p.showPage()
+
+        p.setFont("Helvetica-Bold", 14)
+        p.drawString(1 * inch, height - 1 * inch, "FEES BREAKDOWN")
+
+        p.setFont("Helvetica", 12)
+        p.drawString(1 * inch, height - 1.3 * inch, f"Name: {student.first_name} {student.last_name}")
+        p.drawString(1 * inch, height - 1.5 * inch, f"Class: {student.enrolled_class}")
+
+        current_session = Session.objects.filter(current=True).first()
+        section = student.enrolled_class.section if student.enrolled_class else None
+        fee_structures = (
+            FeeStructure.objects.filter(
+                session=current_session, section=section, term_group='first', student_type='new',
+            ).prefetch_related('components').order_by('transport')
+            if section and current_session else FeeStructure.objects.none()
+        )
+
+        y_position = height - 2.0 * inch
+        if not fee_structures:
+            p.setFont("Helvetica-Oblique", 11)
+            p.drawString(1 * inch, y_position, "Fee structure not yet published for this class - please contact the school office.")
+        else:
+            for fee_structure in fee_structures:
+                p.setFont("Helvetica-Bold", 12)
+                label = "With Transport" if fee_structure.transport else "Without Transport"
+                p.drawString(1 * inch, y_position, f"{fee_structure.get_term_group_display()} Fees ({label})")
+                y_position -= 0.3 * inch
+
+                p.setFont("Helvetica", 11)
+                for component in fee_structure.components.all():
+                    p.drawString(1.2 * inch, y_position, component.name)
+                    p.drawRightString(width - 1 * inch, y_position, f"N{component.amount:,.2f}")
+                    y_position -= 0.25 * inch
+
+                p.line(1.2 * inch, y_position + 0.05 * inch, width - 1 * inch, y_position + 0.05 * inch)
+                p.setFont("Helvetica-Bold", 11)
+                p.drawString(1.2 * inch, y_position - 0.2 * inch, "Total")
+                p.drawRightString(width - 1 * inch, y_position - 0.2 * inch, f"N{fee_structure.total_amount:,.2f}")
+                y_position -= 0.6 * inch
 
         # Save and return the PDF
         p.showPage()
