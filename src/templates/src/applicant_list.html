@@ -97,6 +97,46 @@
             </form>
         </div>
     </div>
+
+    <div class="card mt-3">
+        <div class="card-header">
+            <h5 class="mb-0">Admitted{% if selected_session %} - {{ selected_session.name }}{% endif %}</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Admission No.</th>
+                            <th>Name</th>
+                            <th>Class</th>
+                            <th>Admitted</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for student in admitted_students %}
+                        <tr>
+                            <td>{{ student.admission_number }}</td>
+                            <td><a href="{% url 'update_student' student.id %}">{{ student.first_name }} {{ student.last_name }}</a></td>
+                            <td>{{ student.enrolled_class }}</td>
+                            <td>{{ student.admitted_at|date:"Y-m-d" }}</td>
+                            <td>
+                                <a href="{% url 'generate_admission_letter' student.id %}" class="btn btn-sm btn-success">
+                                    <i class="fas fa-file-download mr-1"></i> Admission Letter
+                                </a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5">No admitted students yet{% if selected_session %} for {{ selected_session.name }}{% endif %}.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
 </div>
 
 <script>

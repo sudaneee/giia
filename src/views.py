@@ -587,6 +587,17 @@ def applicant_list(request):
 
     applicants = applicants.order_by('-created_at')
 
+    # Admitted students for this same session, right here where admission
+    # happens, so staff can generate/download a letter immediately instead
+    # of hunting through the full (session-agnostic) Manage Students list.
+    admitted_students = Student.objects.filter(admission_status='admitted').select_related('enrolled_class')
+    if selected_session:
+        admitted_students = admitted_students.filter(
+            Q(applicant__session=selected_session) |
+            Q(admitted_at__date__gte=selected_session.start_date, admitted_at__date__lte=selected_session.end_date)
+        )
+    admitted_students = admitted_students.distinct().order_by('-admitted_at')
+
     return render(request, 'src/applicant_list.html', {
         'applicants': applicants,
         'status_filter': status_filter,
@@ -594,6 +605,7 @@ def applicant_list(request):
         'sessions': sessions,
         'selected_session': selected_session,
         'school_classes': SchoolClass.objects.all().select_related('section'),
+        'admitted_students': admitted_students,
     })
 
 
@@ -920,21 +932,35 @@ def generate_admission_letter(request, student_id):
         # Add the school header image
         p.drawImage(header_image_path, x=1 * inch, y=height - 2.5 * inch, width=width - 2 * inch, height=2 * inch)
 
-        # Function to wrap long text
+        # Bottom margin below which we start a fresh page rather than draw -
+        # this is what was letting long content (a longer name/class string
+        # wraps to extra lines) push the signature block off the bottom of
+        # the page and get cut off instead of just flowing onto a page 2.
+        BOTTOM_MARGIN = 1 * inch
+
+        # Function to wrap long text, paginating automatically if it runs
+        # past BOTTOM_MARGIN
         def draw_wrapped_string(canvas_obj, x, y, text, max_width, font_name="Helvetica", font_size=12):
             from reportlab.pdfbase.pdfmetrics import stringWidth
+
+            def draw_line(line_text, y):
+                if y < BOTTOM_MARGIN:
+                    canvas_obj.showPage()
+                    canvas_obj.setFont(font_name, font_size)
+                    y = height - 1 * inch
+                canvas_obj.drawString(x, y, line_text.strip())
+                return y - line_height
+
             words = text.split(" ")
             line = ""
             for word in words:
                 if stringWidth(line + word, font_name, font_size) < max_width:
                     line += word + " "
                 else:
-                    canvas_obj.drawString(x, y, line.strip())
-                    y -= line_height
+                    y = draw_line(line, y)
                     line = word + " "
             if line:
-                canvas_obj.drawString(x, y, line.strip())
-                y -= line_height
+                y = draw_line(line, y)
             return y
 
         def ordinal(n):
@@ -994,6 +1020,18 @@ def generate_admission_letter(request, student_id):
             y_position = draw_wrapped_string(p, 1 * inch, y_position, paragraph, max_width=width - 2 * inch)
             y_position -= line_height * 0.5
 
+        # The whole "Yours faithfully" + signature image + name/title block
+        # needs to land together - if there isn't room for all of it above
+        # the bottom margin, start a fresh page rather than let it spill off.
+        # (0.9in gap to the image, then the name/title sit 0.6in below the
+        # image's own anchor point - the image's 1in height extends upward
+        # from there, not further down, so it doesn't add to this.)
+        SIGNATURE_BLOCK_HEIGHT = 0.9 * inch + 0.6 * inch
+        if y_position - SIGNATURE_BLOCK_HEIGHT < BOTTOM_MARGIN:
+            p.showPage()
+            p.setFont("Helvetica", 12)
+            y_position = height - 1 * inch
+
         p.drawString(1 * inch, y_position, "Yours faithfully,")
         y_position -= 0.9 * inch
 
@@ -1003,48 +1041,6 @@ def generate_admission_letter(request, student_id):
         # Signature text below the signature image
         p.drawString(1 * inch, y_position - 0.4 * inch, "Ustz. Aliyu Ibrahim Yerima")
         p.drawString(1 * inch, y_position - 0.6 * inch, "Head of School")
-
-        # --- Page 2: Fees breakdown ---
-        p.showPage()
-
-        p.setFont("Helvetica-Bold", 14)
-        p.drawString(1 * inch, height - 1 * inch, "FEES BREAKDOWN")
-
-        p.setFont("Helvetica", 12)
-        p.drawString(1 * inch, height - 1.3 * inch, f"Name: {student.first_name} {student.last_name}")
-        p.drawString(1 * inch, height - 1.5 * inch, f"Class: {student.enrolled_class}")
-
-        current_session = Session.objects.filter(current=True).first()
-        section = student.enrolled_class.section if student.enrolled_class else None
-        fee_structures = (
-            FeeStructure.objects.filter(
-                session=current_session, section=section, term_group='first', student_type='new',
-            ).prefetch_related('components').order_by('transport')
-            if section and current_session else FeeStructure.objects.none()
-        )
-
-        y_position = height - 2.0 * inch
-        if not fee_structures:
-            p.setFont("Helvetica-Oblique", 11)
-            p.drawString(1 * inch, y_position, "Fee structure not yet published for this class - please contact the school office.")
-        else:
-            for fee_structure in fee_structures:
-                p.setFont("Helvetica-Bold", 12)
-                label = "With Transport" if fee_structure.transport else "Without Transport"
-                p.drawString(1 * inch, y_position, f"{fee_structure.get_term_group_display()} Fees ({label})")
-                y_position -= 0.3 * inch
-
-                p.setFont("Helvetica", 11)
-                for component in fee_structure.components.all():
-                    p.drawString(1.2 * inch, y_position, component.name)
-                    p.drawRightString(width - 1 * inch, y_position, f"N{component.amount:,.2f}")
-                    y_position -= 0.25 * inch
-
-                p.line(1.2 * inch, y_position + 0.05 * inch, width - 1 * inch, y_position + 0.05 * inch)
-                p.setFont("Helvetica-Bold", 11)
-                p.drawString(1.2 * inch, y_position - 0.2 * inch, "Total")
-                p.drawRightString(width - 1 * inch, y_position - 0.2 * inch, f"N{fee_structure.total_amount:,.2f}")
-                y_position -= 0.6 * inch
 
         # Save and return the PDF
         p.showPage()
@@ -1117,6 +1113,7 @@ def admitted_students(request):
         'query': query,
         'results': results,
         'session': session,
+        'school_config': SchoolConfig.objects.last(),  # same header image the result views use
     })
 
 

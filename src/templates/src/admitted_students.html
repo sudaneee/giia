@@ -116,7 +116,11 @@
 
 <body>
     <div class="custom-header">
-        <img src="{% static 'src/assets/img/giia_header.jpg' %}" alt="School Header">
+        {% if school_config.header_image %}
+            <img src="{{ school_config.header_image.url }}" alt="School Header">
+        {% else %}
+            <img src="{% static 'src/assets/img/giia_header.jpg' %}" alt="School Header">
+        {% endif %}
     </div>
 
     <div class="search-wrap">

@@ -114,6 +114,16 @@ class ApplicantAdmissionTests(TestCase):
 
         self.assertNotIn(self.applicant, response.context['applicants'])
 
+    def test_applicant_list_shows_admission_letter_link_once_admitted(self):
+        self.client.post(f'/school/applicants/{self.applicant.id}/', {'admit': '1'})
+        self.applicant.refresh_from_db()
+        student = self.applicant.linked_student
+
+        response = self.client.get('/school/applicants/')
+
+        self.assertIn(student, response.context['admitted_students'])
+        self.assertContains(response, f'/school/students/generate-admission-letter/{student.id}/')
+
     def test_applicant_list_scoped_to_session(self):
         other_session = Session.objects.create(
             name='2025/2026', start_date='2025-09-01', end_date='2026-07-31', current=False,
@@ -213,3 +223,12 @@ class PublicAdmissionSearchTests(TestCase):
     def test_public_page_requires_no_login(self):
         response = self.client.get('/school/students/admitted/')
         self.assertEqual(response.status_code, 200)
+
+    def test_header_image_comes_from_school_config_like_result_views(self):
+        from src.models import SchoolConfig
+        SchoolConfig.objects.create(header_image='pics/giialogo.png', signature_image='pics/giialogo.png')
+
+        response = self.client.get('/school/students/admitted/')
+
+        self.assertContains(response, '/media/pics/giialogo.png')
+        self.assertNotContains(response, 'src/assets/img/giia_header.jpg')
