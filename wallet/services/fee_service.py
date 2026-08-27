@@ -85,30 +85,53 @@ def is_transportation_fee(other_fee):
     instead. Disabled (always False) now that transportation is billed per
     class (e.g. "TRANSPORTATION (BASIC 1-6)") - bundling every fee matching
     "transport" into one all-or-nothing toggle would charge a parent for
-    every class's transportation fee at once, and hiding it from Other Fees
-    made it too easy for a parent to pay school fees without ever seeing it.
-    Transportation fees are now just regular Other Fees, selected and paid
-    individually like Cardigan/Uniform fees. Kept (rather than removed) as
-    the obvious place to look if per-class transportation bundling is ever
-    revisited.
+    every class's transportation fee at once. These per-class fees are now
+    just regular Other Fees, selected and paid individually like
+    Cardigan/Uniform fees. See is_tahfeez_transportation_fee for the one
+    transportation fee that *is* still offered as a Tahfeez add-on. Kept
+    (rather than removed) as the obvious place to look if per-class
+    transportation bundling is ever revisited.
     """
     return False
+
+
+def is_tahfeez_transportation_fee(other_fee):
+    """
+    Identifies the one transportation fee still offered as the Tahfeez tab's
+    With/No Transportation toggle, e.g. "TRANSPORTATION (TAHFEEZ)" - matched
+    by requiring both "transport" and "tahfeez" in the name. Checked before
+    is_tahfeez_fee in split_special_other_fees, since "tahfeez" alone would
+    otherwise also match here and sweep it into the mandatory, non-optional
+    tahfeez_fees bucket instead of the opt-in transportation_fees one.
+    """
+    name = (other_fee.name or '').lower()
+    return 'transport' in name and 'tahfeez' in name
 
 
 def split_special_other_fees(other_fee_structures):
     """
     Splits an iterable/queryset of OtherFeeStructure rows into
     (tahfeez_fees, transportation_fees, other_fees), preserving order.
-    Tahfeez is surfaced on its own tab everywhere fees are paid, so it
-    doesn't belong in the general Other Fees list. transportation_fees is
-    always empty (see is_transportation_fee) and kept only so callers
-    unpacking three values don't need to change.
+
+    - tahfeez_fees: charged automatically for every payer on the Tahfeez
+      tab, so these don't belong in the general Other Fees list.
+    - transportation_fees: what the Tahfeez tab's optional With/No
+      Transportation toggle adds when opted in (see
+      is_tahfeez_transportation_fee) - unlike tahfeez_fees, a row here is
+      *also* left in other_fees, so it can still be paid for directly from
+      the Other Fees tab without going through Tahfeez at all.
+    - other_fees: everything else, selected/paid individually - this
+      includes the per-class transportation fees (is_transportation_fee is
+      disabled, see its docstring).
     """
     tahfeez_fees = []
     transportation_fees = []
     other_fees = []
     for fee in other_fee_structures:
-        if is_tahfeez_fee(fee):
+        if is_tahfeez_transportation_fee(fee):
+            transportation_fees.append(fee)
+            other_fees.append(fee)
+        elif is_tahfeez_fee(fee):
             tahfeez_fees.append(fee)
         elif is_transportation_fee(fee):
             transportation_fees.append(fee)
