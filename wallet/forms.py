@@ -52,6 +52,6 @@ class ParentRegistrationForm(forms.Form):
 class AddChildForm(forms.Form):
     admission_number = forms.CharField(
         max_length=20,
-        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g. GIIA/2024/0123'}),
+        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g. GIIA-2024-0123'}),
         label="Student's Admission Number",
     )
