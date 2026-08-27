@@ -79,21 +79,30 @@ def is_tahfeez_fee(other_fee):
 
 def is_transportation_fee(other_fee):
     """
-    Identifies the Transportation fee among OtherFeeStructure rows (e.g.
-    "TRANSPORTATION") the same way is_tahfeez_fee does - by name. Pulled out
-    of the general Other Fees list because it's offered as a With/No
-    Transportation toggle on the Tahfeez tab instead.
+    Historically identified the Transportation fee among OtherFeeStructure
+    rows by name, so it could be pulled out of the general Other Fees list
+    and offered as a With/No Transportation toggle on the Tahfeez tab
+    instead. Disabled (always False) now that transportation is billed per
+    class (e.g. "TRANSPORTATION (BASIC 1-6)") - bundling every fee matching
+    "transport" into one all-or-nothing toggle would charge a parent for
+    every class's transportation fee at once, and hiding it from Other Fees
+    made it too easy for a parent to pay school fees without ever seeing it.
+    Transportation fees are now just regular Other Fees, selected and paid
+    individually like Cardigan/Uniform fees. Kept (rather than removed) as
+    the obvious place to look if per-class transportation bundling is ever
+    revisited.
     """
-    return 'transport' in (other_fee.name or '').lower()
+    return False
 
 
 def split_special_other_fees(other_fee_structures):
     """
     Splits an iterable/queryset of OtherFeeStructure rows into
     (tahfeez_fees, transportation_fees, other_fees), preserving order.
-    Tahfeez and Transportation are surfaced on their own tab/toggle
-    everywhere fees are paid, so neither belongs in the general Other Fees
-    list.
+    Tahfeez is surfaced on its own tab everywhere fees are paid, so it
+    doesn't belong in the general Other Fees list. transportation_fees is
+    always empty (see is_transportation_fee) and kept only so callers
+    unpacking three values don't need to change.
     """
     tahfeez_fees = []
     transportation_fees = []

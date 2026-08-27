@@ -5830,9 +5830,10 @@ def unified_payment(request):
         messages.error(request, 'Direct online payment is temporarily unavailable. Please use the parent wallet portal instead.')
         return redirect('home')
 
-    # Tahfeez and Transportation are just OtherFeeStructure rows, split out
-    # here so Tahfeez gets its own tab (with Transportation offered there as
-    # a toggle) instead of either sitting in the general Other Fees list.
+    # Tahfeez is just OtherFeeStructure rows, split out here so it gets its
+    # own tab instead of sitting in the general Other Fees list.
+    # transportation_fees is always empty now - transportation fees (now
+    # billed per class) are regular Other Fees, see fee_service.is_transportation_fee.
     tahfeez_fees, transportation_fees, other_fees = split_special_other_fees(
         OtherFeeStructure.objects.filter(active=True)
     )
