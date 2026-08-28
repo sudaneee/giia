@@ -6,16 +6,21 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.models import User
+from django.contrib.auth.tokens import default_token_generator
+from django.core.mail import send_mail
 from django.core.paginator import Paginator
 from django.shortcuts import get_object_or_404, redirect, render
+from django.template.loader import render_to_string
 from django.urls import reverse
+from django.utils.encoding import force_bytes
+from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
 from src.models import OtherFeeStructure, Session, Student, Term
 
 from .decorators import parent_required
-from .forms import AddChildForm, ParentRegistrationForm
+from .forms import AddChildForm, ParentPasswordResetRequestForm, ParentRegistrationForm, ParentSetPasswordForm
 from .models import ParentAccount, ParentStudentLink, WalletFundingRequest, WalletPayment
 from .services import fee_service, paystack_service, wallet_service, zainpay_service
 from .services.exceptions import (
@@ -89,6 +94,88 @@ def parent_login(request):
 def parent_logout(request):
     logout(request)
     return redirect('wallet:login')
+
+
+# --- Password reset -------------------------------------------------------
+# Shared by both the HTML views below and wallet/api_views.py's JSON
+# equivalents, so the token/eligibility rules only live in one place.
+# Scoped to accounts with a linked ParentAccount only, same as login() -
+# staff accounts have their own separate auth and aren't resettable here.
+
+def _find_resettable_parent_user(email):
+    return User.objects.filter(email__iexact=(email or '').strip(), parent_account__isnull=False).first()
+
+
+def _build_password_reset_url(request, user):
+    uid = urlsafe_base64_encode(force_bytes(user.pk))
+    token = default_token_generator.make_token(user)
+    return request.build_absolute_uri(
+        reverse('wallet:password_reset_confirm', kwargs={'uidb64': uid, 'token': token})
+    )
+
+
+def _send_password_reset_email(user, reset_url):
+    subject = 'Reset your Parent Wallet password'
+    message = render_to_string('wallet/emails/password_reset_email.txt', {
+        'user': user, 'reset_url': reset_url,
+    })
+    try:
+        send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [user.email])
+    except Exception:
+        # Never let a broken SMTP config leak through to the caller - both
+        # the HTML and JSON responses always give the same generic
+        # "if an account exists" message regardless of delivery success, to
+        # avoid using this endpoint to enumerate registered emails.
+        logger.exception('Failed to send password reset email to %s', user.email)
+
+
+def _resolve_password_reset_user(uidb64, token):
+    try:
+        uid = urlsafe_base64_decode(uidb64).decode()
+        user = User.objects.get(pk=uid, parent_account__isnull=False)
+    except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+        return None
+
+    if not default_token_generator.check_token(user, token):
+        return None
+    return user
+
+
+PASSWORD_RESET_SENT_MESSAGE = "If an account exists for that email, we've sent password reset instructions."
+
+
+def password_reset_request(request):
+    if request.method == 'POST':
+        form = ParentPasswordResetRequestForm(request.POST)
+        if form.is_valid():
+            user = _find_resettable_parent_user(form.cleaned_data['email'])
+            if user:
+                _send_password_reset_email(user, _build_password_reset_url(request, user))
+            messages.success(request, PASSWORD_RESET_SENT_MESSAGE)
+            return redirect('wallet:login')
+    else:
+        form = ParentPasswordResetRequestForm()
+
+    return render(request, 'wallet/password_reset_request.html', {'form': form})
+
+
+def password_reset_confirm(request, uidb64, token):
+    user = _resolve_password_reset_user(uidb64, token)
+
+    if not user:
+        return render(request, 'wallet/password_reset_confirm.html', {'valid_link': False})
+
+    if request.method == 'POST':
+        form = ParentSetPasswordForm(request.POST)
+        if form.is_valid():
+            user.set_password(form.cleaned_data['new_password1'])
+            user.save()
+            messages.success(request, 'Your password has been reset. You can now log in.')
+            return redirect('wallet:login')
+    else:
+        form = ParentSetPasswordForm()
+
+    return render(request, 'wallet/password_reset_confirm.html', {'valid_link': True, 'form': form})
 
 
 @parent_required

@@ -55,3 +55,34 @@ class AddChildForm(forms.Form):
         widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g. GIIA-2024-0123'}),
         label="Student's Admission Number",
     )
+
+
+class ParentPasswordResetRequestForm(forms.Form):
+    email = forms.EmailField(
+        widget=forms.EmailInput(attrs={'class': 'form-control', 'autofocus': True}),
+    )
+
+
+class ParentSetPasswordForm(forms.Form):
+    new_password1 = forms.CharField(
+        label='New Password',
+        widget=forms.PasswordInput(attrs={'class': 'form-control'}),
+    )
+    new_password2 = forms.CharField(
+        label='Confirm New Password',
+        widget=forms.PasswordInput(attrs={'class': 'form-control'}),
+    )
+
+    def clean_new_password1(self):
+        password1 = self.cleaned_data.get('new_password1')
+        if password1:
+            validate_password(password1)
+        return password1
+
+    def clean(self):
+        cleaned_data = super().clean()
+        password1 = cleaned_data.get('new_password1')
+        password2 = cleaned_data.get('new_password2')
+        if password1 and password2 and password1 != password2:
+            self.add_error('new_password2', 'Passwords do not match.')
+        return cleaned_data

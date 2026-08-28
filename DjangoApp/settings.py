@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.0/ref/settings/
 """
 import os
+from datetime import timedelta
 from decimal import Decimal
 from pathlib import Path
 from dotenv import load_dotenv
@@ -42,6 +43,9 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django.contrib.humanize',
+    'rest_framework',
+    'rest_framework_simplejwt',
+    'rest_framework_simplejwt.token_blacklist',
     'src',
     'website',
     'wallet',
@@ -156,6 +160,32 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+
+# JSON API for the Flutter mobile app (wallet/api_*.py). The HTML parent
+# portal above keeps using session auth; the API is JWT-only and doesn't
+# touch sessions/CSRF at all, so the two can run side by side unchanged.
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ),
+    'DEFAULT_PERMISSION_CLASSES': (
+        'rest_framework.permissions.IsAuthenticated',
+    ),
+}
+
+SIMPLE_JWT = {
+    # Short-lived access token + longer refresh token is the standard mobile
+    # pattern: the app silently refreshes in the background and only forces
+    # a real re-login once the refresh token itself expires.
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=30),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=30),
+    'ROTATE_REFRESH_TOKENS': True,
+    # Now that token_blacklist is installed: the old refresh token is
+    # blacklisted the moment it's rotated, so a stolen-then-superseded
+    # refresh token can't be replayed. Same mechanism POST /api/auth/logout/
+    # uses to revoke a token on demand.
+    'BLACKLIST_AFTER_ROTATION': True,
+}
 
 
 # PAYSTACK_PUBLIC_KEY = "pk_test_f4a10df855357f8fb37f45a02b8f3ffd10457920"
