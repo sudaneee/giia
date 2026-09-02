@@ -406,6 +406,23 @@ class FeeStructure(models.Model):
 
 
 
+# Canonical item-type categories used to filter/report on payments regardless
+# of whether the money came in as part of a bundled school-fees payment (via
+# FeeComponent) or as a standalone Other Fee (via OtherFeeStructure) - see
+# PaymentLineItem. Kept as a plain choices list (not a separate model) since
+# the set is small, fixed, and shared by two otherwise-unrelated models.
+FEE_ITEM_CATEGORY_CHOICES = [
+    ("tuition", "Tuition"),
+    ("learning_materials", "Learning Materials"),
+    ("feeding", "Feeding"),
+    ("uniform", "Uniform"),
+    ("ta_fees", "TA Fees"),
+    ("transportation", "Transportation"),
+    ("tahfeez", "Tahfeez"),
+    ("other", "Other"),
+]
+
+
 class FeeComponent(models.Model):
     fee_structure = models.ForeignKey(
         FeeStructure,
@@ -421,6 +438,13 @@ class FeeComponent(models.Model):
     amount = models.DecimalField(
         max_digits=10,
         decimal_places=2
+    )
+
+    category = models.CharField(
+        max_length=20,
+        choices=FEE_ITEM_CATEGORY_CHOICES,
+        default="other",
+        help_text="Item type used to filter/report payments, independent of the free-text name.",
     )
 
     def __str__(self):
@@ -716,6 +740,13 @@ class OtherFeeStructure(models.Model):
     active = models.BooleanField(default=True)
     description = models.TextField(blank=True)
 
+    category = models.CharField(
+        max_length=20,
+        choices=FEE_ITEM_CATEGORY_CHOICES,
+        default="other",
+        help_text="Item type used to filter/report payments, independent of the free-text name.",
+    )
+
     multi_child_discount_percent = models.DecimalField(
         max_digits=5, decimal_places=2, default=0,
         help_text=(
@@ -803,6 +834,72 @@ class Payment(models.Model):
 
     def __str__(self):
         return f"Payment Record for {self.student} for {self.term} {self.session} Academic Session"
+
+
+class PaymentLineItem(models.Model):
+    """
+    Breaks a single Payment down into the item(s) it actually paid for, so
+    payments can be filtered/reported by item type (uniform, transportation,
+    tuition, ...) even when several items were paid together in one bundled
+    school-fees payment.
+
+    category/label are snapshotted at creation time from the source
+    FeeComponent/OtherFeeStructure rather than looked up live, so relabeling
+    or re-categorizing a fee later doesn't silently rewrite what past
+    payments say they were for.
+
+    For a bundled school-fees Payment (fee_structure set), one row is created
+    per FeeComponent on that structure, with amount_paid allocated across
+    them proportionally to each component's share of the total - see
+    wallet.services.payment_line_item_service. is_estimated is True here
+    because that allocation is a computed split, not something the payer
+    chose line-by-line.
+
+    For an Other Fee Payment (other_fee set), exactly one row is created
+    mirroring it exactly, so is_estimated is False - it's a paid-for record,
+    not an allocation.
+    """
+
+    payment = models.ForeignKey(
+        Payment,
+        on_delete=models.CASCADE,
+        related_name="line_items",
+    )
+
+    fee_component = models.ForeignKey(
+        FeeComponent,
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name="payment_line_items",
+    )
+
+    other_fee = models.ForeignKey(
+        OtherFeeStructure,
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name="payment_line_items",
+    )
+
+    category = models.CharField(max_length=20, choices=FEE_ITEM_CATEGORY_CHOICES)
+    label = models.CharField(
+        max_length=100,
+        help_text="Snapshot of the source component/other-fee name at payment time.",
+    )
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    is_estimated = models.BooleanField(
+        default=False,
+        help_text="True when amount is a computed proportional split of a bundled payment, not an exact per-item charge.",
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["category"]),
+        ]
+
+    def __str__(self):
+        return f"{self.label} – {self.amount} (Payment #{self.payment_id})"
 
 
 class PartPaymentApproval(models.Model):

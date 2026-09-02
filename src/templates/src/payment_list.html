@@ -79,14 +79,16 @@
                         </select>
                     </div>
 
-                    <!-- Fee Component (Simplified - Unique Names Only) -->
+                    <!-- Item Type - filters by what the payment was actually for
+                         (uniform, transportation, tuition, ...), even when it
+                         was paid as part of a bundled school-fees payment. -->
                     <div class="form-group col-md-2">
-                        <label>Fee Component</label>
-                        <select name="component" class="form-control select2">
-                            <option value="">-- All Components --</option>
-                            {% for comp in components %}
-                                <option value="{{ comp.name }}" {% if request.GET.component == comp.name %}selected{% endif %}>
-                                    {{ comp.name }}
+                        <label>Item Type</label>
+                        <select name="item_type" class="form-control select2">
+                            <option value="">All Item Types</option>
+                            {% for value, label in item_type_choices %}
+                                <option value="{{ value }}" {% if request.GET.item_type == value %}selected{% endif %}>
+                                    {{ label }}
                                 </option>
                             {% endfor %}
                         </select>
@@ -149,6 +151,37 @@
 
                 </div>
             </form>
+
+            <!-- ================= FEE COMPONENT EARNINGS REPORT (separate from the list/filters above) ================= -->
+            <details class="mb-4" {% if component_report %}open{% endif %}>
+                <summary class="text-muted" style="cursor:pointer;">Advanced: Fee Component Earnings Report</summary>
+                <form method="GET" class="form-row align-items-end mt-2">
+                    {% for key, value in request.GET.items %}
+                        {% if key != 'component' %}
+                            <input type="hidden" name="{{ key }}" value="{{ value }}">
+                        {% endif %}
+                    {% endfor %}
+                    <div class="form-group col-md-3">
+                        <label>Fee Component</label>
+                        <select name="component" class="form-control select2">
+                            <option value="">-- Choose a Component --</option>
+                            {% for comp in components %}
+                                <option value="{{ comp.name }}" {% if request.GET.component == comp.name %}selected{% endif %}>
+                                    {{ comp.name }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group col-md-2">
+                        <button type="submit" class="btn btn-info btn-block">View Report</button>
+                    </div>
+                </form>
+                <small class="text-muted">
+                    Shows gross/waived/net totals for one component (e.g. Tuition) across matching bundled
+                    school-fees payments. This is an aggregate report, not a filtered list - use Item Type above
+                    to see and filter the actual payment rows.
+                </small>
+            </details>
 
             <!-- ================= COMPONENT REPORT ================= -->
             {% if component_report %}
@@ -216,6 +249,12 @@
                     Total Amount Paid: <strong>₦{{ total_sum|floatformat:2 }}</strong>
                     <small class="text-muted">({{ payments.count }} payment{{ payments.count|pluralize }})</small>
                 </h5>
+                {% if item_type %}
+                <h6 class="mb-0 mt-2">
+                    Of which for this item type: <strong>₦{{ item_type_total|floatformat:2 }}</strong>
+                    <small class="text-muted">- the rest of each payment's amount above may cover other items paid in the same transaction.</small>
+                </h6>
+                {% endif %}
             </div>
             {% endif %}
 
@@ -229,8 +268,10 @@
                             <th>Student</th>
                             <th>Class</th>
                             <th>Amount</th>
+                            {% if item_type %}<th>Amount for This Item</th>{% endif %}
                             <th>Batch Reference</th>
                             <th>Type</th>
+                            <th>Breakdown</th>
                             <th>Method</th>
                             <th>Status</th>
                             <th>Date</th>
@@ -257,6 +298,9 @@
                                 {% endif %}
                             </td>
                             <td class="text-right">₦{{ payment.amount_paid|floatformat:2 }}</td>
+                            {% if item_type %}
+                            <td class="text-right">₦{{ payment.item_type_amount|floatformat:2 }}</td>
+                            {% endif %}
                             <td>
                                 {% if payment.payment_batch %}
                                     {{ payment.payment_batch.reference }}
@@ -272,6 +316,29 @@
                                 {% else %}
                                     —
                                 {% endif %}
+                            </td>
+                            <td>
+                                {% with line_items=payment.line_items.all %}
+                                {% if line_items %}
+                                <details>
+                                    <summary class="text-muted" style="cursor:pointer;">
+                                        {{ line_items|length }} item{{ line_items|length|pluralize }}
+                                    </summary>
+                                    <ul class="list-unstyled mb-0 mt-1" style="white-space:nowrap;">
+                                        {% for li in line_items %}
+                                        <li>
+                                            <strong>{{ li.label }}</strong>
+                                            <span class="badge badge-light">{{ li.get_category_display }}</span>
+                                            — ₦{{ li.amount|floatformat:2 }}
+                                            {% if li.is_estimated %}<small class="text-muted">(est. share)</small>{% endif %}
+                                        </li>
+                                        {% endfor %}
+                                    </ul>
+                                </details>
+                                {% else %}
+                                    <span class="text-muted">—</span>
+                                {% endif %}
+                                {% endwith %}
                             </td>
                             <td>
                                 {% if payment.payment_method == 'cash' %}
@@ -301,7 +368,7 @@
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="11" class="text-center text-muted py-4">
+                            <td colspan="{% if item_type %}13{% else %}12{% endif %}" class="text-center text-muted py-4">
                                 <i class="fas fa-inbox fa-2x mb-2 d-block"></i>
                                 No payments found for the selected filters.
                             </td>

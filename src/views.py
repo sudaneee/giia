@@ -1326,7 +1326,7 @@ def feestructure_delete(request, pk):
 
 from decimal import Decimal
 from django.utils.timezone import now
-from django.db.models import Sum, Q
+from django.db.models import Sum, Q, OuterRef, Subquery
 
 @login_required(login_url='login')
 def payment_list(request):
@@ -1340,7 +1340,7 @@ def payment_list(request):
         "session",
         "term",
         "payment_batch",
-    )
+    ).prefetch_related("line_items")
 
     # 🔹 DEFAULT: today’s payments only
     if not request.GET:
@@ -1371,6 +1371,7 @@ def payment_list(request):
     class_id = request.GET.get("class")  # New class filter
     other_fee_id = request.GET.get("other_fee")
     component_name = request.GET.get("component")  # Changed from component_id to component_name
+    item_type = request.GET.get("item_type")  # PaymentLineItem.category - filters the list, unlike component_name below
     payment_method = request.GET.get("payment_method")
     status = request.GET.get("status")
     reference_id = request.GET.get("reference_id")
@@ -1405,10 +1406,30 @@ def payment_list(request):
     # Apply other fee filter
     if other_fee_id:
         payments = payments.filter(other_fee_id=other_fee_id)
-    
+
     # Apply reference ID filter
     if reference_id:
         payments = payments.filter(transaction_reference=reference_id)
+
+    # ======================================================
+    # 🔹 ITEM TYPE FILTER (uniform, transportation, tuition, ...)
+    # ======================================================
+    # Filters by PaymentLineItem.category so a payment shows up here even
+    # when the item was paid as part of a bundled school-fees payment, not
+    # just when it was its own standalone Other Fee payment. Unlike the
+    # component_name/component_report below, this actually filters the
+    # visible list instead of switching the page into a report.
+    item_type_amount_subquery = None
+    if item_type:
+        payments = payments.filter(line_items__category=item_type).distinct()
+        item_type_amount_subquery = (
+            PaymentLineItem.objects
+            .filter(payment=OuterRef("pk"), category=item_type)
+            .values("payment")
+            .annotate(total=Sum("amount"))
+            .values("total")
+        )
+        payments = payments.annotate(item_type_amount=Subquery(item_type_amount_subquery))
 
     # ======================================================
     # 🔹 FEE COMPONENT EARNINGS MODE
@@ -1479,6 +1500,16 @@ def payment_list(request):
         total=Sum("amount_paid")
     )["total"] or Decimal("0.00")
 
+    # When filtering by item type, amount_paid on a bundled school-fees
+    # payment is the whole bundle, not just this item - item_type_total is
+    # the sum of the matched line items instead, i.e. what was actually paid
+    # for this item type specifically.
+    item_type_total = None
+    if item_type:
+        item_type_total = payments.aggregate(
+            total=Sum("item_type_amount")
+        )["total"] or Decimal("0.00")
+
     # ======================================================
     # 🔹 EXPORT TO EXCEL
     # ======================================================
@@ -1494,6 +1525,9 @@ def payment_list(request):
         "sessions": sessions,
         "terms": terms,
         "total_sum": total_sum,
+        "item_type": item_type,
+        "item_type_choices": FEE_ITEM_CATEGORY_CHOICES,
+        "item_type_total": item_type_total,
         "component_report": component_report,
     })
 
@@ -1594,15 +1628,18 @@ def payment_create(request):
         session = get_object_or_404(Session, pk=session_id)
         term = get_object_or_404(Term, pk=term_id)
         student = get_object_or_404(Student, pk=student_id)
-        Payment.objects.create(
-            student=student,
-            fee_structure=fee_structure,
-            amount_paid=amount_paid,
-            payment_method=payment_method,
-            status=status,
-            session=session,
-            term=term
-        )
+        from wallet.services.payment_line_item_service import create_line_items_for_payment
+        with transaction.atomic():
+            payment = Payment.objects.create(
+                student=student,
+                fee_structure=fee_structure,
+                amount_paid=amount_paid,
+                payment_method=payment_method,
+                status=status,
+                session=session,
+                term=term
+            )
+            create_line_items_for_payment(payment)
         return redirect('payment_list')
     fee_structures = FeeStructure.objects.all()
     sessions = Session.objects.all()
@@ -1625,7 +1662,12 @@ def payment_update(request, pk):
         payment.session = get_object_or_404(Session, pk=session_id)
         payment.term = get_object_or_404(Term, pk=term_id)
         payment.student = get_object_or_404(Student, pk=student_id)
-        payment.save()
+        from wallet.services.payment_line_item_service import create_line_items_for_payment
+        with transaction.atomic():
+            payment.save()
+            # amount/fee_structure may have changed - line items are derived
+            # data, so they're rebuilt from scratch rather than patched.
+            create_line_items_for_payment(payment)
         return redirect('payment_list')  # Use the name of the URL pattern
 
     fee_structures = FeeStructure.objects.all()
@@ -4593,9 +4635,10 @@ def other_fee_payment(request):
                 status="pending"
             )
 
+            from wallet.services.payment_line_item_service import create_line_items_for_payment
             for student in students:
                 for fee in fees:
-                    Payment.objects.create(
+                    payment = Payment.objects.create(
                         student=student,
                         other_fee=fee,
                         amount_paid=fee.amount,
@@ -4605,6 +4648,7 @@ def other_fee_payment(request):
                         term=fee.term,
                         payment_batch=batch
                     )
+                    create_line_items_for_payment(payment)
 
         request.session.pop("payment_data", None)
         request.session["payment_reference"] = batch.reference

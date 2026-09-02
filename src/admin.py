@@ -9,7 +9,6 @@ admin.site.register(Token)
 admin.site.register(TahfeezResult)
 admin.site.register(MidTermResult)
 admin.site.register(PartPaymentApproval)
-admin.site.register(OtherFeeStructure)
 admin.site.register(PromoCode)
 
 @admin.register(Guardian)
@@ -130,16 +129,28 @@ class FeeComponentAdmin(admin.ModelAdmin):
         'fee_structure',
         'name',
         'amount',
+        'category',
     )
 
     list_filter = (
         'name',
+        'category',
     )
+
+    list_editable = ('category',)
 
     search_fields = (
         'name',
         'fee_structure__section__name',
     )
+
+
+@admin.register(OtherFeeStructure)
+class OtherFeeStructureAdmin(admin.ModelAdmin):
+    list_display = ('name', 'amount', 'category', 'session', 'term', 'active')
+    list_filter = ('category', 'active', 'session', 'term')
+    list_editable = ('category',)
+    search_fields = ('name',)
 
 
 @admin.register(PaymentBatch)
@@ -152,11 +163,24 @@ class PaymentBatchAdmin(admin.ModelAdmin):
     search_fields = ('reference', 'parent_email')
 
 
+class PaymentLineItemInline(admin.TabularInline):
+    model = PaymentLineItem
+    extra = 0
+    fields = ('label', 'category', 'amount', 'is_estimated', 'fee_component', 'other_fee')
+    readonly_fields = fields
+    can_delete = False
+
+    def has_add_permission(self, request, obj=None):
+        # Line items are derived from the payment, not hand-entered.
+        return False
+
+
 @admin.register(Payment)
 class PaymentAdmin(admin.ModelAdmin):
     list_display = ('student', 'student_class', 'amount_paid', 'payment_method', 'payment_date', 'status', 'session', 'term')
     search_fields = ('student__first_name', 'student__last_name', 'session__name', 'term__name')
-    list_filter = ('status', 'payment_method', 'session', 'term')
+    list_filter = ('status', 'payment_method', 'session', 'term', 'line_items__category')
+    inlines = [PaymentLineItemInline]
 
     @admin.display(description='Class', ordering='student__enrolled_class__name')
     def student_class(self, obj):
