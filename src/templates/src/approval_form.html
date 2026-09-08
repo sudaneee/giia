@@ -29,7 +29,7 @@
 
                 <div class="form-group">
                     <label>Academic Session</label>
-                    <select name="session" class="form-control" required>
+                    <select name="session" id="id_session" class="form-control" required>
                         <option value="">Select Session</option>
                         {% for session in sessions %}
                         <option value="{{ session.id }}"
@@ -45,10 +45,13 @@
 
                 <div class="form-group">
                     <label>Term</label>
-                    <select name="term" class="form-control" required>
+                    <!-- Every term is rendered up front (data-session tags which
+                         session it belongs to) and JS below hides the ones that
+                         don't belong to the chosen session. -->
+                    <select name="term" id="id_term" class="form-control" required>
                         <option value="">Select Term</option>
                         {% for term in terms %}
-                        <option value="{{ term.id }}"
+                        <option value="{{ term.id }}" data-session="{{ term.session_id }}"
                             {% if approval and approval.term.id == term.id %}
                                 selected
                             {% endif %}
@@ -98,4 +101,29 @@
         </div>
     </div>
 </div>
+<script>
+(function () {
+    var sessionSelect = document.getElementById('id_session');
+    var termSelect = document.getElementById('id_term');
+    var termOptions = Array.prototype.slice.call(termSelect.options).filter(function (o) { return o.value; });
+
+    function applyTermFilter() {
+        var sessionId = sessionSelect.value;
+        var previouslySelected = termSelect.value;
+        var stillValid = false;
+
+        termOptions.forEach(function (opt) {
+            var matches = !sessionId || opt.dataset.session === sessionId;
+            opt.hidden = !matches;
+            opt.disabled = !matches;
+            if (matches && opt.value === previouslySelected) stillValid = true;
+        });
+
+        if (!stillValid) termSelect.value = '';
+    }
+
+    sessionSelect.addEventListener('change', applyTermFilter);
+    applyTermFilter();
+})();
+</script>
 {% endblock %}

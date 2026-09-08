@@ -9,19 +9,21 @@
         <div class="card-body">
             <form method="GET" class="form-row mb-4">
                 <div class="col-md-3">
-                    <select name="session" class="form-control" required>
+                    <!-- Reloads with just the session set (term list below is
+                         scoped to it) - matches Class Fee Compliance. -->
+                    <select name="session" class="form-control" required onchange="this.form.submit()">
                         <option value="">Select Session</option>
                         {% for s in sessions %}
-                        <option value="{{ s.id }}">{{ s.name }}</option>
+                        <option value="{{ s.id }}" {% if selected_session == s.id|stringformat:"s" %}selected{% endif %}>{{ s.name }}</option>
                         {% endfor %}
                     </select>
                 </div>
 
                 <div class="col-md-3">
-                    <select name="term" class="form-control" required>
-                        <option value="">Select Term</option>
+                    <select name="term" class="form-control" required {% if not selected_session %}disabled{% endif %}>
+                        <option value="">{% if selected_session %}Select Term{% else %}Select a session first{% endif %}</option>
                         {% for t in terms %}
-                        <option value="{{ t.id }}">{{ t.name }}</option>
+                        <option value="{{ t.id }}" {% if selected_term == t.id|stringformat:"s" %}selected{% endif %}>{{ t.name }}</option>
                         {% endfor %}
                     </select>
                 </div>
@@ -30,7 +32,7 @@
                     <select name="school_class" class="form-control" required>
                         <option value="">Select Class</option>
                         {% for c in classes %}
-                        <option value="{{ c.id }}">{{ c }}</option>
+                        <option value="{{ c.id }}" {% if selected_class == c.id|stringformat:"s" %}selected{% endif %}>{{ c }}</option>
                         {% endfor %}
                     </select>
                 </div>

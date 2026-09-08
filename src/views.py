@@ -1361,13 +1361,19 @@ def payment_list(request):
     components = list(unique_component_names.values())
     
     sessions = Session.objects.all()
-    terms = Term.objects.all()
 
     # Filters
     start_date = request.GET.get("start_date")
     end_date = request.GET.get("end_date")
     session_id = request.GET.get("session")
     term_id = request.GET.get("term")
+
+    # Terms scoped to the selected session once one is picked (sessions
+    # share term names, e.g. two different "First Term" rows) - see
+    # class_fee_compliance. Session here is optional ("All Sessions"), so
+    # unlike that required-fields page, no session picked just means every
+    # term stays listed rather than forcing a session choice first.
+    terms = Term.objects.filter(session_id=session_id).order_by("id") if session_id else Term.objects.all()
     class_id = request.GET.get("class")  # New class filter
     other_fee_id = request.GET.get("other_fee")
     component_name = request.GET.get("component")  # Changed from component_id to component_name
@@ -5294,7 +5300,6 @@ def compute_student_fee_status(student, fee_structure, session, term):
 @login_required(login_url="login")
 def student_payment_status_report(request):
     sessions = Session.objects.all()
-    terms = Term.objects.all()
     classes = SchoolClass.objects.all()
 
     results = []
@@ -5302,6 +5307,11 @@ def student_payment_status_report(request):
     session_id = request.GET.get("session")
     term_id = request.GET.get("term")
     class_id = request.GET.get("school_class")
+
+    # Terms are scoped to the selected session - see class_fee_compliance for
+    # why (sessions share term names, so an unfiltered list makes it easy to
+    # pick the wrong session's term).
+    terms = Term.objects.filter(session_id=session_id).order_by("id") if session_id else Term.objects.none()
 
     if session_id and term_id and class_id:
         session = Session.objects.get(id=session_id)
@@ -5336,6 +5346,9 @@ def student_payment_status_report(request):
         "terms": terms,
         "classes": classes,
         "results": results,
+        "selected_session": session_id,
+        "selected_term": term_id,
+        "selected_class": class_id,
     })
 
 

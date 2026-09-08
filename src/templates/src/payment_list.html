@@ -40,10 +40,11 @@
                         <input type="date" name="end_date" class="form-control" value="{{ request.GET.end_date }}">
                     </div>
 
-                    <!-- Session -->
+                    <!-- Session - reloads on change so Term below only lists
+                         this session's terms (sessions share term names). -->
                     <div class="form-group col-md-2">
                         <label>Session</label>
-                        <select name="session" class="form-control select2">
+                        <select name="session" class="form-control select2" onchange="this.form.submit()">
                             <option value="">All Sessions</option>
                             {% for session in sessions %}
                                 <option value="{{ session.id }}" {% if request.GET.session == session.id|stringformat:"s" %}selected{% endif %}>
