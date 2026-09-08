@@ -21,7 +21,11 @@
                 <div class="form-row">
                     <div class="form-group col-md-3">
                         <label>Session <span class="text-danger">*</span></label>
-                        <select name="session" class="form-control select2" required>
+                        <!-- Reloads with just the session set (dropping any
+                             previously-selected term, since it may belong to
+                             a different session) so the Term select below
+                             only ever lists terms for this session. -->
+                        <select name="session" class="form-control select2" required onchange="this.form.submit()">
                             <option value="">Select Session</option>
                             {% for s in sessions %}
                                 <option value="{{ s.id }}" {% if selected_session == s.id|stringformat:"s" %}selected{% endif %}>
@@ -33,8 +37,8 @@
 
                     <div class="form-group col-md-3">
                         <label>Term <span class="text-danger">*</span></label>
-                        <select name="term" class="form-control select2" required>
-                            <option value="">Select Term</option>
+                        <select name="term" class="form-control select2" required {% if not selected_session %}disabled{% endif %}>
+                            <option value="">{% if selected_session %}Select Term{% else %}Select a session first{% endif %}</option>
                             {% for t in terms %}
                                 <option value="{{ t.id }}" {% if selected_term == t.id|stringformat:"s" %}selected{% endif %}>
                                     {{ t.name }}

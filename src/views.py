@@ -5349,13 +5349,17 @@ from django.contrib.auth.decorators import login_required
 def class_fee_compliance(request):
     classes = SchoolClass.objects.all()
     sessions = Session.objects.all()
-    terms = Term.objects.all()
 
     results = []
 
     class_id = request.GET.get("class")
     session_id = request.GET.get("session")
     term_id = request.GET.get("term")
+
+    # Terms are scoped to the selected session - sessions share term names
+    # ("First Term" exists once per session), so listing every Term
+    # unfiltered let staff pick the wrong session's term by mistake.
+    terms = Term.objects.filter(session_id=session_id).order_by("id") if session_id else Term.objects.none()
     compliance_status = request.GET.get("compliance_status")  # Filter by status
     export_excel = request.GET.get("export_excel") == "true"  # Export flag
 
