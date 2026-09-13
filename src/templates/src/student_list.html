@@ -31,8 +31,17 @@
             <a href="{% url 'download_excel_template' %}" class="btn btn-info mt-3">Download Excel Template</a>
 
             <!-- Filter Form -->
-            <form method="GET" action="" class="mt-4 mb-3">
-                <div class="form-group">
+            <form method="GET" action="" class="mt-4 mb-3 form-row align-items-end">
+                <div class="form-group col-md-4">
+                    <label for="status_filter">Filter by Status:</label>
+                    <select id="status_filter" name="status" class="form-control" onchange="this.form.submit()">
+                        {% for value, label in status_choices %}
+                        <option value="{{ value }}" {% if selected_status == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                        <option value="all" {% if selected_status == "all" %}selected{% endif %}>All Statuses</option>
+                    </select>
+                </div>
+                <div class="form-group col-md-4">
                     <label for="class_filter">Filter by Class:</label>
                     <select id="class_filter" name="class_id" class="form-control" onchange="this.form.submit()">
                         <option value="">All Classes</option>

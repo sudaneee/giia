@@ -98,25 +98,34 @@ def user_logout(request):
     return redirect('login')
 
 
-# View to list all students with bulk upload and class filter
+# View to list all students with bulk upload, class filter, and status filter
 @login_required(login_url='login')
 def student_list(request):
     # Get the class filter from the query parameters
     class_id = request.GET.get('class_id', None)
-    
-    # Filter students based on the selected class
+
+    # Status defaults to "active" - previously this list showed every
+    # admitted student regardless of status (active/inactive/graduated/
+    # suspended) all mixed together with no way to narrow it down.
+    status_filter = request.GET.get('status', 'active')
+    if status_filter not in ('active', 'inactive', 'graduated', 'suspended', 'all'):
+        status_filter = 'active'
+
+    students = Student.objects.filter(admission_status='admitted')
+    if status_filter != 'all':
+        students = students.filter(status=status_filter)
     if class_id:
-        students = Student.objects.filter(admission_status='admitted', enrolled_class_id=class_id).all()
-    else:
-        students = Student.objects.filter(admission_status='admitted').all()
-    
+        students = students.filter(enrolled_class_id=class_id)
+
     # Get all available school classes for dropdowns
     school_classes = SchoolClass.objects.all()
-    
+
     return render(request, 'src/student_list.html', {
         'students': students,
         'school_classes': school_classes,
-        'selected_class_id': class_id  # Pass the selected class ID to the template
+        'selected_class_id': class_id,  # Pass the selected class ID to the template
+        'status_choices': Student.STATUS_CHOICES,
+        'selected_status': status_filter,
     })
 
 # src/views.py
