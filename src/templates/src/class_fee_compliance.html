@@ -119,7 +119,7 @@
 
             <!-- SUMMARY CARDS -->
             <div class="row mb-4">
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <div class="card bg-primary text-white">
                         <div class="card-body">
                             <h5 class="card-title">Total Rows</h5>
@@ -127,7 +127,7 @@
                         </div>
                     </div>
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <div class="card bg-success text-white">
                         <div class="card-body">
                             <h5 class="card-title">Paid</h5>
@@ -135,7 +135,7 @@
                         </div>
                     </div>
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <div class="card bg-danger text-white">
                         <div class="card-body">
                             <h5 class="card-title">Not Paid</h5>
@@ -143,14 +143,23 @@
                         </div>
                     </div>
                 </div>
+                <div class="col-md-3">
+                    <div class="card bg-info text-white">
+                        <div class="card-body">
+                            <h5 class="card-title">Total Amount Paid</h5>
+                            <h2 class="mb-0">₦{{ summary.total_amount|floatformat:2 }}</h2>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <!-- DETAILED TABLE - GROUPED BY CLASS IF ALL CLASSES SELECTED -->
             {% if results_by_class %}
-                {% for class_name, class_results in results_by_class.items %}
+                {% for class_name, class_group in results_by_class.items %}
                 <div class="card mb-4">
-                    <div class="card-header bg-secondary text-white">
+                    <div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center">
                         <h5 class="mb-0">{{ class_name }}</h5>
+                        <span>Total Paid: ₦{{ class_group.total|floatformat:2 }}</span>
                     </div>
                     <div class="card-body">
                         <div class="table-responsive">
@@ -167,7 +176,7 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {% for row in class_results %}
+                                    {% for row in class_group.rows %}
                                     <tr>
                                         <td>{{ forloop.counter }}</td>
                                         <td>{{ row.student }}</td>

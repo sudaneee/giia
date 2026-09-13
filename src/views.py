@@ -5484,18 +5484,26 @@ def class_fee_compliance(request):
         term = Term.objects.get(id=term_id) if term_id else None
         return export_compliance_to_excel(results, session, term, selected_class_name, request)
 
-    # Just counts - no financial aggregation.
+    # Just counts, plus the one total the report is actually for - no
+    # expected/waived/outstanding calculation.
     summary = {
         "total_rows": len(results),
         "paid": len([r for r in results if r["paid"]]),
         "not_paid": len([r for r in results if not r["paid"]]),
+        "total_amount": sum((r["amount"] for r in results if r["amount"] is not None), Decimal("0.00")),
     }
 
-    # Group results by class for display if "All Classes" is selected
+    # Group results by class for display if "All Classes" is selected. Each
+    # group carries its own subtotal alongside the rows, rather than a
+    # separate dict keyed by class name, since Django templates can't index
+    # a dict by a loop variable without a custom filter.
     results_by_class = {}
     if not class_id and results:
         for result in results:
-            results_by_class.setdefault(result["class_name"], []).append(result)
+            group = results_by_class.setdefault(result["class_name"], {"rows": [], "total": Decimal("0.00")})
+            group["rows"].append(result)
+            if result["amount"] is not None:
+                group["total"] += result["amount"]
 
     return render(request, "src/class_fee_compliance.html", {
         "classes": classes,
