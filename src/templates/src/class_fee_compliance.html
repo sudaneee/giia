@@ -19,7 +19,7 @@
             <!-- FILTER FORM -->
             <form method="get" class="mb-4">
                 <div class="form-row">
-                    <div class="form-group col-md-3">
+                    <div class="form-group col-md-2">
                         <label>Session <span class="text-danger">*</span></label>
                         <!-- Reloads with just the session set (dropping any
                              previously-selected term, since it may belong to
@@ -35,7 +35,7 @@
                         </select>
                     </div>
 
-                    <div class="form-group col-md-3">
+                    <div class="form-group col-md-2">
                         <label>Term <span class="text-danger">*</span></label>
                         <select name="term" class="form-control select2" required {% if not selected_session %}disabled{% endif %}>
                             <option value="">{% if selected_session %}Select Term{% else %}Select a session first{% endif %}</option>
@@ -47,7 +47,15 @@
                         </select>
                     </div>
 
-                    <div class="form-group col-md-3">
+                    <div class="form-group col-md-2">
+                        <label>Fee Type</label>
+                        <select name="fee_type" class="form-control">
+                            <option value="school" {% if selected_fee_type == "school" %}selected{% endif %}>Regular School Fees</option>
+                            <option value="tahfeez" {% if selected_fee_type == "tahfeez" %}selected{% endif %}>Tahfeez Fees</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group col-md-2">
                         <label>Class</label>
                         <select name="class" class="form-control select2">
                             <option value="">All Classes</option>
@@ -61,18 +69,11 @@
                     </div>
 
                     <div class="form-group col-md-2">
-                        <label>Compliance Status</label>
-                        <select name="compliance_status" class="form-control">
+                        <label>Paid Status</label>
+                        <select name="paid_status" class="form-control">
                             <option value="">All Students</option>
-                            <option value="fully_paid" {% if selected_status == "fully_paid" %}selected{% endif %}>
-                                Fully Paid
-                            </option>
-                            <option value="partially_paid" {% if selected_status == "partially_paid" %}selected{% endif %}>
-                                Partially Paid
-                            </option>
-                            <option value="not_paid" {% if selected_status == "not_paid" %}selected{% endif %}>
-                                Not Paid
-                            </option>
+                            <option value="paid" {% if selected_paid_status == "paid" %}selected{% endif %}>Paid</option>
+                            <option value="not_paid" {% if selected_paid_status == "not_paid" %}selected{% endif %}>Not Paid</option>
                         </select>
                     </div>
 
@@ -82,12 +83,15 @@
                         </button>
                     </div>
                 </div>
-                
+
                 <div class="form-row mt-2">
                     <div class="col-md-12">
                         <small class="text-muted">
-                            <i class="fas fa-info-circle"></i> 
-                            Session and Term are required. Class is optional - leave blank to see all classes.
+                            <i class="fas fa-info-circle"></i>
+                            Session and Term are required. Class and Paid Status are optional.
+                            {% if selected_fee_type == "tahfeez" %}
+                                "Paid" here is based on the core Tahfeez fee - if a student also paid the Tahfeez transportation add-on, it shows as its own row below.
+                            {% endif %}
                         </small>
                     </div>
                 </div>
@@ -96,7 +100,7 @@
             {% if results %}
             <!-- HEADER WITH SELECTED CRITERIA -->
             <div class="alert alert-info">
-                <strong>Report for:</strong> 
+                <strong>Report for:</strong>
                 {% if selected_class_name %}
                     {{ selected_class_name }}
                 {% else %}
@@ -104,92 +108,38 @@
                 {% endif %}
                 | <strong>Session:</strong> {{ selected_session_name|default:"" }}
                 | <strong>Term:</strong> {{ selected_term_name|default:"" }}
-                {% if selected_status %}
-                    | <strong>Status Filter:</strong> 
-                    {% if selected_status == "fully_paid" %}Fully Paid
-                    {% elif selected_status == "partially_paid" %}Partially Paid
-                    {% elif selected_status == "not_paid" %}Not Paid
+                | <strong>Fee Type:</strong> {% if selected_fee_type == "tahfeez" %}Tahfeez Fees{% else %}Regular School Fees{% endif %}
+                {% if selected_paid_status %}
+                    | <strong>Paid Status:</strong>
+                    {% if selected_paid_status == "paid" %}Paid
+                    {% elif selected_paid_status == "not_paid" %}Not Paid
                     {% endif %}
                 {% endif %}
             </div>
 
             <!-- SUMMARY CARDS -->
             <div class="row mb-4">
-                <div class="col-md-3">
+                <div class="col-md-4">
                     <div class="card bg-primary text-white">
                         <div class="card-body">
-                            <h5 class="card-title">Total Students</h5>
-                            <h2 class="mb-0">{{ summary.total_students }}</h2>
+                            <h5 class="card-title">Total Rows</h5>
+                            <h2 class="mb-0">{{ summary.total_rows }}</h2>
                         </div>
                     </div>
                 </div>
-                <div class="col-md-3">
+                <div class="col-md-4">
                     <div class="card bg-success text-white">
                         <div class="card-body">
-                            <h5 class="card-title">Fully Paid</h5>
-                            <h2 class="mb-0">{{ summary.fully_paid }}</h2>
-                            <small>{{ summary.fully_paid|floatformat:0 }} / {{ summary.total_students }}</small>
+                            <h5 class="card-title">Paid</h5>
+                            <h2 class="mb-0">{{ summary.paid }}</h2>
                         </div>
                     </div>
                 </div>
-                <div class="col-md-3">
-                    <div class="card bg-warning text-white">
-                        <div class="card-body">
-                            <h5 class="card-title">Partially Paid</h5>
-                            <h2 class="mb-0">{{ summary.partially_paid }}</h2>
-                            <small>{{ summary.partially_paid|floatformat:0 }} / {{ summary.total_students }}</small>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-3">
+                <div class="col-md-4">
                     <div class="card bg-danger text-white">
                         <div class="card-body">
                             <h5 class="card-title">Not Paid</h5>
                             <h2 class="mb-0">{{ summary.not_paid }}</h2>
-                            <small>{{ summary.not_paid|floatformat:0 }} / {{ summary.total_students }}</small>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- FINANCIAL SUMMARY -->
-            <div class="card mb-4">
-                <div class="card-header bg-info text-white">
-                    <h5 class="mb-0">Financial Summary</h5>
-                </div>
-                <div class="card-body">
-                    <div class="row">
-                        <div class="col-md-3">
-                            <div class="text-center">
-                                <h6 class="text-muted">Total Expected</h6>
-                                <h4>₦{{ summary.total_expected|floatformat:2 }}</h4>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="text-center">
-                                <h6 class="text-muted">Total Paid</h6>
-                                <h4 class="text-success">₦{{ summary.total_paid|floatformat:2 }}</h4>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="text-center">
-                                <h6 class="text-muted">Total Waived</h6>
-                                <h4 class="text-warning">₦{{ summary.total_waived|floatformat:2 }}</h4>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="text-center">
-                                <h6 class="text-muted">Total Outstanding</h6>
-                                <h4 class="text-danger">₦{{ summary.total_outstanding|floatformat:2 }}</h4>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="progress mt-3" style="height: 30px;">
-                        <div class="progress-bar bg-success" role="progressbar" 
-                             style="width: {{ summary.overall_compliance }}%"
-                             aria-valuenow="{{ summary.overall_compliance }}" 
-                             aria-valuemin="0" aria-valuemax="100">
-                            {{ summary.overall_compliance|floatformat:1 }}% Compliance
                         </div>
                     </div>
                 </div>
@@ -197,7 +147,6 @@
 
             <!-- DETAILED TABLE - GROUPED BY CLASS IF ALL CLASSES SELECTED -->
             {% if results_by_class %}
-                <!-- Display grouped by class -->
                 {% for class_name, class_results in results_by_class.items %}
                 <div class="card mb-4">
                     <div class="card-header bg-secondary text-white">
@@ -211,12 +160,10 @@
                                         <th>S/N</th>
                                         <th>Student</th>
                                         <th>Admission No</th>
-                                        <th>Expected (₦)</th>
-                                        <th>Paid (₦)</th>
-                                        <th>Waived (₦)</th>
-                                        <th>Outstanding (₦)</th>
-                                        <th>Compliance %</th>
-                                        <th>Status</th>
+                                        <th>Fee</th>
+                                        <th>Paid</th>
+                                        <th>Amount (₦)</th>
+                                        <th>Date Paid</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -225,31 +172,16 @@
                                         <td>{{ forloop.counter }}</td>
                                         <td>{{ row.student }}</td>
                                         <td>{{ row.student.admission_number|default:"—" }}</td>
-                                        <td class="text-right">{{ row.expected|floatformat:2 }}</td>
-                                        <td class="text-right text-success">{{ row.paid|floatformat:2 }}</td>
-                                        <td class="text-right text-warning">{{ row.waived|floatformat:2 }}</td>
-                                        <td class="text-right text-danger">{{ row.outstanding|floatformat:2 }}</td>
-                                        <td class="text-center">
-                                            <div class="progress" style="height: 20px;">
-                                                <div class="progress-bar {% if row.compliance_percentage >= 100 %}bg-success{% elif row.compliance_percentage > 0 %}bg-warning{% else %}bg-danger{% endif %}" 
-                                                     role="progressbar" 
-                                                     style="width: {{ row.compliance_percentage }}%"
-                                                     aria-valuenow="{{ row.compliance_percentage }}" 
-                                                     aria-valuemin="0" 
-                                                     aria-valuemax="100">
-                                                    {{ row.compliance_percentage|floatformat:1 }}%
-                                                </div>
-                                            </div>
-                                        </td>
+                                        <td>{{ row.fee_label }}</td>
                                         <td>
-                                            {% if row.status == "Fully Paid" %}
-                                                <span class="badge badge-success px-3 py-2">Fully Paid</span>
-                                            {% elif row.status == "Partially Paid" %}
-                                                <span class="badge badge-warning px-3 py-2">Partially Paid</span>
+                                            {% if row.paid %}
+                                                <span class="badge badge-success px-3 py-2">Yes</span>
                                             {% else %}
-                                                <span class="badge badge-danger px-3 py-2">Not Paid</span>
+                                                <span class="badge badge-danger px-3 py-2">No</span>
                                             {% endif %}
                                         </td>
+                                        <td class="text-right">{% if row.amount is not None %}{{ row.amount|floatformat:2 }}{% else %}—{% endif %}</td>
+                                        <td>{{ row.date_paid|date:"Y-m-d"|default:"—" }}</td>
                                     </tr>
                                     {% endfor %}
                                 </tbody>
@@ -259,7 +191,6 @@
                 </div>
                 {% endfor %}
             {% else %}
-                <!-- Display single table for specific class -->
                 <div class="table-responsive">
                     <table class="table table-bordered table-striped table-hover" id="compliance-table">
                         <thead class="thead-dark">
@@ -267,12 +198,10 @@
                                 <th>S/N</th>
                                 <th>Student</th>
                                 <th>Admission No</th>
-                                <th>Expected (₦)</th>
-                                <th>Paid (₦)</th>
-                                <th>Waived (₦)</th>
-                                <th>Outstanding (₦)</th>
-                                <th>Compliance %</th>
-                                <th>Status</th>
+                                <th>Fee</th>
+                                <th>Paid</th>
+                                <th>Amount (₦)</th>
+                                <th>Date Paid</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -281,31 +210,16 @@
                                 <td>{{ forloop.counter }}</td>
                                 <td>{{ row.student }}</td>
                                 <td>{{ row.student.admission_number|default:"—" }}</td>
-                                <td class="text-right">{{ row.expected|floatformat:2 }}</td>
-                                <td class="text-right text-success">{{ row.paid|floatformat:2 }}</td>
-                                <td class="text-right text-warning">{{ row.waived|floatformat:2 }}</td>
-                                <td class="text-right text-danger">{{ row.outstanding|floatformat:2 }}</td>
-                                <td class="text-center">
-                                    <div class="progress" style="height: 20px;">
-                                        <div class="progress-bar {% if row.compliance_percentage >= 100 %}bg-success{% elif row.compliance_percentage > 0 %}bg-warning{% else %}bg-danger{% endif %}" 
-                                             role="progressbar" 
-                                             style="width: {{ row.compliance_percentage }}%"
-                                             aria-valuenow="{{ row.compliance_percentage }}" 
-                                             aria-valuemin="0" 
-                                             aria-valuemax="100">
-                                            {{ row.compliance_percentage|floatformat:1 }}%
-                                        </div>
-                                    </div>
-                                </td>
+                                <td>{{ row.fee_label }}</td>
                                 <td>
-                                    {% if row.status == "Fully Paid" %}
-                                        <span class="badge badge-success px-3 py-2">Fully Paid</span>
-                                    {% elif row.status == "Partially Paid" %}
-                                        <span class="badge badge-warning px-3 py-2">Partially Paid</span>
+                                    {% if row.paid %}
+                                        <span class="badge badge-success px-3 py-2">Yes</span>
                                     {% else %}
-                                        <span class="badge badge-danger px-3 py-2">Not Paid</span>
+                                        <span class="badge badge-danger px-3 py-2">No</span>
                                     {% endif %}
                                 </td>
+                                <td class="text-right">{% if row.amount is not None %}{{ row.amount|floatformat:2 }}{% else %}—{% endif %}</td>
+                                <td>{{ row.date_paid|date:"Y-m-d"|default:"—" }}</td>
                             </tr>
                             {% endfor %}
                         </tbody>
@@ -321,7 +235,7 @@
                 {% else %}
                 <div class="alert alert-warning text-center">
                     <i class="fas fa-filter fa-2x mb-2"></i>
-                    <p>Please select Session and Term to view the compliance report. Class is optional.</p>
+                    <p>Please select Session and Term to view the compliance report. Class and Paid Status are optional.</p>
                 </div>
                 {% endif %}
             {% endif %}

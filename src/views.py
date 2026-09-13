@@ -5369,6 +5369,16 @@ from django.contrib.auth.decorators import login_required
 
 @login_required(login_url="login")
 def class_fee_compliance(request):
+    """
+    Simple payment record for a session/term: did each student pay, and if
+    so what/when - not a balance/compliance calculator. Previously this
+    computed an expected amount from FeeStructure and showed waived/
+    outstanding/compliance % per student; all of that is gone by design (see
+    fee_type below for why "expected" doesn't apply once Tahfeez is in the
+    picture - it's opt-in rather than assigned by class the way school fees are).
+    """
+    from wallet.services.fee_service import is_tahfeez_fee, is_tahfeez_transportation_fee
+
     classes = SchoolClass.objects.all()
     sessions = Session.objects.all()
 
@@ -5378,159 +5388,114 @@ def class_fee_compliance(request):
     session_id = request.GET.get("session")
     term_id = request.GET.get("term")
 
+    fee_type = request.GET.get("fee_type", "school")
+    if fee_type not in ("school", "tahfeez"):
+        fee_type = "school"
+
     # Terms are scoped to the selected session - sessions share term names
     # ("First Term" exists once per session), so listing every Term
     # unfiltered let staff pick the wrong session's term by mistake.
     terms = Term.objects.filter(session_id=session_id).order_by("id") if session_id else Term.objects.none()
-    compliance_status = request.GET.get("compliance_status")  # Filter by status
+    paid_status = request.GET.get("paid_status")  # "", "paid", "not_paid"
     export_excel = request.GET.get("export_excel") == "true"  # Export flag
+
+    selected_class_name = None
 
     # Only require session and term to be selected
     if session_id and term_id:
         session = Session.objects.get(id=session_id)
         term = Term.objects.get(id=term_id)
-        
+
         # Get students based on class selection
         if class_id:
-            # Specific class selected
             school_class = SchoolClass.objects.get(id=class_id)
-            students = Student.objects.filter(enrolled_class=school_class)
+            base_students = Student.objects.filter(enrolled_class=school_class)
             selected_class_name = str(school_class)
         else:
-            # All classes selected
-            students = Student.objects.filter(enrolled_class__isnull=False)
+            base_students = Student.objects.filter(enrolled_class__isnull=False)
             selected_class_name = "All Classes"
 
-        # Process each student
-        for student in students:
-            # Skip if student has no enrolled class
-            if not student.enrolled_class:
-                continue
-                
-            # 🔹 Get applicable fee structure
-            fee = FeeStructure.objects.filter(
-                section=student.enrolled_class.section,
-                session=session,
-                term_group=term.name.lower().split()[0],  # "First Term" → "first"
-                student_type="returning",
-                transport=False,
-            ).first()
+        base_students = base_students.select_related("enrolled_class")
 
-            expected = fee.total_amount if fee else Decimal("0.00")
+        # "Paid" always means fee_type's specific fee(s) for this exact
+        # session/term - never an aggregate/expected-balance calculation.
+        if fee_type == "tahfeez":
+            term_other_fees = OtherFeeStructure.objects.filter(session=session, term=term)
+            core_fee_ids = {f.id for f in term_other_fees if is_tahfeez_fee(f) and not is_tahfeez_transportation_fee(f)}
+            transport_fee_ids = {f.id for f in term_other_fees if is_tahfeez_transportation_fee(f)}
+            payments_qs = Payment.objects.filter(
+                session=session, term=term, status="paid",
+                other_fee_id__in=core_fee_ids | transport_fee_ids,
+            ).select_related("student", "other_fee")
+        else:
+            payments_qs = Payment.objects.filter(
+                session=session, term=term, status="paid", fee_structure__isnull=False,
+            ).select_related("student")
 
-            payments = Payment.objects.filter(
-                student=student,
-                session=session,
-                term=term,
-                status="paid",
-            )
+        payments_by_student = {}
+        for p in payments_qs:
+            payments_by_student.setdefault(p.student_id, []).append(p)
 
-            paid = payments.exclude(
-                payment_method="waiver"
-            ).aggregate(
-                total=Sum("amount_paid")
-            )["total"] or Decimal("0.00")
+        # Inactive students are left out by default (no longer enrolled, so
+        # their absence here isn't "junk" to clean up) - unless they actually
+        # paid something for this exact session/term/fee_type, in which case
+        # that payment still belongs on the record.
+        included_students = list(base_students.filter(status="active"))
+        for student in base_students.exclude(status="active"):
+            if student.id in payments_by_student:
+                included_students.append(student)
 
-            waived = payments.filter(
-                payment_method="waiver"
-            ).aggregate(
-                total=Sum("amount_paid")
-            )["total"] or Decimal("0.00")
+        for student in included_students:
+            student_payments = payments_by_student.get(student.id, [])
 
-            covered = paid + waived
-            outstanding = expected - covered
-
-            # Determine status
-            if expected > 0 and covered >= expected:
-                status = "Fully Paid"
-            elif covered > 0:
-                status = "Partially Paid"
+            if fee_type == "tahfeez":
+                paid_overall = any(p.other_fee_id in core_fee_ids for p in student_payments)
             else:
-                status = "Not Paid"
+                paid_overall = bool(student_payments)
 
-            # Apply compliance status filter
-            if compliance_status:
-                if compliance_status == "fully_paid" and status != "Fully Paid":
-                    continue
-                elif compliance_status == "partially_paid" and status != "Partially Paid":
-                    continue
-                elif compliance_status == "not_paid" and status != "Not Paid":
-                    continue
+            if paid_status == "paid" and not paid_overall:
+                continue
+            if paid_status == "not_paid" and paid_overall:
+                continue
 
-            # Calculate compliance percentage
-            compliance_percentage = (covered / expected * 100) if expected > 0 else 0
+            class_name = str(student.enrolled_class) if student.enrolled_class else "Not assigned"
 
-            results.append({
-                "student": student,
-                "class": student.enrolled_class,
-                "class_name": str(student.enrolled_class),
-                "expected": expected,
-                "paid": paid,
-                "waived": waived,
-                "covered": covered,
-                "outstanding": max(outstanding, Decimal("0.00")),
-                "status": status,
-                "compliance_percentage": compliance_percentage,
-            })
+            if not student_payments:
+                results.append({
+                    "student": student, "class_name": class_name,
+                    "fee_label": "Tahfeez" if fee_type == "tahfeez" else "School Fees",
+                    "paid": False, "amount": None, "date_paid": None,
+                })
+            else:
+                for p in student_payments:
+                    results.append({
+                        "student": student, "class_name": class_name,
+                        "fee_label": p.other_fee.name if fee_type == "tahfeez" else "School Fees",
+                        "paid": True, "amount": p.amount_paid, "date_paid": p.payment_date,
+                    })
 
-        # Sort results by class and then by status for better organization
-        results.sort(key=lambda x: (x["class_name"], 
-                                   {"Fully Paid": 1, "Partially Paid": 2, "Not Paid": 3}.get(x["status"], 4)))
+        results.sort(key=lambda r: (r["class_name"], str(r["student"]), r["date_paid"] or datetime.min.date()))
 
     # ======================================================
-    # 🔹 EXPORT TO EXCEL
+    # EXPORT TO EXCEL
     # ======================================================
     if export_excel and results:
         session = Session.objects.get(id=session_id) if session_id else None
         term = Term.objects.get(id=term_id) if term_id else None
         return export_compliance_to_excel(results, session, term, selected_class_name, request)
 
-    # Calculate summary statistics
+    # Just counts - no financial aggregation.
     summary = {
-        "total_students": len(results),
-        "fully_paid": len([r for r in results if r["status"] == "Fully Paid"]),
-        "partially_paid": len([r for r in results if r["status"] == "Partially Paid"]),
-        "not_paid": len([r for r in results if r["status"] == "Not Paid"]),
-        "total_expected": sum(r["expected"] for r in results),
-        "total_paid": sum(r["paid"] for r in results),
-        "total_waived": sum(r["waived"] for r in results),
-        "total_outstanding": sum(r["outstanding"] for r in results),
-        "overall_compliance": (sum(r["covered"] for r in results) / sum(r["expected"] for r in results) * 100) if sum(r["expected"] for r in results) > 0 else 0,
+        "total_rows": len(results),
+        "paid": len([r for r in results if r["paid"]]),
+        "not_paid": len([r for r in results if not r["paid"]]),
     }
 
     # Group results by class for display if "All Classes" is selected
     results_by_class = {}
-    class_totals = {}  # Store totals for each class
     if not class_id and results:
         for result in results:
-            class_name = result["class_name"]
-            if class_name not in results_by_class:
-                results_by_class[class_name] = []
-                class_totals[class_name] = {
-                    "expected": Decimal("0.00"),
-                    "paid": Decimal("0.00"),
-                    "waived": Decimal("0.00"),
-                    "outstanding": Decimal("0.00"),
-                    "students": 0,
-                    "fully_paid": 0,
-                    "partially_paid": 0,
-                    "not_paid": 0,
-                }
-            results_by_class[class_name].append(result)
-            
-            # Update class totals
-            class_totals[class_name]["expected"] += result["expected"]
-            class_totals[class_name]["paid"] += result["paid"]
-            class_totals[class_name]["waived"] += result["waived"]
-            class_totals[class_name]["outstanding"] += result["outstanding"]
-            class_totals[class_name]["students"] += 1
-            
-            if result["status"] == "Fully Paid":
-                class_totals[class_name]["fully_paid"] += 1
-            elif result["status"] == "Partially Paid":
-                class_totals[class_name]["partially_paid"] += 1
-            else:
-                class_totals[class_name]["not_paid"] += 1
+            results_by_class.setdefault(result["class_name"], []).append(result)
 
     return render(request, "src/class_fee_compliance.html", {
         "classes": classes,
@@ -5538,12 +5503,12 @@ def class_fee_compliance(request):
         "terms": terms,
         "results": results,
         "results_by_class": results_by_class,
-        "class_totals": class_totals,
         "summary": summary,
         "selected_class": class_id,
         "selected_session": session_id,
         "selected_term": term_id,
-        "selected_status": compliance_status,
+        "selected_fee_type": fee_type,
+        "selected_paid_status": paid_status,
         "selected_class_name": selected_class_name if session_id and term_id else None,
         "selected_session_name": session.name if session_id and term_id else None,
         "selected_term_name": term.name if session_id and term_id else None,
@@ -5551,88 +5516,28 @@ def class_fee_compliance(request):
 
 def export_compliance_to_excel(results, session, term, class_name, request):
     """
-    Export class fee compliance report to Excel
+    Export the fee compliance record (one row per payment, or one "Not
+    Paid" row per student with nothing to show) to Excel.
     """
     import pandas as pd
     from django.http import HttpResponse
     from io import BytesIO
     from datetime import datetime
     
-    # Create data list
     data = []
-    
-    # Add report header
-    data.append({
-        'Report Type': 'Class Fee Compliance Report',
-        'Class': class_name,
-        'Session': session.name if session else '',
-        'Term': term.name if term else '',
-        'Generated On': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-    })
-    data.append({})  # Empty row for spacing
-    
-    # Add summary row
-    total_students = len(results)
-    fully_paid = len([r for r in results if r["status"] == "Fully Paid"])
-    partially_paid = len([r for r in results if r["status"] == "Partially Paid"])
-    not_paid = len([r for r in results if r["status"] == "Not Paid"])
-    total_expected = sum(r["expected"] for r in results)
-    total_paid = sum(r["paid"] for r in results)
-    total_waived = sum(r["waived"] for r in results)
-    total_outstanding = sum(r["outstanding"] for r in results)
-    
-    data.append({
-        'Summary': 'Total Students',
-        'Value': total_students,
-    })
-    data.append({
-        'Summary': 'Fully Paid',
-        'Value': fully_paid,
-        'Percentage': f"{(fully_paid/total_students*100):.1f}%" if total_students > 0 else "0%"
-    })
-    data.append({
-        'Summary': 'Partially Paid',
-        'Value': partially_paid,
-        'Percentage': f"{(partially_paid/total_students*100):.1f}%" if total_students > 0 else "0%"
-    })
-    data.append({
-        'Summary': 'Not Paid',
-        'Value': not_paid,
-        'Percentage': f"{(not_paid/total_students*100):.1f}%" if total_students > 0 else "0%"
-    })
-    data.append({
-        'Summary': 'Total Expected Amount',
-        'Value': f"₦{total_expected:,.2f}",
-    })
-    data.append({
-        'Summary': 'Total Paid Amount',
-        'Value': f"₦{total_paid:,.2f}",
-    })
-    data.append({
-        'Summary': 'Total Waived Amount',
-        'Value': f"₦{total_waived:,.2f}",
-    })
-    data.append({
-        'Summary': 'Total Outstanding Amount',
-        'Value': f"₦{total_outstanding:,.2f}",
-    })
-    data.append({})  # Empty row for spacing
-    
-    # Add detailed student records
-    for student_data in results:
+    for row in results:
         data.append({
-            'Class': str(student_data["class"]) if student_data["class"] else '',
-            'Student Name': str(student_data["student"]),
-            'Admission Number': student_data["student"].admission_number or '',
-            'Expected Amount': float(student_data["expected"]),
-            'Paid Amount': float(student_data["paid"]),
-            'Waived Amount': float(student_data["waived"]),
-            'Total Covered': float(student_data["covered"]),
-            'Outstanding': float(student_data["outstanding"]),
-            'Compliance %': f"{student_data['compliance_percentage']:.1f}%",
-            'Status': student_data["status"],
+            'Student Name': str(row["student"]),
+            'Admission Number': row["student"].admission_number or '',
+            'Class': row["class_name"],
+            'Session': session.name if session else '',
+            'Term': term.name if term else '',
+            'Fee': row["fee_label"],
+            'Paid': 'Yes' if row["paid"] else 'No',
+            'Amount': float(row["amount"]) if row["amount"] is not None else '',
+            'Date Paid': row["date_paid"].strftime('%Y-%m-%d') if row["date_paid"] else '',
         })
-    
+
     # Create DataFrame
     df = pd.DataFrame(data)
     
