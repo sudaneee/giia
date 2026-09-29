@@ -72,6 +72,13 @@
       font-size: .92rem;
     }
     .wallet-topbar .nav-link:hover { color: #fff !important; }
+    /* Comfortable tap targets when the menu is expanded on mobile - the
+       links otherwise sit flush against each other with no separation. */
+    @media (max-width: 767px) {
+      .wallet-topbar .navbar-collapse { margin-top: 10px; }
+      .wallet-topbar .nav-item { border-top: 1px solid rgba(255,255,255,.12); }
+      .wallet-topbar .nav-link { padding-top: .65rem; padding-bottom: .65rem; }
+    }
     .topbar-balance {
       background: rgba(255,255,255,.12);
       color: #fff;
@@ -151,7 +158,6 @@
 
     @media (max-width: 767px) {
       body { padding-bottom: 78px; }
-      .wallet-topbar .navbar-nav { display: none !important; }
     }
     @media (min-width: 768px) {
       .bottom-nav { display: none; }
@@ -171,10 +177,15 @@
         <a href="{% url 'wallet:wallet_overview' %}" class="topbar-balance d-none d-sm-inline-flex">
           <i class="bi bi-wallet2"></i> ₦{{ request.user.parent_account.wallet.balance|floatformat:2|intcomma }}
         </a>
-        <button class="navbar-toggler text-white" type="button" data-toggle="collapse" data-target="#walletNav">
+        <button class="navbar-toggler text-white" type="button" data-toggle="collapse" data-target="#walletNav" aria-controls="walletNav" aria-expanded="false" aria-label="Toggle navigation">
           <span class="navbar-toggler-icon"></span>
         </button>
-        <div class="collapse navbar-collapse d-none d-md-flex" id="walletNav">
+        <!-- Plain Bootstrap collapse - d-none/d-md-flex here previously
+             forced display:none !important below md regardless of the
+             toggle's "show" state, so tapping the hamburger on mobile did
+             nothing. Bootstrap's own .collapse/.collapse.show handles both
+             the collapsed and expanded state at every width already. -->
+        <div class="collapse navbar-collapse" id="walletNav">
           <ul class="navbar-nav ml-auto">
             <li class="nav-item"><a class="nav-link" href="{% url 'wallet:dashboard' %}">Dashboard</a></li>
             <li class="nav-item"><a class="nav-link" href="{% url 'wallet:wallet_overview' %}">My Wallet</a></li>
