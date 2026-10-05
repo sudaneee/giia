@@ -1,7 +1,7 @@
 # src/urls.py
 
 from django.urls import path
-from . import views, wallet_admin_views
+from . import student_bulk_update, views, wallet_admin_views
 
 urlpatterns = [
     # Wallet Admin (superuser only)
@@ -25,6 +25,8 @@ urlpatterns = [
     path('students/delete/<int:student_id>/', views.delete_student, name='delete_student'),
     path('students/bulk-upload/', views.bulk_upload_students, name='bulk_upload_students'),
     path('students/download-template/', views.download_excel_template, name='download_excel_template'),
+    path('students/bulk-update/', student_bulk_update.student_bulk_update, name='student_bulk_update'),
+    path('students/bulk-update/export/', student_bulk_update.student_bulk_export, name='student_bulk_export'),
     path('students/not-admitted/', views.not_admitted_students, name='not_admitted_students'),
     
     path("students/promote-students/", views.promote_students, name="promote_students"),

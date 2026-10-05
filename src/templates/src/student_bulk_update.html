@@ -1,0 +1,113 @@
+{% extends "src/partials/base.html" %}
+{% block content %}
+<div class="main-content mt-1">
+    <div class="card mb-4">
+        <div class="card-header">
+            <h4>Bulk Update Students</h4>
+        </div>
+        <div class="card-body">
+
+            <!-- STEP 1: EXPORT -->
+            <h5>1. Download a class</h5>
+            <p class="text-muted small">Downloads every student in the class with all their details. Leave any cell blank to keep its current value when you upload. Class can't be changed here.</p>
+            <form method="GET" action="{% url 'student_bulk_export' %}" class="form-row align-items-end mb-4">
+                <div class="form-group col-md-6">
+                    <label>Class</label>
+                    <select name="class_id" class="form-control" required>
+                        <option value="">Select class</option>
+                        {% for c in school_classes %}
+                        <option value="{{ c.id }}" {% if selected_class_id == c.id|stringformat:"s" %}selected{% endif %}>{{ c.name }} -- {{ c.arm }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group col-md-3">
+                    <button type="submit" class="btn btn-success btn-block"><i class="fas fa-file-excel"></i> Download</button>
+                </div>
+            </form>
+
+            <hr>
+
+            <!-- STEP 2: UPLOAD (PREVIEW) -->
+            <h5>2. Upload the edited file</h5>
+            <p class="text-muted small">Nothing is saved yet. You'll see every change first and confirm before anything is updated.</p>
+            <form method="POST" enctype="multipart/form-data" action="{% url 'student_bulk_update' %}" class="form-row align-items-end">
+                {% csrf_token %}
+                <div class="form-group col-md-4">
+                    <label>Class</label>
+                    <select name="class_id" class="form-control" required>
+                        <option value="">Select class</option>
+                        {% for c in school_classes %}
+                        <option value="{{ c.id }}" {% if selected_class_id == c.id|stringformat:"s" %}selected{% endif %}>{{ c.name }} -- {{ c.arm }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group col-md-5">
+                    <label>Excel file (.xlsx)</label>
+                    <input type="file" name="excel_file" accept=".xlsx" class="form-control" required>
+                </div>
+                <div class="form-group col-md-3">
+                    <button type="submit" class="btn btn-primary btn-block">Preview changes</button>
+                </div>
+            </form>
+
+            {% if errors %}
+            <div class="alert alert-warning mt-3">
+                <strong>{{ errors|length }} row(s) need attention:</strong>
+                <ul class="mb-0">
+                    {% for error in errors %}<li>{{ error }}</li>{% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+
+            {% if preview %}
+            <!-- STEP 3: REVIEW + CONFIRM -->
+            <hr>
+            <h5>3. Review changes for {{ preview.class_name }}</h5>
+            {% if preview.rows %}
+                <p>{{ applicable_count }} student(s) will be updated. Only the changes listed below are saved.</p>
+                <div class="table-responsive mb-3">
+                    <table class="table table-bordered table-striped">
+                        <thead class="thead-dark">
+                            <tr>
+                                <th>Admission No</th>
+                                <th>Student</th>
+                                <th>Changes (old &rarr; new)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in preview.rows %}
+                            <tr>
+                                <td>{{ row.admission_number }}</td>
+                                <td>{{ row.name }}</td>
+                                <td>
+                                    {% for change in row.changes %}
+                                    <div><strong>{{ change.field }}:</strong>
+                                        {% if change.old %}<span class="text-muted">{{ change.old }}</span>{% else %}<span class="text-muted">(blank)</span>{% endif %}
+                                        &rarr; <span class="text-success">{{ change.new }}</span>
+                                    </div>
+                                    {% endfor %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <form method="POST" action="{% url 'student_bulk_update' %}" class="d-inline">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="apply">
+                    <button type="submit" class="btn btn-success">Confirm and update {{ applicable_count }} student(s)</button>
+                </form>
+            {% else %}
+                <p class="text-muted">No changes found in this file.</p>
+            {% endif %}
+            <form method="POST" action="{% url 'student_bulk_update' %}" class="d-inline ml-2">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="cancel">
+                <button type="submit" class="btn btn-outline-secondary">Cancel</button>
+            </form>
+            {% endif %}
+
+        </div>
+    </div>
+</div>
+{% endblock %}
