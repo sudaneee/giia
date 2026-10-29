@@ -13,6 +13,8 @@ else (validation, tick marks, the "Overall Effort" label) reads from this
 table instead of a hardcoded scale, so it only has to change in one place.
 """
 
+import math
+
 # max_score -> [(label, low, high), ...], low/high inclusive, covering
 # 0..max_score with no gaps and no overlaps.
 MIDTERM_BANDS_BY_MAX_SCORE = {
@@ -63,9 +65,16 @@ def get_midterm_bands(max_score):
 def label_for_score(score, bands):
     """The band label a score falls into, or None if score is out of range
     for every band (e.g. bad data above max_score) - callers should treat
-    None as "Invalid Score" rather than guessing the nearest band."""
+    None as "Invalid Score" rather than guessing the nearest band.
+
+    Bands are defined on whole numbers, but `score` can be a fractional
+    average across several subjects (e.g. 8.375). Round to the nearest
+    whole number first, so an average between two band boundaries - which
+    the integer bands otherwise have no entry for - still lands in the
+    band closest to it, instead of coming back as "Invalid Score"."""
+    rounded = math.floor(score + 0.5)
     for label, low, high in bands:
-        if low <= score <= high:
+        if low <= rounded <= high:
             return label
     return None
 

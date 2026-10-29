@@ -35,6 +35,17 @@ class MidtermGradingHelperTests(TestCase):
         self.assertIsNone(label_for_score(21, bands))
         self.assertEqual(describe_label(label_for_score(21, bands)), 'Invalid Score')
 
+    def test_fractional_average_between_band_boundaries_rounds_to_nearest_band(self):
+        # A multi-subject average (e.g. 67/8 = 8.375) rarely lands exactly on
+        # an integer, but the bands are defined on whole numbers with gaps
+        # between them (Expected + = 7-8, Exceeding = 9-10). 8.375 used to
+        # match no band at all and show "Invalid Score" on real report
+        # cards; it should round to the nearest band instead.
+        bands = get_midterm_bands(10)
+        self.assertEqual(label_for_score(8.375, bands), 'Expected +')  # rounds to 8
+        self.assertEqual(label_for_score(8.625, bands), 'Exceeding')  # rounds to 9
+        self.assertEqual(label_for_score(6.857142857142857, bands), 'Expected +')  # rounds to 7
+
     def test_describe_label_adds_the_descriptor(self):
         self.assertEqual(describe_label('Exceeding'), 'Exceeding (Excellent)')
 
