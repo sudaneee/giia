@@ -65,7 +65,7 @@
 
     <!-- TOP BUTTON -->
     <div class="no-print mb-3 text-end">
-        <a href="{% url 'download_all_results_pdf' session.id term.id school_class.id %}" 
+        <a href="{% url 'download_all_results_pdf' session.id term.id school_class.id %}{% if include_inactive %}?include_inactive=1{% endif %}"
            class="btn btn-primary">
             Download All Results (PDF)
         </a>

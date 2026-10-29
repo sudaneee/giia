@@ -44,6 +44,10 @@
                         {% endfor %}
                     </select>
                 </div>
+                <div class="form-group form-check">
+                    <input type="checkbox" class="form-check-input" id="include_inactive" name="include_inactive" {% if include_inactive %}checked{% endif %}>
+                    <label class="form-check-label" for="include_inactive">Include inactive students</label>
+                </div>
                 <button type="submit" class="btn btn-primary">Load Students</button>
             </form>
 
@@ -54,6 +58,7 @@
                 <input type="hidden" name="session" value="{{ selected_session.id }}">
                 <input type="hidden" name="class_assigned" value="{{ selected_class.id }}">
                 <input type="hidden" name="subject" value="{{ selected_subject.id }}">
+                {% if include_inactive %}<input type="hidden" name="include_inactive" value="on">{% endif %}
                 <table class="table table-stripped">
                     <thead>
                         <tr>

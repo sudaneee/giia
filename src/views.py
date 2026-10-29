@@ -1,6 +1,7 @@
 # src/views.py
 
 from django.shortcuts import render, redirect, get_object_or_404
+from django.urls import reverse
 from django.contrib import messages
 from .models import *
 from datetime import datetime, date
@@ -2075,6 +2076,11 @@ def purchase_order_delete(request, pk):
 
 
 
+def _active_roster(queryset, include_inactive):
+    """Students fetch active-only by default; callers opt in to include inactive ones."""
+    return queryset if include_inactive else queryset.filter(status='active')
+
+
 @login_required(login_url='login')
 def result_entry(request):
     subjects = Subject.objects.all()
@@ -2087,13 +2093,14 @@ def result_entry(request):
         session_id = request.POST.get('session')
         class_id = request.POST.get('class_assigned')
         subject_id = request.POST.get('subject')
+        include_inactive = request.POST.get('include_inactive') == 'on'
 
         if term_id and session_id and class_id and subject_id:
             term = get_object_or_404(Term, pk=term_id)
             session = get_object_or_404(Session, pk=session_id)
             school_class = get_object_or_404(SchoolClass, pk=class_id)
             subject = get_object_or_404(Subject, pk=subject_id)
-            students = Student.objects.filter(enrolled_class=school_class)
+            students = _active_roster(Student.objects.filter(enrolled_class=school_class), include_inactive)
 
             if 'save_results' in request.POST:
                 for student in students:
@@ -2167,6 +2174,7 @@ def result_entry(request):
                 'selected_session': session,
                 'selected_class': school_class,
                 'selected_subject': subject,
+                'include_inactive': include_inactive,
             })
 
     return render(request, 'src/result_entry.html', {
@@ -2190,17 +2198,21 @@ def result_update(request):
         class_id = request.POST.get('class_assigned')
         subject_id = request.POST.get('subject')
 
+        include_inactive = request.POST.get('include_inactive') == 'on'
+
         if term_id and session_id and class_id and subject_id:
             term = get_object_or_404(Term, pk=term_id)
             session = get_object_or_404(Session, pk=session_id)
             school_class = get_object_or_404(SchoolClass, pk=class_id)
             subject = get_object_or_404(Subject, pk=subject_id)
-            students = Student.objects.filter(enrolled_class=school_class)
+            students = _active_roster(Student.objects.filter(enrolled_class=school_class), include_inactive)
 
             # Load existing results for the selected session, term, class, and subject
             results = Result.objects.filter(
                 session=session, term=term, class_assigned=school_class, subject=subject
             )
+            if not include_inactive:
+                results = results.filter(student__status='active')
 
             # If the save button is clicked, update the results
             if 'save_results' in request.POST:
@@ -2254,6 +2266,7 @@ def result_update(request):
                 'selected_session': session,
                 'selected_class': school_class,
                 'selected_subject': subject,
+                'include_inactive': include_inactive,
             })
 
     return render(request, 'src/result_update.html', {
@@ -2271,8 +2284,9 @@ def download_template(request):
 
     if request.method == 'POST':
         class_id = request.POST.get('class_assigned')
+        include_inactive = request.POST.get('include_inactive') == 'on'
         school_class = get_object_or_404(SchoolClass, pk=class_id)
-        students = Student.objects.filter(enrolled_class=school_class)
+        students = _active_roster(Student.objects.filter(enrolled_class=school_class), include_inactive)
 
         # Create an in-memory output file for the new workbook.
         output = io.BytesIO()
@@ -2329,6 +2343,7 @@ def upload_results(request):
         class_id = request.POST.get('class_assigned')
         subject_id = request.POST.get('subject')
         excel_file = request.FILES.get('excel_file')
+        include_inactive = request.POST.get('include_inactive') == 'on'
 
         if session_id and term_id and class_id and subject_id and excel_file:
             session = get_object_or_404(Session, pk=session_id)
@@ -2344,6 +2359,10 @@ def upload_results(request):
 
                 try:
                     student = Student.objects.get(id=student_id, enrolled_class=school_class)
+
+                    if not include_inactive and student.status != 'active':
+                        messages.warning(request, f"Skipped {student.first_name} {student.last_name} — inactive. Check 'Include inactive students' to update inactive students too.")
+                        continue
 
                     # Check if result already exists
                     if not Result.objects.filter(
@@ -2394,15 +2413,19 @@ def download_result_template(request):
     
     if request.method == 'POST':
         class_id = request.POST.get('class_assigned')
-        
+        include_inactive = request.POST.get('include_inactive') == 'on'
+
         if not class_id:
             messages.error(request, "Please select a class first.")
             return redirect('upload_results')
-        
+
         school_class = get_object_or_404(SchoolClass, pk=class_id)
-        
+
         # Get all students in the selected class
-        students = Student.objects.filter(enrolled_class=school_class).order_by('first_name', 'last_name')
+        students = _active_roster(
+            Student.objects.filter(enrolled_class=school_class).order_by('first_name', 'last_name'),
+            include_inactive,
+        )
         
         if not students.exists():
             messages.warning(request, f"No students found in {school_class.name}. Please add students first.")
@@ -2546,6 +2569,7 @@ def upload_missed_results(request):
         class_id = request.POST.get('class_assigned')
         subject_id = request.POST.get('subject')
         excel_file = request.FILES.get('excel_file')
+        include_inactive = request.POST.get('include_inactive') == 'on'
 
         if session_id and term_id and class_id and subject_id and excel_file:
             session = get_object_or_404(Session, pk=session_id)
@@ -2561,6 +2585,10 @@ def upload_missed_results(request):
 
                 try:
                     student = Student.objects.get(id=student_id, enrolled_class=school_class)
+
+                    if not include_inactive and student.status != 'active':
+                        messages.warning(request, f"Skipped {student.first_name} {student.last_name} — inactive. Check 'Include inactive students' to update inactive students too.")
+                        continue
 
                     # Check if result does not already exist (i.e., missed student)
                     if not Result.objects.filter(
@@ -2606,8 +2634,9 @@ def download_behavioral_template(request):
 
     if request.method == 'POST':
         class_id = request.POST.get('class_assigned')
+        include_inactive = request.POST.get('include_inactive') == 'on'
         school_class = get_object_or_404(SchoolClass, pk=class_id)
-        students = Student.objects.filter(enrolled_class=school_class)
+        students = _active_roster(Student.objects.filter(enrolled_class=school_class), include_inactive)
 
         # Create an in-memory output file for the new workbook.
         output = io.BytesIO()
@@ -2667,6 +2696,7 @@ def upload_behavioral_assessments(request):
         term_id = request.POST.get('term')
         class_id = request.POST.get('class_assigned')
         excel_file = request.FILES.get('excel_file')
+        include_inactive = request.POST.get('include_inactive') == 'on'
 
         if session_id and term_id and class_id and excel_file:
             session = get_object_or_404(Session, pk=session_id)
@@ -2690,6 +2720,10 @@ def upload_behavioral_assessments(request):
 
                 try:
                     student = Student.objects.get(id=student_id, enrolled_class=school_class)
+
+                    if not include_inactive and student.status != 'active':
+                        messages.warning(request, f"Skipped {student.first_name} {student.last_name} — inactive. Check 'Include inactive students' to update inactive students too.")
+                        continue
 
                     # Check if behavioral assessment already exists
                     behavioral_assessment, created = StudentBehaviouralAssessment.objects.update_or_create(
@@ -2782,7 +2816,10 @@ def select_class_for_result(request):
         class_id = request.POST.get('class_assigned')
 
         if session_id and term_id and class_id:
-            return redirect('display_class_results', session_id=session_id, term_id=term_id, class_id=class_id)
+            url = reverse('display_class_results', args=[session_id, term_id, class_id])
+            if request.POST.get('include_inactive') == 'on':
+                url += '?include_inactive=1'
+            return redirect(url)
 
     return render(request, 'src/select_class_for_result.html', {
         'classes': classes,
@@ -2821,7 +2858,8 @@ def display_class_results(request, session_id, term_id, class_id):
     term = get_object_or_404(Term, pk=term_id)
     school_class = get_object_or_404(SchoolClass, pk=class_id)
 
-    students = Student.objects.filter(enrolled_class=school_class)
+    include_inactive = request.GET.get('include_inactive') == '1'
+    students = _active_roster(Student.objects.filter(enrolled_class=school_class), include_inactive)
     total_students = students.count()
 
     school_config = SchoolConfig.objects.last()
@@ -2926,6 +2964,7 @@ def display_class_results(request, session_id, term_id, class_id):
         'signature_image_url': signature_image_url,
         'header_image_base64': header_image_base64,
         'signature_image_base64': signature_image_base64,
+        'include_inactive': include_inactive,
     })
 
 
@@ -2938,7 +2977,8 @@ def download_all_results_pdf(request, session_id, term_id, class_id):
     term = get_object_or_404(Term, pk=term_id)
     school_class = get_object_or_404(SchoolClass, pk=class_id)
 
-    students = Student.objects.filter(enrolled_class=school_class)
+    include_inactive = request.GET.get('include_inactive') == '1'
+    students = _active_roster(Student.objects.filter(enrolled_class=school_class), include_inactive)
     school_config = SchoolConfig.objects.last()
 
     zip_buffer = BytesIO()
@@ -3571,7 +3611,10 @@ def select_class_for_result_summary(request):
         class_id = request.POST.get('class_assigned')
 
         if session_id and term_id and class_id:
-            return redirect('display_class_results_summary', session_id=session_id, term_id=term_id, class_id=class_id)
+            url = reverse('display_class_results_summary', args=[session_id, term_id, class_id])
+            if request.POST.get('include_inactive') == 'on':
+                url += '?include_inactive=1'
+            return redirect(url)
 
     return render(request, 'src/select_class_for_result.html', {
         'classes': classes,
@@ -3586,7 +3629,8 @@ def display_class_results_summary(request, session_id, term_id, class_id):
     session = get_object_or_404(Session, pk=session_id)
     term = get_object_or_404(Term, pk=term_id)
     school_class = get_object_or_404(SchoolClass, pk=class_id)
-    students = Student.objects.filter(enrolled_class=school_class)
+    include_inactive = request.GET.get('include_inactive') == '1'
+    students = _active_roster(Student.objects.filter(enrolled_class=school_class), include_inactive)
     school_config = SchoolConfig.objects.last()
 
     results_data = []
@@ -3745,13 +3789,14 @@ def result_entry_tahfeez(request):
         session_id = request.POST.get('session')
         class_id = request.POST.get('class_assigned')
         subject_id = request.POST.get('subject')
+        include_inactive = request.POST.get('include_inactive') == 'on'
 
         if term_id and session_id and class_id and subject_id:
             term = get_object_or_404(Term, pk=term_id)
             session = get_object_or_404(Session, pk=session_id)
             school_class = get_object_or_404(SchoolClass, pk=class_id)
             subject = get_object_or_404(Subject, pk=subject_id)
-            students = Student.objects.filter(enrolled_class=school_class)
+            students = _active_roster(Student.objects.filter(enrolled_class=school_class), include_inactive)
 
             if 'save_results' in request.POST:
                 for student in students:
@@ -3765,7 +3810,7 @@ def result_entry_tahfeez(request):
                     except ValueError:
                         marks = 0
 
-                   
+
 
                     # Check if result already exists
                     if TahfeezResult.objects.filter(
@@ -3801,6 +3846,7 @@ def result_entry_tahfeez(request):
                 'selected_session': session,
                 'selected_class': school_class,
                 'selected_subject': subject,
+                'include_inactive': include_inactive,
             })
 
     return render(request, 'src/result_entry_tahfeez.html', {
@@ -3823,25 +3869,28 @@ def result_update_tahfeez(request):
         session_id = request.POST.get('session')
         class_id = request.POST.get('class_assigned')
         subject_id = request.POST.get('subject')
+        include_inactive = request.POST.get('include_inactive') == 'on'
 
         if term_id and session_id and class_id and subject_id:
             term = get_object_or_404(Term, pk=term_id)
             session = get_object_or_404(Session, pk=session_id)
             school_class = get_object_or_404(SchoolClass, pk=class_id)
             subject = get_object_or_404(Subject, pk=subject_id)
-            students = Student.objects.filter(enrolled_class=school_class)
+            students = _active_roster(Student.objects.filter(enrolled_class=school_class), include_inactive)
 
             # Load existing results for the selected session, term, class, and subject
             results = TahfeezResult.objects.filter(
                 session=session, term=term, class_assigned=school_class, subject=subject
             )
+            if not include_inactive:
+                results = results.filter(student__status='active')
 
             # If the save button is clicked, update the results
             if 'save_results' in request.POST:
                 for result in results:
                     # Ensure that marks are integers, defaulting to 0 if invalid or missing
                     marks = request.POST.get(f'marks_{result.student.id}', '0')
-  
+
 
                     # Use int() conversion directly and handle exceptions
                     try:
@@ -3849,7 +3898,7 @@ def result_update_tahfeez(request):
                     except ValueError:
                         result.ca1_marks = 0
 
-                    
+
 
                     result.save()
 
@@ -3867,6 +3916,7 @@ def result_update_tahfeez(request):
                 'selected_session': session,
                 'selected_class': school_class,
                 'selected_subject': subject,
+                'include_inactive': include_inactive,
             })
 
     return render(request, 'src/result_update_tahfeez.html', {
@@ -3890,7 +3940,10 @@ def select_class_for_result_tahfeez(request):
         class_id = request.POST.get('class_assigned')
 
         if session_id and term_id and class_id:
-            return redirect('display_class_results_tahfeez', session_id=session_id, term_id=term_id, class_id=class_id)
+            url = reverse('display_class_results_tahfeez', args=[session_id, term_id, class_id])
+            if request.POST.get('include_inactive') == 'on':
+                url += '?include_inactive=1'
+            return redirect(url)
 
     return render(request, 'src/select_class_for_result.html', {
         'classes': classes,
@@ -3906,7 +3959,8 @@ def display_class_results_tahfeez(request, session_id, term_id, class_id):
     session = get_object_or_404(Session, pk=session_id)
     term = get_object_or_404(Term, pk=term_id)
     school_class = get_object_or_404(SchoolClass, pk=class_id)
-    students = Student.objects.filter(enrolled_class=school_class)
+    include_inactive = request.GET.get('include_inactive') == '1'
+    students = _active_roster(Student.objects.filter(enrolled_class=school_class), include_inactive)
     school_config = SchoolConfig.objects.last()
 
     results_data = []
@@ -4130,6 +4184,7 @@ def upload_midterm_results(request):
         class_id = request.POST.get('class_assigned')
         subject_id = request.POST.get('subject')
         excel_file = request.FILES.get('excel_file')
+        include_inactive = request.POST.get('include_inactive') == 'on'
 
         if session_id and term_id and class_id and subject_id and excel_file:
             session = get_object_or_404(Session, pk=session_id)
@@ -4160,6 +4215,10 @@ def upload_midterm_results(request):
 
                 try:
                     student = Student.objects.get(id=student_id, enrolled_class=school_class)
+
+                    if not include_inactive and student.status != 'active':
+                        messages.warning(request, f"Skipped {student.first_name} {student.last_name} — inactive. Check 'Include inactive students' to update inactive students too.")
+                        continue
 
                     # Check if result already exists
                     if not MidTermResult.objects.filter(
@@ -4208,13 +4267,14 @@ def bulk_midterm_result_update(request):
         session_id = request.POST.get('session')
         class_id = request.POST.get('class_assigned')
         subject_id = request.POST.get('subject')
+        include_inactive = request.POST.get('include_inactive') == 'on'
 
         if term_id and session_id and class_id and subject_id:
             term = get_object_or_404(Term, pk=term_id)
             session = get_object_or_404(Session, pk=session_id)
             school_class = get_object_or_404(SchoolClass, pk=class_id)
             subject = get_object_or_404(Subject, pk=subject_id)
-            students = Student.objects.filter(enrolled_class=school_class)
+            students = _active_roster(Student.objects.filter(enrolled_class=school_class), include_inactive)
 
             # Load or create results for students in this session, term, class, and subject
             results = []
@@ -4267,6 +4327,7 @@ def bulk_midterm_result_update(request):
                 'selected_session': session,
                 'selected_class': school_class,
                 'selected_subject': subject,
+                'include_inactive': include_inactive,
             })
 
     return render(request, 'src/bulk_update_midterm_results.html', {
@@ -4289,7 +4350,10 @@ def select_class_for_midterm_result(request):
         class_id = request.POST.get('class_assigned')
 
         if session_id and term_id and class_id:
-            return redirect('display_midterm_results', session_id=session_id, term_id=term_id, class_id=class_id)
+            url = reverse('display_midterm_results', args=[session_id, term_id, class_id])
+            if request.POST.get('include_inactive') == 'on':
+                url += '?include_inactive=1'
+            return redirect(url)
 
     return render(request, 'src/select_class_for_midterm_result.html', {
         'classes': classes,
@@ -4302,7 +4366,8 @@ def display_midterm_results(request, session_id, term_id, class_id):
     session = get_object_or_404(Session, pk=session_id)
     term = get_object_or_404(Term, pk=term_id)
     school_class = get_object_or_404(SchoolClass, pk=class_id)
-    students = Student.objects.filter(enrolled_class=school_class)
+    include_inactive = request.GET.get('include_inactive') == '1'
+    students = _active_roster(Student.objects.filter(enrolled_class=school_class), include_inactive)
     school_config = SchoolConfig.objects.last()
 
     results_data = [
@@ -4316,6 +4381,7 @@ def display_midterm_results(request, session_id, term_id, class_id):
         'school_class': school_class,
         'results_data': results_data,
         'school_config': school_config,
+        'include_inactive': include_inactive,
         'water_mark_logo': Picture.objects.get(title='logo'),
     })
 
@@ -4421,7 +4487,8 @@ def download_all_midterm_results_pdf(request, session_id, term_id, class_id):
     session = get_object_or_404(Session, pk=session_id)
     term = get_object_or_404(Term, pk=term_id)
     school_class = get_object_or_404(SchoolClass, pk=class_id)
-    students = Student.objects.filter(enrolled_class=school_class)
+    include_inactive = request.GET.get('include_inactive') == '1'
+    students = _active_roster(Student.objects.filter(enrolled_class=school_class), include_inactive)
     school_config = SchoolConfig.objects.last()
     water_mark_logo = Picture.objects.get(title='logo')
 
