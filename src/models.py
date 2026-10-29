@@ -109,6 +109,13 @@ class Session(models.Model):
     end_date = models.DateField()
     current = models.BooleanField(default=False)  # To indicate the active session
 
+    # Maximum mid-term assessment score per subject for this session (e.g.
+    # 20, or 10 from 2026/2027 onward). Defaults to 20 so every past session
+    # keeps meaning exactly what it always meant - changing this on an old
+    # session would silently reinterpret already-graded scores. See
+    # src/midterm_grading.py for the achievement key each value maps to.
+    midterm_max_score = models.PositiveSmallIntegerField(default=20)
+
     def __str__(self):
         return self.name
     

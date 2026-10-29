@@ -24,6 +24,12 @@
                     <label>Current</label>
                     <input type="checkbox" name="current" {% if session.current %}checked{% endif %}>
                 </div>
+                <div class="form-group">
+                    <label>Mid-Term Max Score</label>
+                    <input type="number" step="1" min="1" name="midterm_max_score" class="form-control"
+                           value="{{ session.midterm_max_score|default:20 }}" required>
+                    <small class="text-muted">Maximum mid-term assessment score per subject for this session (e.g. 20 or 10). A key must already exist in src/midterm_grading.py for this value.</small>
+                </div>
                 <div class="card-footer text-right">
                     <button class="btn btn-primary" type="submit">{% if session %}Update{% else %}Add{% endif %} Session</button>
                 </div>

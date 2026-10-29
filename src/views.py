@@ -1170,23 +1170,50 @@ def session_list(request):
     sessions = Session.objects.all()
     return render(request, 'src/session_list.html', {'sessions': sessions})
 @login_required(login_url='login')
+def _clean_midterm_max_score(request):
+    """Validated against the defined keys in src/midterm_grading.py, so a
+    session can't end up with a max score that has no achievement bands -
+    every mid-term report for it would fail to render."""
+    from src.midterm_grading import get_midterm_bands
+
+    raw = request.POST.get('midterm_max_score', '20')
+    try:
+        value = int(raw)
+        get_midterm_bands(value)
+    except (TypeError, ValueError):
+        return None, f'"{raw}" is not a valid mid-term max score - add a key for it in src/midterm_grading.py first.'
+    return value, None
+
+
 def session_create(request):
     if request.method == 'POST':
         name = request.POST.get('name')
         start_date = request.POST.get('start_date')
         end_date = request.POST.get('end_date')
         current = request.POST.get('current') == 'on'
-        Session.objects.create(name=name, start_date=start_date, end_date=end_date, current=current)
+        midterm_max_score, error = _clean_midterm_max_score(request)
+        if error:
+            messages.error(request, error)
+            return render(request, 'src/session_form.html')
+        Session.objects.create(
+            name=name, start_date=start_date, end_date=end_date, current=current,
+            midterm_max_score=midterm_max_score,
+        )
         return redirect('session_list')
     return render(request, 'src/session_form.html')
 @login_required(login_url='login')
 def session_update(request, pk):
     session = get_object_or_404(Session, pk=pk)
     if request.method == 'POST':
+        midterm_max_score, error = _clean_midterm_max_score(request)
+        if error:
+            messages.error(request, error)
+            return render(request, 'src/session_form.html', {'session': session})
         session.name = request.POST.get('name')
         session.start_date = request.POST.get('start_date')
         session.end_date = request.POST.get('end_date')
         session.current = request.POST.get('current') == 'on'
+        session.midterm_max_score = midterm_max_score
         session.save()
         return redirect('session_list')
     return render(request, 'src/session_form.html', {'session': session})
@@ -4113,8 +4140,23 @@ def upload_midterm_results(request):
             workbook = openpyxl.load_workbook(excel_file)
             worksheet = workbook.active
 
+            max_score = session.midterm_max_score
+
             for row in worksheet.iter_rows(min_row=2, values_only=True):
                 student_id, score, achievement = row[0], row[2], row[3]
+
+                try:
+                    score_value = int(score)
+                except (TypeError, ValueError):
+                    messages.error(request, f"Student {student_id}: score {score!r} is not a number, skipped.")
+                    continue
+                if not (0 <= score_value <= max_score):
+                    messages.error(
+                        request,
+                        f"Student {student_id}: score {score_value} is outside 0-{max_score} for "
+                        f"{session.name} and was skipped."
+                    )
+                    continue
 
                 try:
                     student = Student.objects.get(id=student_id, enrolled_class=school_class)
@@ -4134,7 +4176,7 @@ def upload_midterm_results(request):
                             class_assigned=school_class,
                             session=session,
                             term=term,
-                            score=int(score),
+                            score=score_value,
                             achievement=achievement,
                         )
                     else:
@@ -4185,6 +4227,8 @@ def bulk_midterm_result_update(request):
 
             # If the save button is clicked, update the results
             if 'save_results' in request.POST:
+                max_score = session.midterm_max_score
+                skipped = []
                 for result in results:
                     # Get score and achievement from form inputs
                     score = request.POST.get(f'score_{result.student.id}', '0')
@@ -4192,13 +4236,23 @@ def bulk_midterm_result_update(request):
 
                     # Convert score to integer safely
                     try:
-                        result.score = int(score)
+                        score_value = int(score)
                     except ValueError:
-                        result.score = 0
+                        score_value = None
 
+                    if score_value is None or not (0 <= score_value <= max_score):
+                        skipped.append(f'{result.student.first_name} {result.student.last_name} ({score})')
+                        continue
+
+                    result.score = score_value
                     result.achievement = achievement.strip()  # Ensure no extra spaces
                     result.save()
 
+                if skipped:
+                    messages.error(
+                        request,
+                        f"Skipped {len(skipped)} score(s) outside 0-{max_score} for {session.name}: " + ", ".join(skipped)
+                    )
                 messages.success(request, "Mid-Term Results successfully updated.")
                 return redirect('bulk_update_midterm_results')
 
@@ -4309,6 +4363,8 @@ def delete_midterm_result(request):
 
 
 def _build_midterm_result_data(session, term, school_class, student):
+    from src.midterm_grading import describe_label, get_midterm_bands, label_for_score
+
     midterm_results = MidTermResult.objects.filter(
         session=session,
         term=term,
@@ -4319,6 +4375,9 @@ def _build_midterm_result_data(session, term, school_class, student):
     total_score = sum(result.score for result in midterm_results)
     num_subjects = midterm_results.count()
     average_score = total_score / num_subjects if num_subjects > 0 else 0
+
+    max_score = session.midterm_max_score
+    bands = get_midterm_bands(max_score)
 
     student_results = []
     total_chars = 0
@@ -4348,6 +4407,12 @@ def _build_midterm_result_data(session, term, school_class, student):
         'results': student_results,
         'average_score': average_score,
         'font_size': font_size,
+        'max_score': max_score,
+        'bands': bands,
+        # Computed here (not re-derived in the template) so the per-row tick
+        # marks and this overall label can never drift out of sync with
+        # each other again.
+        'overall_effort': describe_label(label_for_score(average_score, bands)),
     }
 
 

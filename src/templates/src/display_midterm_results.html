@@ -173,11 +173,12 @@
                                 </tr>
                                 <tr>
                                     <th colspan="4">Subject</th>
-                                    <th class="emerging-cell">Emerging</th>
-                                    <th class="emerging-plus-cell">Emerging +</th>
-                                    <th class="expected-cell">Expected</th>
-                                    <th class="expected-plus-cell">Expected +</th>
-                                    <th class="exceeding-cell">Exceeding</th>
+                                    <!-- Bands come from the session's own midterm_max_score (src/midterm_grading.py)
+                                         instead of a hardcoded 0-20 scale, so a session graded out of 10 renders its
+                                         own key here instead of silently reusing the 20-point one. -->
+                                    {% for label, low, high in data.bands %}
+                                    <th class="{% if forloop.counter == 1 %}emerging-cell{% elif forloop.counter == 2 %}emerging-plus-cell{% elif forloop.counter == 3 %}expected-cell{% elif forloop.counter == 4 %}expected-plus-cell{% else %}exceeding-cell{% endif %}">{{ label }}</th>
+                                    {% endfor %}
                                     <th colspan="3">Achievement</th>
                                 </tr>
                             </thead>
@@ -185,21 +186,11 @@
                                 {% for result in data.results %}
                                 <tr>
                                     <td colspan="4">{{ result.subject.name }}</td>
-                                    <td class="{% if result.score >= 0 and result.score <= 6 %}tick{% endif %}">
-                                        {% if result.score >= 0 and result.score <= 6 %}✔️{% endif %}
+                                    {% for label, low, high in data.bands %}
+                                    <td class="{% if result.score >= low and result.score <= high %}tick{% endif %}">
+                                        {% if result.score >= low and result.score <= high %}✔️{% endif %}
                                     </td>
-                                    <td class="{% if result.score >= 7 and result.score <= 9 %}tick{% endif %}">
-                                        {% if result.score >= 7 and result.score <= 9 %}✔️{% endif %}
-                                    </td>
-                                    <td class="{% if result.score >= 10 and result.score <= 12 %}tick{% endif %}">
-                                        {% if result.score >= 10 and result.score <= 12 %}✔️{% endif %}
-                                    </td>
-                                    <td class="{% if result.score >= 13 and result.score <= 16 %}tick{% endif %}">
-                                        {% if result.score >= 13 and result.score <= 16 %}✔️{% endif %}
-                                    </td>
-                                    <td class="{% if result.score >= 17 and result.score <= 20 %}tick{% endif %}">
-                                        {% if result.score >= 17 and result.score <= 20 %}✔️{% endif %}
-                                    </td>
+                                    {% endfor %}
                                     <td colspan="3">{{ result.achievement }}</td>
                                 </tr>
                                 {% endfor %}
@@ -207,29 +198,16 @@
                             <thead>
                                 <tr>
                                     <th colspan="14" class="text-center key">
-                                        KEY: Emerging = 0 - 6, Emerging + = 7 - 9, Expected = 10 - 12, Expected + = 13 - 16, Exceeding = 17 - 20
+                                        KEY (out of {{ data.max_score }}):
+                                        {% for label, low, high in data.bands %}{{ label }} = {{ low }} - {{ high }}{% if not forloop.last %}, {% endif %}{% endfor %}
                                     </th>
                                 </tr>
                             </thead>
                             <thead>
                                 <tr>
                                     <th colspan="14" class="text-center overall-effort">
-                                        Overall Effort: 
-                                        {% if data.average_score >= 0 and data.average_score < 6 %}
-                                            Emerging (Need Support)
-                                        {% elif data.average_score >= 6 and data.average_score < 9 %}
-                                            Emerging + (Satisfactory)
-                                        {% elif data.average_score >= 9 and data.average_score < 13 %}
-                                            Expected (Good)
-                                        {% elif data.average_score >= 13 and data.average_score < 17 %}
-                                            Expected + (Very Good)
-                                        {% elif data.average_score >= 17 and data.average_score <= 20 %}
-                                            Exceeding (Excellent)
-                                        {% else %}
-                                            Invalid Score
-                                        {% endif %}
+                                        Overall Effort: {{ data.overall_effort }}
                                     </th>
-
                                 </tr>
                             </thead>
                             <thead>
